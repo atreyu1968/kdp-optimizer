@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "./copy-button";
 import type { KeywordField } from "@shared/schema";
+import { CheckCircle2, Info, AlertTriangle } from "lucide-react";
 
 interface KeywordFieldsProps {
   fields: KeywordField[];
@@ -9,9 +10,17 @@ interface KeywordFieldsProps {
 
 export function KeywordFields({ fields }: KeywordFieldsProps) {
   const getByteCountColor = (byteCount: number) => {
-    if (byteCount > 240) return "text-destructive";
-    if (byteCount > 200) return "text-chart-3";
-    return "text-muted-foreground";
+    if (byteCount === 0) return "text-muted-foreground";
+    if (byteCount > 249) return "text-destructive";
+    if (byteCount > 230) return "text-yellow-600 dark:text-yellow-500";
+    return "text-chart-2";
+  };
+
+  const getByteCountIcon = (byteCount: number) => {
+    if (byteCount === 0) return null;
+    if (byteCount > 249) return <AlertTriangle className="h-3 w-3" />;
+    if (byteCount > 230) return <Info className="h-3 w-3" />;
+    return <CheckCircle2 className="h-3 w-3" />;
   };
 
   return (
@@ -40,11 +49,12 @@ export function KeywordFields({ fields }: KeywordFieldsProps) {
                     Field {index + 1}
                   </Badge>
                   <span
-                    className={`text-xs font-medium ${getByteCountColor(
+                    className={`text-xs font-medium flex items-center gap-1 ${getByteCountColor(
                       field.byteCount
                     )}`}
                     data-testid={`byte-count-${index + 1}`}
                   >
+                    {getByteCountIcon(field.byteCount)}
                     {field.byteCount}/249 bytes
                   </span>
                 </div>

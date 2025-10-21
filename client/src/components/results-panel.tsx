@@ -8,8 +8,9 @@ import { KeywordFields } from "./keyword-fields";
 import { PricingTable } from "./pricing-table";
 import { Separator } from "@/components/ui/separator";
 import { amazonMarkets, type OptimizationResult } from "@shared/schema";
-import { Download, Sparkles } from "lucide-react";
+import { Download, Sparkles, AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface ResultsPanelProps {
   result: OptimizationResult;
@@ -132,22 +133,74 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-2">
+                  <div className="flex items-center gap-2 pt-2 flex-wrap">
                     <Badge
                       variant="outline"
                       className={
-                        marketResult.title.length + marketResult.subtitle.length <= 200
+                        marketResult.title.length + marketResult.subtitle.length <= 180
                           ? "border-chart-2 text-chart-2"
+                          : marketResult.title.length + marketResult.subtitle.length <= 200
+                          ? "border-yellow-500 text-yellow-600 dark:text-yellow-500"
                           : "border-destructive text-destructive"
                       }
                       data-testid="character-count"
                     >
+                      {marketResult.title.length + marketResult.subtitle.length <= 180 && (
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                      )}
+                      {marketResult.title.length + marketResult.subtitle.length > 180 &&
+                        marketResult.title.length + marketResult.subtitle.length <= 200 && (
+                        <Info className="h-3 w-3 mr-1" />
+                      )}
+                      {marketResult.title.length + marketResult.subtitle.length > 200 && (
+                        <AlertTriangle className="h-3 w-3 mr-1" />
+                      )}
                       {marketResult.title.length + marketResult.subtitle.length}/200
                       characters
                     </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {marketResult.title.length + marketResult.subtitle.length <= 180
+                        ? "Great! Well within limit"
+                        : marketResult.title.length + marketResult.subtitle.length <= 200
+                        ? "Close to limit"
+                        : "Exceeds KDP limit"}
+                    </span>
                   </div>
                 </div>
               </div>
+
+              {marketResult.validationWarnings && marketResult.validationWarnings.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium uppercase tracking-wide text-foreground flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
+                      KDP Validation Warnings
+                    </h4>
+                    <div className="space-y-2">
+                      {marketResult.validationWarnings.map((warning, index) => (
+                        <Alert
+                          key={index}
+                          variant={warning.severity === "error" ? "destructive" : "default"}
+                          className="border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20"
+                          data-testid={`warning-${index}`}
+                        >
+                          <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
+                          <AlertTitle className="text-sm font-medium text-foreground">
+                            {warning.type === "title_length" && "Title Length"}
+                            {warning.type === "keyword_bytes" && "Keyword Size"}
+                            {warning.type === "prohibited_terms" && "Prohibited Terms"}
+                            {warning.type === "html_tags" && "HTML Tags"}
+                          </AlertTitle>
+                          <AlertDescription className="text-xs text-muted-foreground">
+                            {warning.message}
+                          </AlertDescription>
+                        </Alert>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
 
               <Separator />
 

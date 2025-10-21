@@ -51,6 +51,46 @@ export const keywordFieldSchema = z.object({
 
 export type KeywordField = z.infer<typeof keywordFieldSchema>;
 
+export const kdpValidationRules = {
+  maxTitleSubtitleLength: 200,
+  maxKeywordFieldBytes: 249,
+  prohibitedTerms: [
+    "bestseller",
+    "best seller",
+    "best-seller",
+    "free",
+    "gratis",
+    "nuevo",
+    "new",
+    "#1",
+    "número 1",
+    "numero 1",
+    "top selling",
+    "top-selling",
+    "award-winning",
+    "award winning",
+  ] as const,
+  allowedHTMLTags: ["b", "i", "u", "br", "p", "h4", "h5", "h6", "ul", "li", "ol"] as const,
+} as const;
+
+export const validationWarningSchema = z.object({
+  type: z.enum(["title_length", "keyword_bytes", "prohibited_terms", "html_tags"]),
+  severity: z.enum(["warning", "error", "info"]),
+  message: z.string(),
+  field: z.string().optional(),
+  details: z.any().optional(),
+});
+
+export type ValidationWarning = z.infer<typeof validationWarningSchema>;
+
+export const validationResultSchema = z.object({
+  isValid: z.boolean(),
+  warnings: z.array(validationWarningSchema),
+  prohibitedTermsFound: z.array(z.string()).optional(),
+});
+
+export type ValidationResult = z.infer<typeof validationResultSchema>;
+
 export const marketMetadataSchema = z.object({
   market: z.string(),
   title: z.string(),
@@ -62,6 +102,7 @@ export const marketMetadataSchema = z.object({
   currency: z.string(),
   royaltyOption: z.enum(["35%", "70%"]),
   estimatedEarnings: z.number(),
+  validationWarnings: z.array(validationWarningSchema).optional(),
 });
 
 export type MarketMetadata = z.infer<typeof marketMetadataSchema>;

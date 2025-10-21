@@ -10,8 +10,17 @@ import {
   type KeywordField,
   type OptimizationRequest,
   type AmazonMarket,
+  type ValidationWarning,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import {
+  validateTitleLength,
+  validateMetadata,
+  truncateSubtitle,
+  truncateKeywordBytes,
+  sanitizeHTML,
+  validateKeywordBytes,
+} from "../utils/kdp-validator";
 
 function removeWordsFromKeywords(
   keywords: string[],
@@ -175,19 +184,58 @@ export async function generateOptimizationResult(
 
     const keywordFields = distributeKeywordsToFields(filteredKeywords);
 
+    let finalTitle = metadata.title;
+    let finalSubtitle = metadata.subtitle;
+    
+    if (!validateTitleLength(finalTitle, finalSubtitle)) {
+      console.log(`[KDP Validation] Title+Subtitle exceeds 200 chars (${finalTitle.length + finalSubtitle.length}). Truncating subtitle...`);
+      finalSubtitle = truncateSubtitle(finalTitle, finalSubtitle);
+      console.log(`[KDP Validation] Subtitle truncated to: "${finalSubtitle}"`);
+    }
+    
+    let finalDescription = sanitizeHTML(metadata.description);
+    if (finalDescription !== metadata.description) {
+      console.log(`[KDP Validation] HTML sanitized in description for ${market.name}`);
+    }
+    
+    const finalKeywordFields = keywordFields.map((field, index) => {
+      if (field.keywords && !validateKeywordBytes(field.keywords)) {
+        const truncated = truncateKeywordBytes(field.keywords);
+        console.log(`[KDP Validation] Keyword field ${index + 1} truncated from ${field.byteCount} to ${new TextEncoder().encode(truncated).length} bytes`);
+        return {
+          keywords: truncated,
+          byteCount: new TextEncoder().encode(truncated).length,
+        };
+      }
+      return field;
+    });
+    
+    const warnings = validateMetadata(
+      finalTitle,
+      finalSubtitle,
+      finalDescription,
+      finalKeywordFields.map(f => f.keywords)
+    );
+    
+    if (warnings.length > 0) {
+      console.log(`[KDP Validation] Found ${warnings.length} validation warnings for ${market.name}:`, 
+        warnings.map(w => w.message));
+    }
+
     const pricing = calculatePrice(market.currency);
 
     marketResults.push({
       market: marketId,
-      title: metadata.title,
-      subtitle: metadata.subtitle,
-      description: metadata.description,
-      keywordFields,
+      title: finalTitle,
+      subtitle: finalSubtitle,
+      description: finalDescription,
+      keywordFields: finalKeywordFields,
       categories: metadata.categories.slice(0, 3),
       recommendedPrice: pricing.price,
       currency: market.currency,
       royaltyOption: pricing.royaltyOption,
       estimatedEarnings: pricing.earnings,
+      validationWarnings: warnings.length > 0 ? warnings : undefined,
     });
 
     marketIndex++;
