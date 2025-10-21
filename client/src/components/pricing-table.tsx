@@ -34,16 +34,16 @@ export function PricingTable({
   return (
     <div className="space-y-3">
       <h4 className="text-sm font-medium uppercase tracking-wide text-foreground">
-        Price & Royalties
+        Precio y Regalías
       </h4>
 
       <Card className="overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Price</TableHead>
-              <TableHead>Royalty</TableHead>
-              <TableHead className="text-right">Est. Earnings</TableHead>
+              <TableHead>Precio</TableHead>
+              <TableHead>Regalía</TableHead>
+              <TableHead className="text-right">Ganancia Est.</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -66,17 +66,17 @@ export function PricingTable({
 
       <div className="bg-muted/50 border border-border rounded-lg p-4 space-y-2">
         <p className="text-xs font-medium text-foreground">
-          💰 Pricing Strategy:
+          💰 Estrategia de Precio:
         </p>
         <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
           <li>
             {royaltyOption === "70%"
-              ? "70% royalty option maximizes earnings for most authors"
-              : "35% royalty allows pricing flexibility outside standard range"}
+              ? "La opción de regalía del 70% maximiza las ganancias para la mayoría de autores"
+              : "La regalía del 35% permite flexibilidad de precios fuera del rango estándar"}
           </li>
-          <li>Price ends in .99 for psychological appeal</li>
-          <li>Competitive for {marketName} market</li>
-          <li>Estimated earnings per sale (after delivery costs)</li>
+          <li>El precio termina en .99 por atractivo psicológico</li>
+          <li>Competitivo para el mercado de {marketName}</li>
+          <li>Ganancia estimada por venta (después de costos de entrega)</li>
         </ul>
       </div>
     </div>

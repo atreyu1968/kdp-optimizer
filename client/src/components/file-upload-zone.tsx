@@ -29,14 +29,14 @@ export function FileUploadZone({
       try {
         const content = await readFileContent(file);
         if (content.length < 100) {
-          setError("Manuscript must be at least 100 characters long");
+          setError("El manuscrito debe tener al menos 100 caracteres");
           setIsReading(false);
           return;
         }
         onFileAccepted(file, content);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Failed to read file"
+          err instanceof Error ? err.message : "Error al leer el archivo"
         );
       } finally {
         setIsReading(false);
@@ -88,7 +88,7 @@ export function FileUploadZone({
               <CheckCircle2 className="h-20 w-20 text-chart-2" />
               <div className="text-center space-y-2">
                 <p className="text-xl font-semibold text-foreground">
-                  File Uploaded Successfully
+                  Archivo Cargado Exitosamente
                 </p>
                 <div className="flex flex-col items-center gap-1 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
@@ -97,7 +97,7 @@ export function FileUploadZone({
                   </div>
                   <span>{formatFileSize(acceptedFile.size)}</span>
                   <span className="font-medium text-foreground">
-                    {wordCount.toLocaleString()} words
+                    {wordCount.toLocaleString()} palabras
                   </span>
                 </div>
               </div>
@@ -109,7 +109,7 @@ export function FileUploadZone({
                 }}
                 data-testid="button-change-file"
               >
-                Change File
+                Cambiar Archivo
               </Button>
             </>
           ) : (
@@ -118,16 +118,16 @@ export function FileUploadZone({
               <div className="text-center space-y-2">
                 <p className="text-xl font-semibold text-foreground">
                   {isDragActive
-                    ? "Drop your manuscript here"
-                    : "Upload Your Manuscript"}
+                    ? "Suelta tu manuscrito aquí"
+                    : "Sube Tu Manuscrito"}
                 </p>
                 <p className="text-sm text-muted-foreground max-w-md">
-                  Drag and drop your manuscript file here, or click to browse.
-                  Supports .txt and .docx files.
+                  Arrastra y suelta tu archivo de manuscrito aquí, o haz clic para explorar.
+                  Soporta archivos .txt y .docx.
                 </p>
               </div>
               <Button variant="outline" size="lg" data-testid="button-browse">
-                Browse Files
+                Explorar Archivos
               </Button>
             </>
           )}
@@ -138,7 +138,7 @@ export function FileUploadZone({
             <div className="text-center">
               <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">
-                Reading file...
+                Leyendo archivo...
               </p>
             </div>
           </div>
@@ -170,5 +170,5 @@ async function readFileContent(file: File): Promise<string> {
     return result.value;
   }
 
-  throw new Error("Unsupported file type");
+  throw new Error("Tipo de archivo no soportado");
 }

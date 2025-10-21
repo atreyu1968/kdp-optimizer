@@ -12,7 +12,7 @@ interface CopyButtonProps {
 
 export function CopyButton({
   text,
-  label = "Copy",
+  label = "Copiar",
   variant = "outline",
   size = "sm",
 }: CopyButtonProps) {
@@ -24,14 +24,14 @@ export function CopyButton({
       await navigator.clipboard.writeText(text);
       setCopied(true);
       toast({
-        title: "Copied to clipboard",
-        description: "Content has been copied successfully",
+        title: "Copiado al portapapeles",
+        description: "El contenido ha sido copiado exitosamente",
       });
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       toast({
-        title: "Failed to copy",
-        description: "Please try again",
+        title: "Error al copiar",
+        description: "Por favor intenta nuevamente",
         variant: "destructive",
       });
     }
@@ -48,7 +48,7 @@ export function CopyButton({
       {copied ? (
         <>
           <Check className="h-4 w-4 mr-1.5" />
-          Copied!
+          ¡Copiado!
         </>
       ) : (
         <>

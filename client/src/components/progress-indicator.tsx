@@ -5,10 +5,10 @@ interface ProgressIndicatorProps {
 }
 
 const steps = [
-  { id: 1, label: "Upload" },
-  { id: 2, label: "Configure" },
-  { id: 3, label: "Analyze" },
-  { id: 4, label: "Results" },
+  { id: 1, label: "Cargar" },
+  { id: 2, label: "Configurar" },
+  { id: 3, label: "Analizar" },
+  { id: 4, label: "Resultados" },
 ];
 
 export function ProgressIndicator({ currentStep }: ProgressIndicatorProps) {

@@ -63,18 +63,18 @@ export function ConfigurationForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-sm font-medium uppercase tracking-wide">
-                Book Title
+                Título del Libro
               </FormLabel>
               <FormControl>
                 <Input
-                  placeholder="Enter your book's original title"
+                  placeholder="Ingresa el título original de tu libro"
                   {...field}
                   data-testid="input-title"
                   className="text-base"
                 />
               </FormControl>
               <FormDescription className="text-xs">
-                This title will be kept as the base for all markets
+                Este título se mantendrá como base para todos los mercados
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -88,7 +88,7 @@ export function ConfigurationForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-sm font-medium uppercase tracking-wide">
-                  Primary Language
+                  Idioma Principal
                 </FormLabel>
                 <Select
                   onValueChange={field.onChange}
@@ -96,16 +96,16 @@ export function ConfigurationForm({
                 >
                   <FormControl>
                     <SelectTrigger data-testid="select-language">
-                      <SelectValue placeholder="Select language" />
+                      <SelectValue placeholder="Selecciona idioma" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="es">Spanish</SelectItem>
-                    <SelectItem value="de">German</SelectItem>
-                    <SelectItem value="fr">French</SelectItem>
-                    <SelectItem value="it">Italian</SelectItem>
-                    <SelectItem value="pt">Portuguese</SelectItem>
+                    <SelectItem value="en">Inglés</SelectItem>
+                    <SelectItem value="es">Español</SelectItem>
+                    <SelectItem value="de">Alemán</SelectItem>
+                    <SelectItem value="fr">Francés</SelectItem>
+                    <SelectItem value="it">Italiano</SelectItem>
+                    <SelectItem value="pt">Portugués</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -119,7 +119,7 @@ export function ConfigurationForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-sm font-medium uppercase tracking-wide">
-                  Genre
+                  Género
                 </FormLabel>
                 <Select
                   onValueChange={field.onChange}
@@ -127,7 +127,7 @@ export function ConfigurationForm({
                 >
                   <FormControl>
                     <SelectTrigger data-testid="select-genre">
-                      <SelectValue placeholder="Select genre" />
+                      <SelectValue placeholder="Selecciona género" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -150,18 +150,18 @@ export function ConfigurationForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-sm font-medium uppercase tracking-wide">
-                Target Audience (Optional)
+                Audiencia Objetivo (Opcional)
               </FormLabel>
               <FormControl>
                 <Input
-                  placeholder="e.g., Young Adults, Business Professionals"
+                  placeholder="ej., Jóvenes Adultos, Profesionales de Negocios"
                   {...field}
                   data-testid="input-audience"
                   className="text-base"
                 />
               </FormControl>
               <FormDescription className="text-xs">
-                Help the AI understand your ideal reader
+                Ayuda a la IA a entender tu lector ideal
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -175,10 +175,10 @@ export function ConfigurationForm({
             <FormItem>
               <div className="mb-4">
                 <FormLabel className="text-sm font-medium uppercase tracking-wide">
-                  Target Markets
+                  Mercados Objetivo
                 </FormLabel>
                 <FormDescription className="text-xs mt-1">
-                  Select the Amazon marketplaces you want to optimize for
+                  Selecciona los mercados de Amazon que quieres optimizar
                 </FormDescription>
               </div>
               <div className="grid sm:grid-cols-2 gap-3">
@@ -239,7 +239,7 @@ export function ConfigurationForm({
           <div className="text-sm text-muted-foreground">
             {selectedMarkets.length > 0 && (
               <span>
-                {selectedMarkets.length} market{selectedMarkets.length !== 1 ? "s" : ""} selected
+                {selectedMarkets.length} mercado{selectedMarkets.length !== 1 ? "s" : ""} seleccionado{selectedMarkets.length !== 1 ? "s" : ""}
               </span>
             )}
           </div>
@@ -253,10 +253,10 @@ export function ConfigurationForm({
             {isProcessing ? (
               <>
                 <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-                Processing...
+                Procesando...
               </>
             ) : (
-              "Generate Metadata"
+              "Generar Metadatos"
             )}
           </Button>
         </div>

@@ -1,51 +1,51 @@
 import { z } from "zod";
 
 export const amazonMarkets = {
-  "amazon.com": { name: "Amazon.com (US)", currency: "USD", flag: "🇺🇸", locale: "en-US" },
-  "amazon.es": { name: "Amazon.es (Spain)", currency: "EUR", flag: "🇪🇸", locale: "es-ES" },
-  "amazon.de": { name: "Amazon.de (Germany)", currency: "EUR", flag: "🇩🇪", locale: "de-DE" },
-  "amazon.fr": { name: "Amazon.fr (France)", currency: "EUR", flag: "🇫🇷", locale: "fr-FR" },
-  "amazon.it": { name: "Amazon.it (Italy)", currency: "EUR", flag: "🇮🇹", locale: "it-IT" },
-  "amazon.co.uk": { name: "Amazon.co.uk (UK)", currency: "GBP", flag: "🇬🇧", locale: "en-GB" },
-  "amazon.com.br": { name: "Amazon.com.br (Brazil)", currency: "BRL", flag: "🇧🇷", locale: "pt-BR" },
+  "amazon.com": { name: "Amazon.com (Estados Unidos)", currency: "USD", flag: "🇺🇸", locale: "en-US" },
+  "amazon.es": { name: "Amazon.es (España)", currency: "EUR", flag: "🇪🇸", locale: "es-ES" },
+  "amazon.de": { name: "Amazon.de (Alemania)", currency: "EUR", flag: "🇩🇪", locale: "de-DE" },
+  "amazon.fr": { name: "Amazon.fr (Francia)", currency: "EUR", flag: "🇫🇷", locale: "fr-FR" },
+  "amazon.it": { name: "Amazon.it (Italia)", currency: "EUR", flag: "🇮🇹", locale: "it-IT" },
+  "amazon.co.uk": { name: "Amazon.co.uk (Reino Unido)", currency: "GBP", flag: "🇬🇧", locale: "en-GB" },
+  "amazon.com.br": { name: "Amazon.com.br (Brasil)", currency: "BRL", flag: "🇧🇷", locale: "pt-BR" },
 } as const;
 
 export type AmazonMarket = keyof typeof amazonMarkets;
 
 export const bookGenres = [
-  "Fiction",
-  "Science Fiction",
-  "Fantasy",
-  "Mystery",
+  "Ficción",
+  "Ciencia Ficción",
+  "Fantasía",
+  "Misterio",
   "Thriller",
   "Romance",
   "Horror",
-  "Non-Fiction",
-  "Self-Help",
-  "Business",
-  "Biography",
-  "History",
-  "Science",
-  "Technology",
-  "Children's",
-  "Young Adult",
+  "No Ficción",
+  "Autoayuda",
+  "Negocios",
+  "Biografía",
+  "Historia",
+  "Ciencia",
+  "Tecnología",
+  "Infantil",
+  "Jóvenes Adultos",
 ] as const;
 
 export type BookGenre = typeof bookGenres[number];
 
 export const optimizationRequestSchema = z.object({
-  manuscriptText: z.string().min(100, "Manuscript must be at least 100 characters"),
-  originalTitle: z.string().min(1, "Title is required"),
-  language: z.string().min(2, "Language is required"),
-  targetMarkets: z.array(z.string()).min(1, "Select at least one market"),
-  genre: z.string().min(1, "Genre is required"),
+  manuscriptText: z.string().min(100, "El manuscrito debe tener al menos 100 caracteres"),
+  originalTitle: z.string().min(1, "El título es requerido"),
+  language: z.string().min(2, "El idioma es requerido"),
+  targetMarkets: z.array(z.string()).min(1, "Selecciona al menos un mercado"),
+  genre: z.string().min(1, "El género es requerido"),
   targetAudience: z.string().optional(),
 });
 
 export type OptimizationRequest = z.infer<typeof optimizationRequestSchema>;
 
 export const keywordFieldSchema = z.object({
-  keywords: z.string().max(249, "Maximum 249 bytes per field"),
+  keywords: z.string().max(249, "Máximo 249 bytes por campo"),
   byteCount: z.number(),
 });
 

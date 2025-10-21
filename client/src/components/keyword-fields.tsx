@@ -27,11 +27,11 @@ export function KeywordFields({ fields }: KeywordFieldsProps) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium uppercase tracking-wide text-foreground">
-          Backend Keywords (7 Fields)
+          Palabras Clave Backend (7 Campos)
         </h4>
         <CopyButton
           text={fields.map((f) => f.keywords).join("\n")}
-          label="Copy All"
+          label="Copiar Todas"
         />
       </div>
 
@@ -46,7 +46,7 @@ export function KeywordFields({ fields }: KeywordFieldsProps) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2">
                   <Badge variant="outline" className="text-xs">
-                    Field {index + 1}
+                    Campo {index + 1}
                   </Badge>
                   <span
                     className={`text-xs font-medium flex items-center gap-1 ${getByteCountColor(
@@ -70,13 +70,13 @@ export function KeywordFields({ fields }: KeywordFieldsProps) {
 
       <div className="bg-muted/50 border border-border rounded-lg p-4 space-y-2">
         <p className="text-xs font-medium text-foreground">
-          💡 KDP Keyword Guidelines:
+          💡 Guías de Palabras Clave KDP:
         </p>
         <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
-          <li>Each field maximum 249 bytes</li>
-          <li>Separate keywords with spaces (not commas)</li>
-          <li>No author names, ASINs, or trademarked terms</li>
-          <li>Mix of long-tail and short-tail keywords</li>
+          <li>Cada campo máximo 249 bytes</li>
+          <li>Separa palabras clave con espacios (no comas)</li>
+          <li>Sin nombres de autores, ASINs o términos con marca registrada</li>
+          <li>Mezcla de palabras clave de cola larga y corta</li>
         </ul>
       </div>
     </div>

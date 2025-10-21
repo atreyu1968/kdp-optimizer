@@ -138,11 +138,11 @@ export async function generateOptimizationResult(
 ) {
   const { manuscriptText, originalTitle, language, targetMarkets, genre, targetAudience } = request;
 
-  onProgress?.("analyzing", "Reading and analyzing manuscript...", 5);
+  onProgress?.("analyzing", "Leyendo y analizando manuscrito...", 5);
   
   const wordCount = manuscriptText.trim().split(/\s+/).length;
 
-  onProgress?.("analyzing", "Extracting themes and keywords with AI...", 15);
+  onProgress?.("analyzing", "Extrayendo temas y palabras clave con IA...", 15);
   const analysis = await analyzeManuscript(manuscriptText, language, genre);
 
   const marketResults: MarketMetadata[] = [];
@@ -155,7 +155,7 @@ export async function generateOptimizationResult(
 
     const baseProgress = 25 + (marketIndex / totalMarkets) * 60;
     
-    onProgress?.("researching", `Generating metadata for ${market.name}...`, baseProgress, market.name);
+    onProgress?.("researching", `Generando metadatos para ${market.name}...`, baseProgress, market.name);
 
     const metadata = await generateMetadata(
       originalTitle,
@@ -167,7 +167,7 @@ export async function generateOptimizationResult(
       market.locale
     );
 
-    onProgress?.("researching", `Optimizing keywords for ${market.name}...`, baseProgress + 15);
+    onProgress?.("researching", `Optimizando palabras clave para ${market.name}...`, baseProgress + 15);
 
     const optimizedKeywords = await optimizeKeywordsForMarket(
       metadata.keywords,
@@ -241,7 +241,7 @@ export async function generateOptimizationResult(
     marketIndex++;
   }
 
-  onProgress?.("generating", "Finalizing optimization results...", 95);
+  onProgress?.("generating", "Finalizando resultados de optimización...", 95);
 
   return {
     id: randomUUID(),

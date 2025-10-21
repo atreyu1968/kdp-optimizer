@@ -121,12 +121,12 @@ export default function Home() {
           <div className="space-y-8">
             <div className="text-center max-w-2xl mx-auto space-y-4">
               <h2 className="text-3xl font-bold text-foreground">
-                Optimize Your Book for Amazon KDP
+                Optimiza tu Libro para Amazon KDP
               </h2>
               <p className="text-lg text-muted-foreground leading-relaxed">
-                Upload your manuscript and let AI generate optimized metadata for
-                multiple Amazon markets. Get titles, descriptions, keywords, and
-                pricing recommendations in minutes.
+                Sube tu manuscrito y deja que la IA genere metadatos optimizados para
+                múltiples mercados de Amazon. Obtén títulos, descripciones, palabras clave y
+                recomendaciones de precios en minutos.
               </p>
             </div>
 
@@ -142,9 +142,9 @@ export default function Home() {
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
                     <Sparkles className="h-6 w-6 text-primary" />
                   </div>
-                  <h3 className="font-semibold text-foreground">AI-Powered</h3>
+                  <h3 className="font-semibold text-foreground">Potenciado por IA</h3>
                   <p className="text-sm text-muted-foreground">
-                    Advanced analysis using GPT models
+                    Análisis avanzado usando modelos GPT
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -163,9 +163,9 @@ export default function Home() {
                       />
                     </svg>
                   </div>
-                  <h3 className="font-semibold text-foreground">Multi-Market</h3>
+                  <h3 className="font-semibold text-foreground">Multi-Mercado</h3>
                   <p className="text-sm text-muted-foreground">
-                    Optimize for 7 Amazon markets
+                    Optimiza para 7 mercados de Amazon
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -184,9 +184,9 @@ export default function Home() {
                       />
                     </svg>
                   </div>
-                  <h3 className="font-semibold text-foreground">Fast Results</h3>
+                  <h3 className="font-semibold text-foreground">Resultados Rápidos</h3>
                   <p className="text-sm text-muted-foreground">
-                    Complete analysis in minutes
+                    Análisis completo en minutos
                   </p>
                 </div>
               </div>
@@ -198,10 +198,10 @@ export default function Home() {
           <div className="space-y-8">
             <div className="text-center max-w-2xl mx-auto space-y-4">
               <h2 className="text-3xl font-bold text-foreground">
-                Configure Your Optimization
+                Configura tu Optimización
               </h2>
               <p className="text-lg text-muted-foreground">
-                Tell us about your book and select your target markets
+                Cuéntanos sobre tu libro y selecciona tus mercados objetivo
               </p>
             </div>
 
@@ -215,7 +215,7 @@ export default function Home() {
                 onClick={() => setCurrentStep(1)}
                 data-testid="button-back"
               >
-                ← Back to Upload
+                ← Volver a Cargar
               </Button>
             </div>
           </div>
@@ -232,7 +232,7 @@ export default function Home() {
                 onClick={handleStartNew}
                 data-testid="button-start-new"
               >
-                Optimize Another Book
+                Optimizar Otro Libro
               </Button>
             </div>
           </div>
@@ -243,8 +243,8 @@ export default function Home() {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center text-sm text-muted-foreground">
             <p>
-              © {new Date().getFullYear()} KDP Optimizer AI. Built with AI to
-              help authors succeed.
+              © {new Date().getFullYear()} KDP Optimizer AI. Construido con IA para
+              ayudar a los autores a tener éxito.
             </p>
           </div>
         </div>

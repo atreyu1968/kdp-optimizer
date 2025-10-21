@@ -7,11 +7,11 @@ interface LoadingOverlayProps {
 }
 
 const stageMessages = {
-  uploading: "Uploading and processing your manuscript...",
-  analyzing: "Analyzing manuscript with AI...",
-  researching: "Researching keywords and categories...",
-  generating: "Generating optimized metadata...",
-  complete: "Optimization complete!",
+  uploading: "Subiendo y procesando tu manuscrito...",
+  analyzing: "Analizando manuscrito con IA...",
+  researching: "Investigando palabras clave y categorías...",
+  generating: "Generando metadatos optimizados...",
+  complete: "¡Optimización completa!",
 };
 
 export function LoadingOverlay({ progress }: LoadingOverlayProps) {
@@ -49,7 +49,7 @@ export function LoadingOverlay({ progress }: LoadingOverlayProps) {
               )}
               {progress.currentMarket && (
                 <p className="text-sm font-medium text-primary">
-                  Processing {progress.currentMarket}
+                  Procesando {progress.currentMarket}
                 </p>
               )}
             </div>
@@ -57,7 +57,7 @@ export function LoadingOverlay({ progress }: LoadingOverlayProps) {
 
           <div className="space-y-2">
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Progress</span>
+              <span>Progreso</span>
               <span>{Math.round(progress.progress)}%</span>
             </div>
             <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -71,7 +71,7 @@ export function LoadingOverlay({ progress }: LoadingOverlayProps) {
 
           <div className="text-center">
             <p className="text-xs text-muted-foreground">
-              This may take a few moments. Please don't close this window.
+              Esto puede tomar unos momentos. Por favor no cierres esta ventana.
             </p>
           </div>
         </div>

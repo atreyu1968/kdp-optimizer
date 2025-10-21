@@ -8,7 +8,7 @@ interface CodeViewerProps {
   title?: string;
 }
 
-export function CodeViewer({ htmlCode, title = "HTML Description" }: CodeViewerProps) {
+export function CodeViewer({ htmlCode, title = "Descripción HTML" }: CodeViewerProps) {
   const [viewMode, setViewMode] = useState<"code" | "preview">("code");
 
   const highlightHTML = (code: string) => {
@@ -31,14 +31,14 @@ export function CodeViewer({ htmlCode, title = "HTML Description" }: CodeViewerP
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "code" | "preview")}>
             <TabsList className="h-8">
               <TabsTrigger value="code" className="text-xs" data-testid="tab-code">
-                Code
+                Código
               </TabsTrigger>
               <TabsTrigger value="preview" className="text-xs" data-testid="tab-preview">
-                Preview
+                Vista Previa
               </TabsTrigger>
             </TabsList>
           </Tabs>
-          <CopyButton text={htmlCode} label="Copy HTML" />
+          <CopyButton text={htmlCode} label="Copiar HTML" />
         </div>
       </div>
 
@@ -60,7 +60,7 @@ export function CodeViewer({ htmlCode, title = "HTML Description" }: CodeViewerP
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        Maximum 4000 characters. Copy and paste directly into KDP.
+        Máximo 4000 caracteres. Copia y pega directamente en KDP.
       </p>
     </div>
   );

@@ -37,7 +37,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
               <h2 className="text-2xl font-semibold text-foreground">
-                Optimization Complete!
+                ¡Optimización Completa!
               </h2>
             </div>
             <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
@@ -45,27 +45,27 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
                 <span className="font-medium text-foreground">
                   {result.manuscriptWordCount.toLocaleString()}
                 </span>{" "}
-                words analyzed
+                palabras analizadas
               </span>
               <span>•</span>
               <span>
                 <span className="font-medium text-foreground">
                   {result.marketResults.length}
                 </span>{" "}
-                markets optimized
+                mercados optimizados
               </span>
               <span>•</span>
               <span>
                 <span className="font-medium text-foreground">
                   {result.seedKeywords.length}
                 </span>{" "}
-                seed keywords found
+                palabras clave semilla encontradas
               </span>
             </div>
           </div>
           <Button variant="outline" size="sm" data-testid="button-download">
             <Download className="h-4 w-4 mr-2" />
-            Export Results
+            Exportar Resultados
           </Button>
         </div>
       </div>
@@ -101,7 +101,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-foreground">
-                    Title & Subtitle
+                    Título y Subtítulo
                   </h3>
                   <CopyButton
                     text={`${marketResult.title}: ${marketResult.subtitle}`}
@@ -111,7 +111,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Title
+                      Título
                     </label>
                     <p
                       className="text-base font-medium text-foreground mt-1"
@@ -123,7 +123,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
 
                   <div>
                     <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Subtitle
+                      Subtítulo
                     </label>
                     <p
                       className="text-base text-foreground mt-1"
@@ -156,14 +156,14 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
                         <AlertTriangle className="h-3 w-3 mr-1" />
                       )}
                       {marketResult.title.length + marketResult.subtitle.length}/200
-                      characters
+                      caracteres
                     </Badge>
                     <span className="text-xs text-muted-foreground">
                       {marketResult.title.length + marketResult.subtitle.length <= 180
-                        ? "Great! Well within limit"
+                        ? "¡Excelente! Dentro del límite"
                         : marketResult.title.length + marketResult.subtitle.length <= 200
-                        ? "Close to limit"
-                        : "Exceeds KDP limit"}
+                        ? "Cerca del límite"
+                        : "Excede el límite de KDP"}
                     </span>
                   </div>
                 </div>
@@ -175,7 +175,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
                   <div className="space-y-3">
                     <h4 className="text-sm font-medium uppercase tracking-wide text-foreground flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
-                      KDP Validation Warnings
+                      Advertencias de Validación KDP
                     </h4>
                     <div className="space-y-2">
                       {marketResult.validationWarnings.map((warning, index) => (
@@ -187,10 +187,10 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
                         >
                           <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
                           <AlertTitle className="text-sm font-medium text-foreground">
-                            {warning.type === "title_length" && "Title Length"}
-                            {warning.type === "keyword_bytes" && "Keyword Size"}
-                            {warning.type === "prohibited_terms" && "Prohibited Terms"}
-                            {warning.type === "html_tags" && "HTML Tags"}
+                            {warning.type === "title_length" && "Longitud del Título"}
+                            {warning.type === "keyword_bytes" && "Tamaño de Palabra Clave"}
+                            {warning.type === "prohibited_terms" && "Términos Prohibidos"}
+                            {warning.type === "html_tags" && "Etiquetas HTML"}
                           </AlertTitle>
                           <AlertDescription className="text-xs text-muted-foreground">
                             {warning.message}
@@ -215,11 +215,11 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-medium uppercase tracking-wide text-foreground">
-                    Recommended Categories
+                    Categorías Recomendadas
                   </h4>
                   <CopyButton
                     text={marketResult.categories.join("\n")}
-                    label="Copy"
+                    label="Copiar"
                   />
                 </div>
                 <div className="space-y-2">
@@ -233,7 +233,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
                         variant={index === 0 ? "default" : "secondary"}
                         className="shrink-0"
                       >
-                        {index === 0 ? "Primary" : `Niche ${index}`}
+                        {index === 0 ? "Principal" : `Nicho ${index}`}
                       </Badge>
                       <span className="text-sm text-foreground">{category}</span>
                     </div>
@@ -274,12 +274,12 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
           </div>
           <div className="space-y-2 flex-1">
             <p className="text-sm font-medium text-foreground">
-              Privacy & Security
+              Privacidad y Seguridad
             </p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Your manuscript is processed securely and is not stored on our
-              servers. All AI processing happens in real-time and your data is
-              deleted immediately after optimization.
+              Tu manuscrito se procesa de forma segura y no se almacena en nuestros
+              servidores. Todo el procesamiento de IA ocurre en tiempo real y tus datos
+              se eliminan inmediatamente después de la optimización.
             </p>
           </div>
         </div>
