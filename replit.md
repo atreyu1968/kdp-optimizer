@@ -36,8 +36,11 @@ Preferred communication style: Simple, everyday language in Spanish.
 **Key Design Decisions:**
 - Multi-step wizard interface (Upload → Configure → Analyze → Results) with progress indicator
 - Server-Sent Events (SSE) for real-time progress updates during long-running AI operations
+- EventSource lifecycle management with useRef and cleanup in useEffect to prevent memory leaks
 - Copy-to-clipboard functionality throughout for easy metadata export
 - Responsive design with mobile breakpoint at 768px
+- Library page for viewing saved manuscripts and optimization history
+- Re-optimization workflow using existing manuscriptId to maintain history linkage
 
 ### Backend Architecture
 
@@ -50,7 +53,7 @@ Preferred communication style: Simple, everyday language in Spanish.
 **Core Services:**
 - **Metadata Generator Service:** Orchestrates the AI-powered optimization workflow
 - **Progress Emitter Service:** Manages SSE connections for real-time progress updates to clients
-- **Storage Service:** In-memory storage implementation (MemStorage class) for optimization results
+- **Storage Service:** PostgreSQL database implementation (DbStorage class) for persistent storage of manuscripts and optimization results
 
 **Development/Production Split:** Vite middleware in development for HMR; static file serving in production
 
@@ -64,21 +67,31 @@ Preferred communication style: Simple, everyday language in Spanish.
 ```
 POST /api/optimize - Initiates optimization, returns sessionId
 GET /api/optimize/progress/:sessionId - SSE endpoint for progress updates
+GET /api/manuscripts - Returns list of all saved manuscripts with metadata
+GET /api/manuscripts/:id - Returns specific manuscript by ID
+GET /api/manuscripts/:id/optimizations - Returns optimization history for a manuscript
+POST /api/manuscripts/:id/reoptimize - Re-optimizes existing manuscript for selected markets
 ```
 
 ### Data Storage
 
-**Current Implementation:** In-memory storage using Map data structure (MemStorage class)
+**Current Implementation:** PostgreSQL database with Drizzle ORM (DbStorage class)
 
-**Schema:** Drizzle ORM configured for PostgreSQL with schema defined in `shared/schema.ts`
+**Schema:** Drizzle ORM schema defined in `shared/schema.ts`
 
-**Database Configuration:** Drizzle Kit configured to use PostgreSQL dialect with migrations in `./migrations` directory
+**Database Configuration:** Drizzle Kit configured to use PostgreSQL dialect with push migrations
 
 **Data Models:**
-- Optimization requests with manuscript text, title, language, target markets, genre, target audience
-- Optimization results including market-specific metadata, keywords, pricing, categories, validation warnings
-- Progress tracking with stages: uploading, analyzing, researching, generating, complete
-- Validation warnings with severity levels and detailed messages
+- **Manuscripts Table:** Stores saved manuscripts with originalTitle, author, genre, targetAudience, language, wordCount, manuscriptText, createdAt
+- **Optimizations Table:** Stores optimization results with foreign key relationship to manuscripts. Fields include manuscriptId, sessionId, targetMarkets, seedKeywords, marketMetadata (JSONB with titles, descriptions, keywords, pricing per market), validationWarnings, createdAt
+- **Progress Tracking:** In-memory session-based tracking with stages: uploading, analyzing, researching, generating, complete
+
+**Key Database Features:**
+- Foreign key constraint: optimizations.manuscriptId → manuscripts.id with CASCADE delete
+- Serial ID for manuscripts, varchar UUID for optimizations (using gen_random_uuid())
+- JSONB column for flexible market-specific metadata storage
+- Text arrays for targetMarkets and seedKeywords
+- Manuscript text stored as TEXT supporting large documents (up to 1GB)
 
 **Pricing Rules (Exact KDP Specifications):**
 - USD (Amazon.com): 70% royalty for $2.99-$9.99 (recommended: $4.99)
@@ -88,7 +101,7 @@ GET /api/optimize/progress/:sessionId - SSE endpoint for progress updates
 - All prices end in .99 for psychological pricing
 - Delivery costs calculated as fileSize × $0.15/MB (deducted from 70% earnings only)
 
-**Design Decision Rationale:** Memory storage allows rapid prototyping and testing. The IStorage interface provides abstraction, making it straightforward to swap in PostgreSQL implementation when persistence is needed. Drizzle ORM already configured but not yet connected - infrastructure is ready for database integration.
+**Design Decision Rationale:** PostgreSQL provides persistent storage allowing users to save manuscripts and track optimization history over time. The IStorage interface abstraction enabled seamless transition from MemStorage to DbStorage. Drizzle ORM provides type-safe database queries and schema migrations via push commands.
 
 ### External Dependencies
 
@@ -111,10 +124,12 @@ GET /api/optimize/progress/:sessionId - SSE endpoint for progress updates
 - **Implementation:** Validation utilities in `server/utils/kdp-validator.ts`, integrated into metadata generation pipeline
 
 **Database:**
-- **Neon Database:** Serverless PostgreSQL (configured but not yet actively used)
-  - Connection via `@neondatabase/serverless` driver
+- **Neon Database:** Serverless PostgreSQL (actively used for data persistence)
+  - Connection via `@neondatabase/serverless` driver using HTTP client (`neon` function)
+  - HTTP-based connection instead of WebSocket for reliability in Replit environment
   - Connection string in `DATABASE_URL` environment variable
-  - Drizzle ORM layer ready for integration
+  - Drizzle ORM layer for type-safe queries and schema management using `drizzle-orm/neon-http`
+  - Migration strategy: `npm run db:push --force` for schema synchronization
 
 **Third-Party UI Libraries:**
 - **Radix UI:** Complete set of accessible UI primitives (accordion, dialog, dropdown, etc.)
