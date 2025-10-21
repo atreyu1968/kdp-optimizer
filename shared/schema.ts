@@ -120,20 +120,20 @@ export type OptimizationResult = z.infer<typeof optimizationResultSchema>;
 
 export const pricingRules = {
   USD: {
-    "35%": { min: 0.99, max: 200 },
+    "35%": { min: 0.99, max: 200.00 },
     "70%": { min: 2.99, max: 9.99 },
   },
   EUR: {
-    "35%": { min: 0.99, max: 200 },
-    "70%": { min: 2.99, max: 9.99 },
+    "35%": { min: 0.89, max: 215.00 },
+    "70%": { min: 2.69, max: 9.99 },
   },
   GBP: {
-    "35%": { min: 0.99, max: 200 },
-    "70%": { min: 1.99, max: 9.99 },
+    "35%": { min: 0.77, max: 150.00 },
+    "70%": { min: 1.77, max: 9.99 },
   },
   BRL: {
-    "35%": { min: 1.99, max: 200 },
-    "70%": { min: 4.99, max: 14.99 },
+    "35%": { min: 1.99, max: 400.00 },
+    "70%": { min: 5.99, max: 24.99 },
   },
 } as const;
 
