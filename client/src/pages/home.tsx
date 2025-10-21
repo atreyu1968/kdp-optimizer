@@ -4,9 +4,9 @@ import { ConfigurationForm } from "@/components/configuration-form";
 import { LoadingOverlay } from "@/components/loading-overlay";
 import { ResultsPanel } from "@/components/results-panel";
 import { ProgressIndicator } from "@/components/progress-indicator";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { AppHeader } from "@/components/app-header";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import type { OptimizationResult, UploadProgress } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -91,24 +91,7 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       {progress && <LoadingOverlay progress={progress} />}
 
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-              <BookOpen className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">
-                KDP Optimizer AI
-              </h1>
-              <p className="text-xs text-muted-foreground hidden sm:block">
-                Powered by OpenAI
-              </p>
-            </div>
-          </div>
-          <ThemeToggle />
-        </div>
-      </header>
+      <AppHeader />
 
       <main className="container mx-auto px-4 py-12">
         {currentStep < 4 && (

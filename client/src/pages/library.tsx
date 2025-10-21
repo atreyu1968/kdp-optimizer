@@ -1,0 +1,479 @@
+import { useState, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
+import { AppHeader } from "@/components/app-header";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { LoadingOverlay } from "@/components/loading-overlay";
+import { ResultsPanel } from "@/components/results-panel";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { amazonMarkets, type Manuscript, type Optimization, type UploadProgress, type OptimizationResult } from "@shared/schema";
+import { BookOpen, RefreshCw, History, Calendar, FileText, Sparkles } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+
+export default function Library() {
+  const { data: manuscripts, isLoading } = useQuery<Manuscript[]>({
+    queryKey: ["/api/manuscripts"],
+  });
+  const { toast } = useToast();
+  const [selectedManuscript, setSelectedManuscript] = useState<number | null>(null);
+  const [reoptimizeDialogOpen, setReoptimizeDialogOpen] = useState(false);
+  const [selectedMarkets, setSelectedMarkets] = useState<string[]>([]);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const [result, setResult] = useState<OptimizationResult | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  const manuscriptOptimizations = useQuery<Record<number, Optimization[]>>({
+    queryKey: ["/api/manuscripts", "optimizations", manuscripts?.map(m => m.id).join(",")],
+    queryFn: async () => {
+      if (!manuscripts || manuscripts.length === 0) return {};
+      
+      const optimizationsMap: Record<number, Optimization[]> = {};
+      await Promise.all(
+        manuscripts.map(async (manuscript) => {
+          const response = await fetch(`/api/manuscripts/${manuscript.id}/optimizations`);
+          if (response.ok) {
+            const opts = await response.json();
+            optimizationsMap[manuscript.id] = opts;
+          }
+        })
+      );
+      return optimizationsMap;
+    },
+    enabled: !!manuscripts && manuscripts.length > 0,
+  });
+
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleReoptimizeClick = (manuscriptId: number) => {
+    setSelectedManuscript(manuscriptId);
+    setSelectedMarkets([]);
+    setReoptimizeDialogOpen(true);
+  };
+
+  const handleMarketToggle = (market: string) => {
+    setSelectedMarkets((prev) =>
+      prev.includes(market)
+        ? prev.filter((m) => m !== market)
+        : [...prev, market]
+    );
+  };
+
+  const handleReoptimize = async () => {
+    if (!selectedManuscript || selectedMarkets.length === 0) {
+      toast({
+        title: "Error",
+        description: "Por favor selecciona al menos un mercado",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setReoptimizeDialogOpen(false);
+
+    try {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+
+      const response = await apiRequest("POST", `/api/manuscripts/${selectedManuscript}/reoptimize`, {
+        targetMarkets: selectedMarkets,
+        language: "es",
+      });
+      const { sessionId } = await response.json();
+
+      const eventSource = new EventSource(`/api/optimize/progress/${sessionId}`);
+      eventSourceRef.current = eventSource;
+
+      eventSource.onmessage = (event) => {
+        try {
+          const progressData = JSON.parse(event.data);
+          if (progressData.stage === "error") {
+            setProgress(null);
+            toast({
+              title: "Error",
+              description: progressData.message,
+              variant: "destructive",
+            });
+            eventSource.close();
+            eventSourceRef.current = null;
+            return;
+          }
+          setProgress(progressData as UploadProgress);
+        } catch (e) {
+          console.error("Failed to parse progress data:", e);
+        }
+      };
+
+      eventSource.addEventListener("complete", (event) => {
+        try {
+          const result = JSON.parse((event as MessageEvent).data);
+          setResult(result);
+          setProgress(null);
+          queryClient.invalidateQueries({ queryKey: ["/api/manuscripts"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/manuscripts", "optimizations"] });
+          toast({
+            title: "¡Optimización completa!",
+            description: `Tu manuscrito ha sido re-optimizado para ${selectedMarkets.length} mercado(s)`,
+          });
+        } catch (e) {
+          console.error("Failed to parse result:", e);
+        } finally {
+          eventSource.close();
+          eventSourceRef.current = null;
+        }
+      });
+
+      eventSource.onerror = (error) => {
+        console.error("EventSource error:", error);
+        eventSource.close();
+        eventSourceRef.current = null;
+        setProgress(null);
+      };
+    } catch (error) {
+      console.error("Reoptimization failed:", error);
+      setProgress(null);
+      toast({
+        title: "Error",
+        description: "No se pudo iniciar la re-optimización",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getOptimizationCount = (manuscriptId: number) => {
+    return manuscriptOptimizations.data?.[manuscriptId]?.length || 0;
+  };
+
+  const getLastOptimizationDate = (manuscriptId: number) => {
+    const opts = manuscriptOptimizations.data?.[manuscriptId];
+    if (!opts || opts.length === 0) return null;
+    return new Date(opts[0].createdAt);
+  };
+
+  const handleBackToLibrary = () => {
+    setResult(null);
+    setSelectedManuscript(null);
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    queryClient.invalidateQueries({ queryKey: ["/api/manuscripts"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/manuscripts", "optimizations"] });
+  };
+
+  if (result) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AppHeader />
+        <main className="container mx-auto px-4 py-12">
+          <div className="mb-8">
+            <Button
+              variant="ghost"
+              onClick={handleBackToLibrary}
+              data-testid="button-back-to-library"
+            >
+              ← Volver a Mi Biblioteca
+            </Button>
+          </div>
+          <ResultsPanel result={result} />
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      {progress && <LoadingOverlay progress={progress} />}
+      <AppHeader />
+
+      <main className="container mx-auto px-4 py-12">
+        <div className="max-w-6xl mx-auto space-y-8">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10">
+                <BookOpen className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-foreground">Mi Biblioteca de Libros</h1>
+                <p className="text-muted-foreground">
+                  Gestiona tus manuscritos y optimizaciones
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="p-6">
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2 flex-1">
+                        <Skeleton className="h-6 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </div>
+                      <Skeleton className="h-10 w-32" />
+                    </div>
+                    <Skeleton className="h-4 w-full" />
+                    <div className="flex gap-2">
+                      <Skeleton className="h-6 w-24" />
+                      <Skeleton className="h-6 w-24" />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : !manuscripts || manuscripts.length === 0 ? (
+            <Card className="p-12">
+              <div className="text-center space-y-4">
+                <div className="flex justify-center">
+                  <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
+                    <BookOpen className="h-10 w-10 text-muted-foreground" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold text-foreground">
+                    No hay libros guardados aún
+                  </h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    Comienza optimizando tu primer manuscrito para verlo aparecer aquí
+                  </p>
+                </div>
+                <Button
+                  variant="default"
+                  asChild
+                >
+                  <Link href="/" data-testid="button-start-optimizing">
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Optimizar mi Primer Libro
+                  </Link>
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {manuscripts.map((manuscript) => {
+                const optimizationCount = getOptimizationCount(manuscript.id);
+                const lastOptimization = getLastOptimizationDate(manuscript.id);
+
+                return (
+                  <Card key={manuscript.id} className="overflow-hidden" data-testid={`manuscript-card-${manuscript.id}`}>
+                    <div className="p-6 space-y-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 space-y-3">
+                          <div>
+                            <h3 className="text-xl font-semibold text-foreground mb-1" data-testid={`manuscript-title-${manuscript.id}`}>
+                              {manuscript.originalTitle}
+                            </h3>
+                            <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <FileText className="h-3.5 w-3.5" />
+                                {manuscript.author}
+                              </span>
+                              <span>•</span>
+                              <span>{manuscript.genre}</span>
+                              <span>•</span>
+                              <span>{manuscript.wordCount.toLocaleString()} palabras</span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant="outline" className="gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Creado: {format(new Date(manuscript.createdAt), "d 'de' MMMM, yyyy", { locale: es })}
+                            </Badge>
+                            <Badge variant="secondary" data-testid={`optimization-count-${manuscript.id}`}>
+                              {optimizationCount} optimización{optimizationCount !== 1 ? "es" : ""} realizada{optimizationCount !== 1 ? "s" : ""}
+                            </Badge>
+                            {lastOptimization && (
+                              <Badge variant="outline" className="gap-1">
+                                Última: {format(lastOptimization, "d 'de' MMM", { locale: es })}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleReoptimizeClick(manuscript.id)}
+                            data-testid={`button-reoptimize-${manuscript.id}`}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Re-optimizar
+                          </Button>
+                        </div>
+                      </div>
+
+                      {optimizationCount > 0 && (
+                        <>
+                          <Separator />
+                          <Accordion type="single" collapsible>
+                            <AccordionItem value="history" className="border-none">
+                              <AccordionTrigger 
+                                className="hover:no-underline py-2"
+                                data-testid={`button-view-history-${manuscript.id}`}
+                              >
+                                <div className="flex items-center gap-2 text-sm font-medium">
+                                  <History className="h-4 w-4" />
+                                  Ver Historial de Optimizaciones
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                {manuscriptOptimizations.isLoading ? (
+                                  <div className="space-y-2 pt-2">
+                                    <Skeleton className="h-16 w-full" />
+                                    <Skeleton className="h-16 w-full" />
+                                  </div>
+                                ) : (
+                                  <div className="space-y-3 pt-2">
+                                    {manuscriptOptimizations.data?.[manuscript.id]?.map((optimization, index) => (
+                                      <div
+                                        key={optimization.id}
+                                        className="bg-muted/30 rounded-lg p-4 space-y-2"
+                                        data-testid={`optimization-${manuscript.id}-${index}`}
+                                      >
+                                        <div className="flex items-start justify-between gap-4">
+                                          <div className="flex-1 space-y-2">
+                                            <div className="flex items-center gap-2">
+                                              <Badge variant={index === 0 ? "default" : "secondary"}>
+                                                {index === 0 ? "Más reciente" : `Optimización ${optimizationCount - index}`}
+                                              </Badge>
+                                              <span className="text-sm text-muted-foreground">
+                                                {format(new Date(optimization.createdAt), "d 'de' MMMM 'de' yyyy 'a las' HH:mm", { locale: es })}
+                                              </span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-1.5">
+                                              {optimization.targetMarkets.map((market) => {
+                                                const marketInfo = amazonMarkets[market as keyof typeof amazonMarkets];
+                                                return marketInfo ? (
+                                                  <Badge key={market} variant="outline" className="text-xs">
+                                                    {marketInfo.flag} {marketInfo.name}
+                                                  </Badge>
+                                                ) : null;
+                                              })}
+                                            </div>
+                                            {optimization.seedKeywords && optimization.seedKeywords.length > 0 && (
+                                              <div className="text-xs text-muted-foreground">
+                                                {optimization.seedKeywords.length} palabras clave identificadas
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
+                        </>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </main>
+
+      <Dialog open={reoptimizeDialogOpen} onOpenChange={setReoptimizeDialogOpen}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-reoptimize">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-primary" />
+              Re-optimizar Manuscrito
+            </DialogTitle>
+            <DialogDescription>
+              Selecciona los mercados para los que deseas generar nuevos metadatos optimizados
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-foreground">Mercados Objetivo</h4>
+              <div className="space-y-2">
+                {Object.entries(amazonMarkets).map(([key, market]) => (
+                  <div
+                    key={key}
+                    className="flex items-center space-x-3 p-3 rounded-lg hover-elevate"
+                    data-testid={`checkbox-market-${key}`}
+                  >
+                    <Checkbox
+                      id={key}
+                      checked={selectedMarkets.includes(key)}
+                      onCheckedChange={() => handleMarketToggle(key)}
+                    />
+                    <label
+                      htmlFor={key}
+                      className="flex items-center gap-2 text-sm font-medium cursor-pointer flex-1"
+                    >
+                      <span className="text-lg">{market.flag}</span>
+                      <span className="text-foreground">{market.name}</span>
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {selectedMarkets.length > 0 && (
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">
+                  {selectedMarkets.length} mercado{selectedMarkets.length !== 1 ? "s" : ""} seleccionado{selectedMarkets.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="ghost"
+              onClick={() => setReoptimizeDialogOpen(false)}
+              data-testid="button-cancel-reoptimize"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleReoptimize}
+              disabled={selectedMarkets.length === 0}
+              data-testid="button-confirm-reoptimize"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Re-optimizar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <footer className="border-t border-border mt-16">
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center text-sm text-muted-foreground">
+            <p>
+              © {new Date().getFullYear()} KDP Optimizer AI. Construido con IA para
+              ayudar a los autores a tener éxito.
+            </p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
