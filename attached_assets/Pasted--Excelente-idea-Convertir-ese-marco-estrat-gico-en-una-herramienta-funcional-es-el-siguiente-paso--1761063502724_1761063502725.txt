@@ -1,0 +1,156 @@
+¡Excelente idea\! Convertir ese marco estratégico en una herramienta funcional es el siguiente paso lógico. Para que un desarrollador o una IA de programación como la de Replit pueda construir esta aplicación, necesita un diseño detallado y pormenorizado.
+
+Aquí tienes un diseño de programa que puedes proporcionar. Está estructurado como un conjunto de especificaciones técnicas y funcionales, desglosando la lógica del informe en módulos de programación.
+
+-----
+
+### **Especificación de Diseño de Software: Optimizador KDP IA**
+
+**1. Objetivo del Proyecto**
+
+Crear una aplicación de consola en Python que automatice el proceso de optimización de metadatos para la publicación de libros en Amazon KDP. La aplicación analizará un manuscrito de libro y generará un conjunto completo de metadatos optimizados (título, subtítulo, descripción, palabras clave, categorías y precio) para los mercados de Amazon en inglés, español, italiano, francés, portugués y alemán.
+
+**2. Flujo de Interacción con el Usuario (UX)**
+
+La aplicación se ejecutará en una consola o terminal y seguirá estos pasos:
+
+1.  **Inicio:** La aplicación saluda al usuario y explica brevemente su función.
+2.  **Entrada de Datos del Usuario:**
+      * Solicita la ruta del archivo del manuscrito del libro (ej: `C:/Users/Autor/libro.txt`).
+      * Pregunta por el idioma principal del libro.
+      * Pide al usuario que seleccione los mercados de Amazon objetivo (ej: `amazon.com`, `amazon.es`, `amazon.de`).
+      * Solicita información básica: género principal (ej: "Ciencia Ficción") y público objetivo (ej: "Jóvenes Adultos").
+3.  **Procesamiento:** La aplicación muestra mensajes de estado mientras trabaja (ej: "Analizando manuscrito...", "Investigando palabras clave para amazon.de...", "Generando descripción optimizada...").
+4.  **Salida Final:** La aplicación presenta todos los metadatos optimizados en un formato claro y listo para copiar y pegar en el panel de KDP.
+
+**3. Arquitectura y Módulos del Programa**
+
+El programa se dividirá en los siguientes módulos funcionales:
+
+**Módulo 1: Analizador de Manuscrito**
+
+  * **Función:** Extraer los temas, conceptos y entidades clave del libro para generar "palabras clave semilla".
+  * **Lógica de Implementación:**
+      * Leer el contenido del archivo de texto proporcionado por el usuario.
+      * Utilizar una librería de Procesamiento de Lenguaje Natural (PLN) como `spaCy` o `NLTK` para:
+          * Eliminar "stop words" (palabras comunes como "el", "la", "un").
+          * Identificar los sustantivos, verbos y adjetivos más frecuentes.
+          * Extraer entidades nombradas (nombres de personajes, lugares).
+      * **Salida:** Una lista de 20-30 palabras y frases clave semilla (ej: "dragón", "reino perdido", "magia antigua", "princesa guerrera").
+
+**Módulo 2: Investigador de Palabras Clave y Categorías**
+
+  * **Función:** Utilizar las palabras clave semilla para encontrar palabras clave de alta demanda y baja competencia, y para identificar las categorías más rentables en cada mercado objetivo.
+  * **Lógica de Implementación (por cada mercado seleccionado):**
+    1.  **Simulación de Autocompletado de Amazon:**
+          * Para cada palabra clave semilla, realizar una consulta a la barra de búsqueda de Amazon del mercado correspondiente (ej: `amazon.es`) y capturar las sugerencias de autocompletado. Estas representan búsquedas reales de usuarios.[1]
+          * Repetir el proceso añadiendo letras del alfabeto a la palabra clave semilla (ej: "dragón a", "dragón b") para expandir las opciones.
+    2.  **Análisis de Competencia (Simplificado):**
+          * Para las 10-15 palabras clave más prometedoras, la aplicación debe guiar al usuario o (en una versión avanzada) hacer scraping para analizar los 5 primeros resultados en Amazon. Se deben buscar indicadores de baja competencia:
+              * Bajo número de reseñas (menos de 100).
+              * Títulos y portadas de aspecto no profesional.
+              * Ranking de Ventas (BSR) alto (ej: superior a 100,000).
+    3.  **Selección de Categorías:**
+          * Identificar las categorías de los libros competidores con mejor rendimiento.
+          * Buscar categorías de nicho donde el BSR del libro \#1 sea lo más alto posible (indicando menor competencia).
+    <!-- end list -->
+      * **Salida:**
+          * Una lista priorizada de palabras clave de "cola larga" (frases específicas) y de "cola corta" (términos generales).
+          * Una recomendación de 3 categorías: 1 categoría principal relevante y 2 categorías de nicho con menor competencia.[2]
+
+**Módulo 3: Generador de Metadatos**
+
+  * **Función:** Construir el texto final para cada campo de KDP basándose en los datos recopilados.
+  * **Lógica de Implementación:**
+    1.  **Título y Subtítulo:**
+          * **Título:** Mantener el título original del autor.
+          * **Subtítulo:** Generar un subtítulo que combine la palabra clave principal con una promesa de valor o beneficio para el lector (ej: "Una novela de fantasía épica sobre la lucha por el trono y la magia olvidada").[3, 4, 5]
+          * **Restricción:** La combinación de título y subtítulo no debe superar los 200 caracteres.[6] No debe incluir términos prohibidos como "bestseller" o "gratis".[6]
+    2.  **Descripción del Libro (HTML):**
+          * Generar una descripción de 4000 caracteres como máximo.[7, 8]
+          * **Estructura:**
+              * **Gancho inicial:** Una primera frase potente para captar la atención.
+              * **Cuerpo:** Párrafos cortos que resuman la trama (ficción) o los beneficios (no ficción), incorporando palabras clave secundarias de forma natural.
+              * **Llamada a la acción final:** Animar al lector a comprar el libro.
+          * **Formato HTML:** Utilizar obligatoriamente las etiquetas HTML soportadas por KDP para mejorar la legibilidad [7]:
+              * `<b>` para negritas en puntos clave.
+              * `<i>` para cursivas.
+              * `<h4>` o `<h5>` para subtítulos internos.
+              * `<ul>` y `<li>` para listas con viñetas (muy recomendado para listar beneficios).
+              * `<p>` y `<br>` para espaciado y párrafos.
+    3.  **Palabras Clave de Backend (7 campos):**
+          * **Lógica de "Bolsa de Palabras":**
+              * Tomar la lista completa de palabras clave investigadas.
+              * Eliminar todas las palabras que ya aparecen en el título y subtítulo.
+              * Eliminar duplicados y palabras de relleno.
+              * Llenar cada uno de los 7 campos con estas palabras, separadas únicamente por espacios (sin comas).[9, 10]
+              * Asegurarse de no superar el límite de 249 bytes por campo.[11]
+          * **Restricciones:** No incluir nombres de otros autores, ASINs, marcas registradas, ni términos subjetivos como "el mejor libro".[10]
+
+**Módulo 4: Recomendador de Precios**
+
+  * **Función:** Sugerir un precio óptimo y la opción de regalía correspondiente.
+  * **Lógica de Implementación:**
+      * Estimar el tamaño del archivo del ebook.
+      * Implementar una estructura de datos (diccionario o similar) con los rangos de precios para las regalías del 35% y 70% para cada mercado (USD, GBP, EUR, BRL).[12]
+      * Considerar el tamaño del archivo para los precios mínimos en la opción del 35%.
+      * **Recomendación por defecto:** Sugerir un precio dentro del rango del 70% de regalías (ej: 3.99 EUR, $4.99 USD), ya que es el más rentable para la mayoría de los autores. Ajustar a precios psicológicos terminados en.99.[13]
+      * **Salida:** Un precio recomendado para cada mercado y la opción de regalía asociada.
+
+**Módulo 5: Adaptación Cultural y de Mercado**
+
+  * **Función:** Asegurar que la optimización sea nativa para cada mercado.
+  * **Lógica de Implementación:**
+      * El núcleo del programa debe iterar todo el proceso (Módulo 2, 3 y 4) para cada mercado seleccionado por el usuario.
+      * Las consultas de palabras clave deben dirigirse al dominio de Amazon específico (ej: `amazon.fr` para Francia).
+      * Las recomendaciones de precios deben usar la moneda local y las reglas de ese mercado.[12]
+      * **Importante:** La lógica debe evitar la simple traducción de palabras clave. La investigación debe ser nativa.[14]
+
+**4. Formato de Salida para el Usuario**
+
+La aplicación deberá imprimir en la consola un informe final claramente estructurado, listo para ser copiado.
+
+\*\*\* INFORME DE OPTIMIZACIÓN KDP PARA [Nombre del Libro] \*\*\*
+
+-----
+
+## **MERCADO: amazon.com (Inglés)**
+
+### Título Sugerido:
+
+### Subtítulo Sugerido:
+
+### Descripción del Libro (Código HTML para KDP):
+
+\<p\>\<b\>¡Un gancho potente aquí\!\</b\>\</p\>\<p\>Texto de la descripción con \<i\>cursivas\</i\> y palabras clave...\</p\>\<ul\>\<li\>Beneficio 1\</li\>\<li\>Beneficio 2\</li\>\</ul\>\<p\>Llamada a la acción final.\</p\>
+
+### Palabras Clave de Backend (7 campos):
+
+1.  [cadena de palabras clave 1]
+2.  [cadena de palabras clave 2]
+3.  [cadena de palabras clave 3]
+4.  [cadena de palabras clave 4]
+5.  [cadena de palabras clave 5]
+6.  [cadena de palabras clave 6]
+7.  [cadena de palabras clave 7]
+
+### Categorías Recomendadas:
+
+1.  [Categoría amplia y relevante]
+2.  [Categoría de nicho 1]
+3.  [Categoría de nicho 2]
+
+### Precio y Regalías Recomendados:
+
+  - Precio de lista: $4.99 USD
+  - Opción de Regalía: 70%
+
+-----
+
+## **MERCADO: amazon.es (Español)**
+
+(Se repite la misma estructura con datos optimizados para el mercado español)
+
+... y así sucesivamente para cada mercado seleccionado.
+
+Este diseño proporciona una hoja de ruta clara y detallada para construir la aplicación, basándose directamente en las estrategias y datos del informe de investigación.
