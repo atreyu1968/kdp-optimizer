@@ -6,9 +6,13 @@ KDP Optimizer AI is a productivity application designed to automate the optimiza
 
 The tool follows a multi-step workflow: manuscript upload → configuration → AI analysis → results display. It processes book manuscripts to extract themes and entities, researches optimal keywords for each target market, and generates SEO-optimized metadata ready to copy directly into the KDP dashboard.
 
+**Language:** Application interface is in Spanish (neutral Latin American Spanish) for accessibility to Spanish-speaking authors.
+
+**KDP Optimization:** Implements best practices based on Amazon's A9 algorithm, focusing on conversion optimization, long-tail keywords, and compliance with KDP content guidelines.
+
 ## User Preferences
 
-Preferred communication style: Simple, everyday language.
+Preferred communication style: Simple, everyday language in Spanish.
 
 ## System Architecture
 
@@ -72,8 +76,17 @@ GET /api/optimize/progress/:sessionId - SSE endpoint for progress updates
 
 **Data Models:**
 - Optimization requests with manuscript text, title, language, target markets, genre, target audience
-- Optimization results including market-specific metadata, keywords, pricing, categories
+- Optimization results including market-specific metadata, keywords, pricing, categories, validation warnings
 - Progress tracking with stages: uploading, analyzing, researching, generating, complete
+- Validation warnings with severity levels and detailed messages
+
+**Pricing Rules (Exact KDP Specifications):**
+- USD (Amazon.com): 70% royalty for $2.99-$9.99 (recommended: $4.99)
+- GBP (Amazon.co.uk): 70% royalty for £1.77-£9.99 (recommended: £3.99)
+- EUR (Amazon.de/.fr/.es/.it): 70% royalty for €2.69-€9.99 (recommended: €4.99)
+- BRL (Amazon.com.br): 70% royalty for R$5.99-R$24.99 (recommended: R$9.99)
+- All prices end in .99 for psychological pricing
+- Delivery costs calculated as fileSize × $0.15/MB (deducted from 70% earnings only)
 
 **Design Decision Rationale:** Memory storage allows rapid prototyping and testing. The IStorage interface provides abstraction, making it straightforward to swap in PostgreSQL implementation when persistence is needed. Drizzle ORM already configured but not yet connected - infrastructure is ready for database integration.
 
@@ -81,10 +94,21 @@ GET /api/optimize/progress/:sessionId - SSE endpoint for progress updates
 
 **AI Services:**
 - **OpenAI API:** GPT-4o-mini model for manuscript analysis and metadata generation
-  - Manuscript analysis: Extracts seed keywords, themes, and named entities
-  - Metadata generation: Creates optimized titles, descriptions, and keywords per market
+  - Manuscript analysis: Extracts long-tail keywords (3-5 word phrases), character archetypes, and specific themes optimized for Amazon A9 algorithm
+  - Metadata generation: Creates conversion-focused metadata with main keyword at START of subtitle, 200-character title+subtitle limit, persuasive HTML descriptions with supported tags only
+  - Keyword optimization: Uses "bag of words" model, generates 40-50 market-native keywords without repeating title/subtitle words, includes synonyms and variants
+  - All prompts emphasize native language generation (not translation) and conversion/sales optimization over traditional SEO
   - Uses JSON mode for structured responses
   - Configuration via environment variables: `AI_INTEGRATIONS_OPENAI_API_KEY`, `AI_INTEGRATIONS_OPENAI_BASE_URL`
+
+**KDP Validation System:**
+- **Automatic Compliance:** Validates all generated metadata against Amazon KDP rules
+  - Title + Subtitle: Maximum 200 characters combined with intelligent truncation
+  - Keywords Backend: 7 fields, 249 bytes each (uses TextEncoder for accurate byte counting)
+  - Prohibited Terms: Detects and warns about terms like "bestseller", "free", "new", "#1" (case-insensitive with symbol handling)
+  - HTML Sanitization: Removes unsupported tags from descriptions, preserves text content
+  - UI Indicators: Color-coded counters (green ✓, yellow ℹ, red ⚠) for character/byte limits
+- **Implementation:** Validation utilities in `server/utils/kdp-validator.ts`, integrated into metadata generation pipeline
 
 **Database:**
 - **Neon Database:** Serverless PostgreSQL (configured but not yet actively used)
