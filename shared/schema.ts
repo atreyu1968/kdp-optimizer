@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { pgTable, serial, text, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
 
 export const amazonMarkets = {
   "amazon.com": { name: "Amazon.com (Estados Unidos)", currency: "USD", flag: "🇺🇸", locale: "en-US" },
@@ -143,3 +145,33 @@ export interface UploadProgress {
   progress: number;
   currentMarket?: string;
 }
+
+// Tabla de manuscritos guardados
+export const manuscripts = pgTable("manuscripts", {
+  id: serial("id").primaryKey(),
+  originalTitle: text("original_title").notNull(),
+  author: text("author").notNull(),
+  genre: text("genre").notNull(),
+  manuscriptText: text("manuscript_text").notNull(),
+  wordCount: integer("word_count").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Tabla de optimizaciones (múltiples optimizaciones por manuscrito)
+export const optimizations = pgTable("optimizations", {
+  id: text("id").primaryKey(),
+  manuscriptId: integer("manuscript_id").notNull().references(() => manuscripts.id),
+  targetMarkets: text("target_markets").array().notNull(),
+  seedKeywords: text("seed_keywords").array().notNull(),
+  marketResults: jsonb("market_results").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Tipos de inserción y selección
+export const insertManuscriptSchema = createInsertSchema(manuscripts).omit({ id: true, createdAt: true });
+export type InsertManuscript = z.infer<typeof insertManuscriptSchema>;
+export type Manuscript = typeof manuscripts.$inferSelect;
+
+export const insertOptimizationSchema = createInsertSchema(optimizations).omit({ createdAt: true });
+export type InsertOptimization = z.infer<typeof insertOptimizationSchema>;
+export type Optimization = typeof optimizations.$inferSelect;
