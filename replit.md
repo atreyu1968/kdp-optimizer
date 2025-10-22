@@ -2,15 +2,9 @@
 
 ## Overview
 
-KDP Optimizer AI is a productivity application designed to automate the optimization of book metadata for Amazon Kindle Direct Publishing (KDP). The application analyzes manuscript content using AI and generates market-specific metadata including titles, descriptions, keywords, categories, and pricing recommendations across multiple Amazon marketplaces (US, Spain, Spain/Catalan, Germany, France, Italy, UK, Brazil).
+KDP Optimizer AI is a productivity application designed to automate the optimization of book metadata for Amazon Kindle Direct Publishing (KDP). It analyzes manuscript content using AI to generate market-specific titles, descriptions, keywords, categories, and pricing recommendations across multiple Amazon marketplaces (US, Spain, Spain/Catalan, Germany, France, Italy, UK, Brazil).
 
-The tool follows a multi-step workflow: manuscript upload → configuration → AI analysis → results display. It processes book manuscripts to extract themes and entities, researches optimal keywords for each target market, and generates SEO-optimized metadata ready to copy directly into the KDP dashboard.
-
-**Language:** Application interface is in Spanish (neutral Latin American Spanish) for accessibility to Spanish-speaking authors.
-
-**Supported Manuscript Languages:** English, Spanish, Catalan, German, French, Italian, Portuguese
-
-**KDP Optimization:** Implements best practices based on Amazon's A9 algorithm, focusing on conversion optimization, long-tail keywords, and compliance with KDP content guidelines.
+The tool processes manuscripts to extract themes and entities, researches optimal keywords for each target market, and generates SEO-optimized metadata ready for KDP. The application interface is in Spanish (neutral Latin American Spanish), and it supports manuscript languages including English, Spanish, Catalan, German, French, Italian, and Portuguese. It implements KDP best practices for conversion optimization and compliance with Amazon's A9 algorithm.
 
 ## User Preferences
 
@@ -20,191 +14,46 @@ Preferred communication style: Simple, everyday language in Spanish.
 
 ### Frontend Architecture
 
-**Technology Stack:** React with TypeScript, using Vite as the build tool.
-
-**UI Framework:** Shadcn/ui component library built on Radix UI primitives with Tailwind CSS for styling. The design follows productivity application principles inspired by Linear and Notion, emphasizing functional clarity and information hierarchy.
-
-**State Management:** 
-- React Query (@tanstack/react-query) for server state management
-- Local component state with React hooks for UI state
-- No global state management library (Redux/Zustand) - keeping state close to components
-
-**Routing:** Wouter for client-side routing (lightweight alternative to React Router)
-
-**Theme System:** Custom theme provider supporting light/dark modes with CSS custom properties. Color palette uses HSL values for flexibility.
-
-**Form Handling:** React Hook Form with Zod schema validation for type-safe form data
-
-**Key Design Decisions:**
-- Multi-step wizard interface (Upload → Configure → Analyze → Results) with progress indicator
-- Server-Sent Events (SSE) for real-time progress updates during long-running AI operations
-- EventSource lifecycle management with useRef and cleanup in useEffect to prevent memory leaks
-- Copy-to-clipboard functionality throughout for easy metadata export
-- PDF export functionality using jspdf library for comprehensive results documentation
-- Conditional form fields (seriesNumber only appears when seriesName is filled)
-- Responsive design with mobile breakpoint at 768px
-- Library page for viewing saved manuscripts and optimization history
-- Re-optimization workflow using existing manuscriptId to maintain history linkage
+**Technology Stack:** React with TypeScript, Vite, Shadcn/ui (Radix UI + Tailwind CSS), Wouter for routing, React Hook Form with Zod for forms.
+**UI/UX Decisions:** Inspired by Linear and Notion, features a multi-step wizard interface (Upload → Configure → Analyze → Results) with a progress indicator. Supports light/dark modes, responsive design, and includes a library page for saved manuscripts.
+**State Management:** React Query for server state; local component state for UI.
+**Key Features:** Server-Sent Events (SSE) for real-time progress, copy-to-clipboard functionality, PDF export using jspdf, conditional form fields, and re-optimization workflow.
 
 ### Backend Architecture
 
-**Runtime:** Node.js with Express.js framework
-
-**Language:** TypeScript with ES modules
-
-**API Pattern:** RESTful endpoints with Server-Sent Events for progress streaming
-
-**Core Services:**
-- **Metadata Generator Service:** Orchestrates the AI-powered optimization workflow
-- **Progress Emitter Service:** Manages SSE connections for real-time progress updates to clients
-- **Storage Service:** PostgreSQL database implementation (DbStorage class) for persistent storage of manuscripts and optimization results
-
-**Development/Production Split:** Vite middleware in development for HMR; static file serving in production
-
-**Key Architectural Decisions:**
-- **Asynchronous Processing:** POST to `/api/optimize` returns session ID immediately, then processes in background
-- **Progress Streaming:** Separate GET endpoint `/api/optimize/progress/:sessionId` for SSE connection
-- **Session Management:** Map-based session tracking with connection polling to ensure SSE setup before processing starts
-- **Error Handling:** Centralized error middleware with proper HTTP status codes
-- **File Size Limits:** Express configured with 15MB body limit to accommodate Base64-encoded manuscripts (frontend validates 11MB raw file size, which becomes ~14.6MB after Base64 encoding)
-
-**API Structure:**
-```
-POST /api/optimize - Initiates optimization, returns sessionId
-GET /api/optimize/progress/:sessionId - SSE endpoint for progress updates
-GET /api/manuscripts - Returns list of all saved manuscripts with metadata
-GET /api/manuscripts/:id - Returns specific manuscript by ID
-GET /api/manuscripts/:id/optimizations - Returns optimization history for a manuscript
-POST /api/manuscripts/:id/reoptimize - Re-optimizes existing manuscript for selected markets
-```
+**Runtime:** Node.js with Express.js (TypeScript, ES modules).
+**API Pattern:** RESTful endpoints with SSE for progress streaming.
+**Core Services:** Metadata Generator, Progress Emitter, Storage Service (PostgreSQL).
+**Architectural Decisions:** Asynchronous processing for optimization, separate SSE endpoint for progress, map-based session management, centralized error handling, and a 15MB body limit for file uploads.
 
 ### Data Storage
 
-**Current Implementation:** PostgreSQL database with Drizzle ORM (DbStorage class)
+**Database:** PostgreSQL with Drizzle ORM (DbStorage class).
+**Schema:** `shared/schema.ts` defines `Manuscripts` (originalTitle, author, genre, language, wordCount, manuscriptText, seriesName, seriesNumber) and `Optimizations` (manuscriptId, sessionId, targetMarkets, seedKeywords, marketMetadata, validationWarnings).
+**Pricing Rules:** Implements specific KDP royalty rules and psychological pricing (.99 ending) for supported currencies (USD, GBP, EUR, BRL), including delivery cost calculations.
 
-**Schema:** Drizzle ORM schema defined in `shared/schema.ts`
-
-**Database Configuration:** Drizzle Kit configured to use PostgreSQL dialect with push migrations
-
-**Data Models:**
-- **Manuscripts Table:** Stores saved manuscripts with originalTitle, author (required), genre, targetAudience (optional), language (required), wordCount, manuscriptText, seriesName (optional), seriesNumber (optional), createdAt
-- **Optimizations Table:** Stores optimization results with foreign key relationship to manuscripts. Fields include manuscriptId, sessionId, targetMarkets, seedKeywords, marketMetadata (JSONB with titles, descriptions, keywords, pricing per market), validationWarnings, createdAt
-- **Progress Tracking:** In-memory session-based tracking with stages: uploading, analyzing, researching, generating, complete
-
-**Key Database Features:**
-- Foreign key constraint: optimizations.manuscriptId → manuscripts.id with CASCADE delete
-- Serial ID for manuscripts, varchar UUID for optimizations (using gen_random_uuid())
-- JSONB column for flexible market-specific metadata storage
-- Text arrays for targetMarkets and seedKeywords
-- Manuscript text stored as TEXT supporting large documents (up to 1GB)
-
-**Pricing Rules (Exact KDP Specifications):**
-- USD (Amazon.com): 70% royalty for $2.99-$9.99 (recommended: $4.99)
-- GBP (Amazon.co.uk): 70% royalty for £1.77-£9.99 (recommended: £3.99)
-- EUR (Amazon.de/.fr/.es/.it): 70% royalty for €2.69-€9.99 (recommended: €4.99)
-- BRL (Amazon.com.br): 70% royalty for R$5.99-R$24.99 (recommended: R$9.99)
-- All prices end in .99 for psychological pricing
-- Delivery costs calculated as fileSize × $0.15/MB (deducted from 70% earnings only)
-
-**Design Decision Rationale:** PostgreSQL provides persistent storage allowing users to save manuscripts and track optimization history over time. The IStorage interface abstraction enabled seamless transition from MemStorage to DbStorage. Drizzle ORM provides type-safe database queries and schema migrations via push commands.
-
-### External Dependencies
+## External Dependencies
 
 **AI Services:**
-- **OpenAI API:** GPT-4o-mini model for manuscript analysis and metadata generation
-  - Manuscript analysis: Extracts long-tail keywords (3-5 word phrases), character archetypes, and specific themes optimized for Amazon A9 algorithm
-  - Metadata generation: Creates conversion-focused metadata with main keyword at START of subtitle, 200-character title+subtitle limit, persuasive HTML descriptions with supported tags only
-  - Keyword optimization: Generates EXACTLY 7 keyword phrases (50 characters max each) for the 7 KDP backend keyword fields - guarantees all fields are filled
-  - Uses "bag of words" model, generates market-native keywords optimized for buyer intent, includes variations and synonyms
-  - All prompts emphasize native language generation (not translation) and conversion/sales optimization over traditional SEO
-  - Uses JSON mode for structured responses
-  - Configuration via environment variables: `AI_INTEGRATIONS_OPENAI_API_KEY`, `AI_INTEGRATIONS_OPENAI_BASE_URL`
+- **OpenAI API:** GPT-4o-mini for manuscript analysis (long-tail keywords, entities) and metadata generation (titles, descriptions, 7 KDP backend keywords, pricing). Emphasizes market-native, conversion-focused content, and uses JSON mode for structured responses. Configured via environment variables (`AI_INTEGRATIONS_OPENAI_API_KEY`, `AI_INTEGRATIONS_OPENAI_BASE_URL`).
 
 **KDP Validation System:**
-- **Automatic Compliance:** Validates all generated metadata against Amazon KDP rules
-  - Title + Subtitle: Maximum 200 characters combined with intelligent truncation
-  - Keywords Backend: 7 fields, 50 characters each (exact KDP specification)
-  - Prohibited Terms: Detects and warns about terms like "bestseller", "free", "new", "#1" (case-insensitive with symbol handling)
-  - HTML Sanitization: Removes unsupported tags from descriptions, preserves text content
-  - UI Indicators: Color-coded counters (green ✓, yellow ℹ, red ⚠) for character limits
-- **Implementation:** Validation utilities in `server/utils/kdp-validator.ts`, integrated into metadata generation pipeline
+- **Automatic Compliance:** Validates generated metadata against Amazon KDP rules (e.g., title/subtitle character limits, 7 keyword fields/50 characters each, prohibited terms like "bestseller," HTML sanitization). Provides UI indicators for validation status.
 
 **Database:**
-- **Neon Database:** Serverless PostgreSQL (actively used for data persistence)
-  - Connection via `@neondatabase/serverless` driver using HTTP client (`neon` function)
-  - HTTP-based connection instead of WebSocket for reliability in Replit environment
-  - Connection string in `DATABASE_URL` environment variable
-  - Drizzle ORM layer for type-safe queries and schema management using `drizzle-orm/neon-http`
-  - Migration strategy: `npm run db:push --force` for schema synchronization
+- **Neon Database:** Serverless PostgreSQL, connected via `@neondatabase/serverless` using HTTP client. `DATABASE_URL` environment variable for connection. Drizzle ORM used for type-safe queries.
 
 **Third-Party UI Libraries:**
-- **Radix UI:** Complete set of accessible UI primitives (accordion, dialog, dropdown, etc.)
-- **Embla Carousel:** Carousel/slider functionality
-- **React Dropzone:** File upload with drag-and-drop
-- **Lucide React:** Icon library
-- **date-fns:** Date formatting utilities
-- **jspdf:** PDF generation library for exporting optimization results
-- **html2canvas:** HTML to canvas conversion (available if needed for advanced PDF features)
+- **Radix UI:** Accessible UI primitives.
+- **Embla Carousel:** Carousel/slider functionality.
+- **React Dropzone:** File upload.
+- **Lucide React:** Icon library.
+- **date-fns:** Date formatting.
+- **jspdf:** PDF generation for results export.
 
 **Development Tools:**
-- **Replit Plugins:** Development banner, cartographer navigation, runtime error overlay
-- **esbuild:** Production server bundling
-- **tsx:** TypeScript execution in development
+- **esbuild:** Production server bundling.
+- **tsx:** TypeScript execution in development.
 
 **Font Services:**
-- **Google Fonts:** Inter (primary UI font), JetBrains Mono (monospace for code display)
-
-**Key Integration Points:**
-- OpenAI API calls are centralized in `server/ai/openai-client.ts`
-- File reading uses browser File API on client side
-- Session-based processing allows long-running AI operations without blocking
-- Environment variable configuration for all external service credentials
-- PDF generation handled client-side via `client/src/lib/pdf-exporter.ts`, creating structured documents with author info, series details, and per-market metadata
-
-## Recent Changes (October 22, 2025)
-
-### Library Search and Filtering (Latest)
-- **Search Field**: Added text search to library page enabling users to find manuscripts by title or author (case-insensitive substring matching)
-- **Language Filter**: Added dropdown filter to show manuscripts by language (English, Spanish, Catalan, German, French, Italian, Portuguese)
-- **Combined Filtering**: Search and language filter work together with AND logic for precise results
-- **Result Counter**: Displays "Mostrando X de Y libros" when filters are active
-- **Empty State**: Shows "No se encontraron resultados" message with "Limpiar Filtros" button when no manuscripts match criteria
-- **Performance**: Uses React useMemo for efficient filtering without unnecessary re-renders
-- **UX Design**: Clean UI with Search and Filter icons, responsive layout for mobile/desktop
-- **Implementation**: Client-side filtering in `client/src/pages/library.tsx` with data-testid attributes for testing
-
-### Catalan Language Support
-- **New Language**: Added Catalan (ca) as manuscript language option in configuration form
-- **New Market**: Added "Amazon.es (Catalunya)" market with locale "ca-ES" for Catalan-language metadata generation
-- **AI Integration**: Existing AI prompts automatically generate native Catalan metadata (titles, descriptions, keywords) when ca-ES locale is specified
-- **Use Case**: Authors can now optimize Catalan manuscripts for the Catalan-speaking market in Spain
-- **Configuration**: Catalan option appears in language selector and markets list alongside existing languages
-
-### Corporate Branding
-- **Favicon**: Generated AI-powered book icon favicon and configured in client/index.html
-- **Logo**: Updated AppHeader to display custom logo image (client/src/assets/logo.png) instead of simple BookOpen icon
-- **Footer**: Created AppFooter component with copyright "© {year} Atreyu Servicios Digitales. Todos los derechos reservados."
-- **Consistency**: Footer displays on all pages including home, library, and optimization result views
-- **Implementation**: Centralized branding components (AppHeader, AppFooter) used across entire application
-- **End-to-end testing**: Verified logo, footer, and favicon display correctly across all pages
-
-### Author and Series Information
-- **Added required author field** to manuscripts table and configuration form
-- **Added optional series fields** (seriesName, seriesNumber) for book series tracking
-- **Conditional UI**: seriesNumber field only appears when seriesName is filled
-- **Database schema updated** with `npm run db:push --force` to include new fields
-- **Bug fix**: Corrected server/routes.ts mapping to ensure author, language, and series fields persist correctly
-
-### PDF Export Functionality
-- **New feature**: Export optimization results to PDF with single-click download
-- **Implementation**: `client/src/lib/pdf-exporter.ts` using jspdf library
-- **Content**: Comprehensive PDF includes book info (title, author, series), seed keywords, and detailed metadata for each market
-- **Formatting**: Multi-page layout with automatic page breaks, headers, and formatted sections
-- **User experience**: "Exportar a PDF" button in results panel with loading state and success notification
-- **File naming**: Automatic filename generation based on book title and date
-
-### Type Safety and Validation
-- **Schema updates**: All new fields integrated into Zod validation schemas
-- **Type conversions**: Proper null→undefined handling for optional database fields
-- **LSP compliance**: Zero TypeScript errors after implementation
-- **End-to-end testing**: Verified complete workflow from upload through PDF export
+- **Google Fonts:** Inter, JetBrains Mono.
