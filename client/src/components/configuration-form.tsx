@@ -42,14 +42,18 @@ export function ConfigurationForm({
     resolver: zodResolver(configFormSchema),
     defaultValues: {
       originalTitle: "",
+      author: "",
       language: "",
       targetMarkets: [],
       genre: "",
       targetAudience: "",
+      seriesName: "",
+      seriesNumber: undefined,
     },
   });
 
   const selectedMarkets = form.watch("targetMarkets");
+  const seriesName = form.watch("seriesName");
 
   return (
     <Form {...form}>
@@ -57,29 +61,49 @@ export function ConfigurationForm({
         onSubmit={form.handleSubmit(onSubmit)}
         className="w-full max-w-3xl mx-auto space-y-8"
       >
-        <FormField
-          control={form.control}
-          name="originalTitle"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-sm font-medium uppercase tracking-wide">
-                Título del Libro
-              </FormLabel>
-              <FormControl>
-                <Input
-                  placeholder="Ingresa el título original de tu libro"
-                  {...field}
-                  data-testid="input-title"
-                  className="text-base"
-                />
-              </FormControl>
-              <FormDescription className="text-xs">
-                Este título se mantendrá como base para todos los mercados
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="originalTitle"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm font-medium uppercase tracking-wide">
+                  Título del Libro
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Ingresa el título original"
+                    {...field}
+                    data-testid="input-title"
+                    className="text-base"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="author"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm font-medium uppercase tracking-wide">
+                  Nombre del Autor
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Nombre del autor"
+                    {...field}
+                    data-testid="input-author"
+                    className="text-base"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <div className="grid md:grid-cols-2 gap-6">
           <FormField
@@ -144,29 +168,85 @@ export function ConfigurationForm({
           />
         </div>
 
-        <FormField
-          control={form.control}
-          name="targetAudience"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-sm font-medium uppercase tracking-wide">
-                Audiencia Objetivo (Opcional)
-              </FormLabel>
-              <FormControl>
-                <Input
-                  placeholder="ej., Jóvenes Adultos, Profesionales de Negocios"
-                  {...field}
-                  data-testid="input-audience"
-                  className="text-base"
-                />
-              </FormControl>
-              <FormDescription className="text-xs">
-                Ayuda a la IA a entender tu lector ideal
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="targetAudience"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm font-medium uppercase tracking-wide">
+                  Audiencia Objetivo (Opcional)
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="ej., Jóvenes Adultos"
+                    {...field}
+                    data-testid="input-audience"
+                    className="text-base"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="seriesName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm font-medium uppercase tracking-wide">
+                  Nombre de la Serie (Opcional)
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="ej., Las Crónicas del Reino"
+                    {...field}
+                    data-testid="input-series-name"
+                    className="text-base"
+                  />
+                </FormControl>
+                <FormDescription className="text-xs">
+                  Si es parte de una serie
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {seriesName && (
+          <FormField
+            control={form.control}
+            name="seriesNumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm font-medium uppercase tracking-wide">
+                  Número en la Serie
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="1"
+                    placeholder="ej., 1, 2, 3..."
+                    {...field}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      field.onChange(value ? parseInt(value, 10) : undefined);
+                    }}
+                    value={field.value ?? ""}
+                    data-testid="input-series-number"
+                    className="text-base"
+                  />
+                </FormControl>
+                <FormDescription className="text-xs">
+                  ¿Qué número es este libro en la serie?
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <FormField
           control={form.control}
