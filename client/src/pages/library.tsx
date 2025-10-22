@@ -10,11 +10,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingOverlay } from "@/components/loading-overlay";
 import { ResultsPanel } from "@/components/results-panel";
+import { CopyButton } from "@/components/copy-button";
+import { CodeViewer } from "@/components/code-viewer";
+import { KeywordFields } from "@/components/keyword-fields";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { amazonMarkets, type Manuscript, type Optimization, type UploadProgress, type OptimizationResult } from "@shared/schema";
+import { amazonMarkets, type Manuscript, type Optimization, type UploadProgress, type OptimizationResult, type MarketMetadata } from "@shared/schema";
 import { BookOpen, RefreshCw, History, Calendar, FileText, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -29,6 +33,7 @@ export default function Library() {
   const [selectedMarkets, setSelectedMarkets] = useState<string[]>([]);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [result, setResult] = useState<OptimizationResult | null>(null);
+  const [viewingOptimization, setViewingOptimization] = useState<Optimization | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -427,6 +432,14 @@ export default function Library() {
                                               </div>
                                             )}
                                           </div>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setViewingOptimization(optimization)}
+                                            data-testid={`button-view-optimization-${manuscript.id}-${index}`}
+                                          >
+                                            Ver Detalles
+                                          </Button>
                                         </div>
                                       </div>
                                     ))}
@@ -512,6 +525,180 @@ export default function Library() {
               Re-optimizar
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewingOptimization} onOpenChange={(open) => !open && setViewingOptimization(null)}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto" data-testid="dialog-optimization-details">
+          {viewingOptimization && (
+            <div className="space-y-6">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-2xl">
+                  <History className="h-6 w-6 text-primary" />
+                  Detalles de Optimización
+                </DialogTitle>
+                <DialogDescription className="text-base space-y-2">
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <span className="text-foreground font-medium">
+                      {format(new Date(viewingOptimization.createdAt), "d 'de' MMMM 'de' yyyy 'a las' HH:mm", { locale: es })}
+                    </span>
+                    <span>•</span>
+                    <span>{viewingOptimization.targetMarkets.length} mercado{viewingOptimization.targetMarkets.length !== 1 ? "s" : ""}</span>
+                    <span>•</span>
+                    <span>{viewingOptimization.seedKeywords.length} palabras clave</span>
+                  </div>
+                </DialogDescription>
+              </DialogHeader>
+
+              <Tabs defaultValue={viewingOptimization.targetMarkets[0]} className="w-full">
+                <div className="overflow-x-auto pb-2">
+                  <TabsList className="inline-flex h-auto p-1 bg-muted rounded-lg">
+                    {viewingOptimization.targetMarkets.map((market) => {
+                      const m = amazonMarkets[market as keyof typeof amazonMarkets];
+                      return m ? (
+                        <TabsTrigger
+                          key={market}
+                          value={market}
+                          className="data-[state=active]:bg-background px-4 py-2"
+                          data-testid={`tab-${market}`}
+                        >
+                          <span className="text-xl mr-2">{m.flag}</span>
+                          <span className="text-sm font-medium">{m.name}</span>
+                        </TabsTrigger>
+                      ) : null;
+                    })}
+                  </TabsList>
+                </div>
+
+                {((viewingOptimization.marketResults as any) as MarketMetadata[]).map((marketResult) => (
+                  <TabsContent
+                    key={marketResult.market}
+                    value={marketResult.market}
+                    className="space-y-6 mt-6"
+                  >
+                    <Card className="p-6 space-y-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-foreground">
+                            Título y Subtítulo
+                          </h3>
+                          <CopyButton
+                            text={`${marketResult.title}: ${marketResult.subtitle}`}
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              Título
+                            </label>
+                            <p className="text-base font-medium text-foreground mt-1">
+                              {marketResult.title}
+                            </p>
+                          </div>
+
+                          <div>
+                            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              Subtítulo
+                            </label>
+                            <p className="text-base text-foreground mt-1">
+                              {marketResult.subtitle}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-xs">
+                            <Badge variant={
+                              (marketResult.title.length + marketResult.subtitle.length + 2) <= 200
+                                ? "outline"
+                                : "destructive"
+                            }>
+                              {marketResult.title.length + marketResult.subtitle.length + 2} / 200 caracteres
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-foreground">
+                            Descripción del Libro
+                          </h3>
+                          <CopyButton text={marketResult.description} />
+                        </div>
+
+                        <CodeViewer htmlCode={marketResult.description} />
+                      </div>
+
+                      <Separator />
+
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-foreground">
+                            Palabras Clave (Backend)
+                          </h3>
+                        </div>
+
+                        <KeywordFields fields={marketResult.keywordFields} />
+                      </div>
+
+                      <Separator />
+
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-foreground">
+                          Precio Recomendado
+                        </h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <Card className="p-4 bg-muted/30">
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Precio
+                              </p>
+                              <p className="text-2xl font-bold text-primary">
+                                {marketResult.currency === "USD" && "$"}
+                                {marketResult.currency === "EUR" && "€"}
+                                {marketResult.currency === "GBP" && "£"}
+                                {marketResult.currency === "BRL" && "R$"}
+                                {marketResult.recommendedPrice.toFixed(2)}
+                              </p>
+                            </div>
+                          </Card>
+
+                          <Card className="p-4 bg-muted/30">
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Regalía
+                              </p>
+                              <p className="text-2xl font-bold text-foreground">
+                                {marketResult.royaltyOption}
+                              </p>
+                            </div>
+                          </Card>
+
+                          <Card className="p-4 bg-muted/30">
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                                Ganancia por Venta
+                              </p>
+                              <p className="text-2xl font-bold text-chart-2">
+                                {marketResult.currency === "USD" && "$"}
+                                {marketResult.currency === "EUR" && "€"}
+                                {marketResult.currency === "GBP" && "£"}
+                                {marketResult.currency === "BRL" && "R$"}
+                                {marketResult.estimatedEarnings.toFixed(2)}
+                              </p>
+                            </div>
+                          </Card>
+                        </div>
+                      </div>
+                    </Card>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
