@@ -5,6 +5,7 @@ import { createInsertSchema } from "drizzle-zod";
 export const amazonMarkets = {
   "amazon.com": { name: "Amazon.com (Estados Unidos)", currency: "USD", flag: "🇺🇸", locale: "en-US" },
   "amazon.es": { name: "Amazon.es (España)", currency: "EUR", flag: "🇪🇸", locale: "es-ES" },
+  "amazon.es-ca": { name: "Amazon.es (Catalunya)", currency: "EUR", flag: "🇪🇸", locale: "ca-ES" },
   "amazon.de": { name: "Amazon.de (Alemania)", currency: "EUR", flag: "🇩🇪", locale: "de-DE" },
   "amazon.fr": { name: "Amazon.fr (Francia)", currency: "EUR", flag: "🇫🇷", locale: "fr-FR" },
   "amazon.it": { name: "Amazon.it (Italia)", currency: "EUR", flag: "🇮🇹", locale: "it-IT" },

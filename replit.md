@@ -2,11 +2,13 @@
 
 ## Overview
 
-KDP Optimizer AI is a productivity application designed to automate the optimization of book metadata for Amazon Kindle Direct Publishing (KDP). The application analyzes manuscript content using AI and generates market-specific metadata including titles, descriptions, keywords, categories, and pricing recommendations across multiple Amazon marketplaces (US, Spain, Germany, France, Italy, UK, Brazil).
+KDP Optimizer AI is a productivity application designed to automate the optimization of book metadata for Amazon Kindle Direct Publishing (KDP). The application analyzes manuscript content using AI and generates market-specific metadata including titles, descriptions, keywords, categories, and pricing recommendations across multiple Amazon marketplaces (US, Spain, Spain/Catalan, Germany, France, Italy, UK, Brazil).
 
 The tool follows a multi-step workflow: manuscript upload → configuration → AI analysis → results display. It processes book manuscripts to extract themes and entities, researches optimal keywords for each target market, and generates SEO-optimized metadata ready to copy directly into the KDP dashboard.
 
 **Language:** Application interface is in Spanish (neutral Latin American Spanish) for accessibility to Spanish-speaking authors.
+
+**Supported Manuscript Languages:** English, Spanish, Catalan, German, French, Italian, Portuguese
 
 **KDP Optimization:** Implements best practices based on Amazon's A9 algorithm, focusing on conversion optimization, long-tail keywords, and compliance with KDP content guidelines.
 
@@ -161,7 +163,14 @@ POST /api/manuscripts/:id/reoptimize - Re-optimizes existing manuscript for sele
 
 ## Recent Changes (October 22, 2025)
 
-### Corporate Branding (Latest)
+### Catalan Language Support (Latest)
+- **New Language**: Added Catalan (ca) as manuscript language option in configuration form
+- **New Market**: Added "Amazon.es (Catalunya)" market with locale "ca-ES" for Catalan-language metadata generation
+- **AI Integration**: Existing AI prompts automatically generate native Catalan metadata (titles, descriptions, keywords) when ca-ES locale is specified
+- **Use Case**: Authors can now optimize Catalan manuscripts for the Catalan-speaking market in Spain
+- **Configuration**: Catalan option appears in language selector and markets list alongside existing languages
+
+### Corporate Branding
 - **Favicon**: Generated AI-powered book icon favicon and configured in client/index.html
 - **Logo**: Updated AppHeader to display custom logo image (client/src/assets/logo.png) instead of simple BookOpen icon
 - **Footer**: Created AppFooter component with copyright "© {year} Atreyu Servicios Digitales. Todos los derechos reservados."
