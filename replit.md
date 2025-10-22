@@ -163,7 +163,17 @@ POST /api/manuscripts/:id/reoptimize - Re-optimizes existing manuscript for sele
 
 ## Recent Changes (October 22, 2025)
 
-### Catalan Language Support (Latest)
+### Library Search and Filtering (Latest)
+- **Search Field**: Added text search to library page enabling users to find manuscripts by title or author (case-insensitive substring matching)
+- **Language Filter**: Added dropdown filter to show manuscripts by language (English, Spanish, Catalan, German, French, Italian, Portuguese)
+- **Combined Filtering**: Search and language filter work together with AND logic for precise results
+- **Result Counter**: Displays "Mostrando X de Y libros" when filters are active
+- **Empty State**: Shows "No se encontraron resultados" message with "Limpiar Filtros" button when no manuscripts match criteria
+- **Performance**: Uses React useMemo for efficient filtering without unnecessary re-renders
+- **UX Design**: Clean UI with Search and Filter icons, responsive layout for mobile/desktop
+- **Implementation**: Client-side filtering in `client/src/pages/library.tsx` with data-testid attributes for testing
+
+### Catalan Language Support
 - **New Language**: Added Catalan (ca) as manuscript language option in configuration form
 - **New Market**: Added "Amazon.es (Catalunya)" market with locale "ca-ES" for Catalan-language metadata generation
 - **AI Integration**: Existing AI prompts automatically generate native Catalan metadata (titles, descriptions, keywords) when ca-ES locale is specified

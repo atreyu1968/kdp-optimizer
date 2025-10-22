@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { AppHeader } from "@/components/app-header";
@@ -12,6 +12,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadingOverlay } from "@/components/loading-overlay";
 import { ResultsPanel } from "@/components/results-panel";
 import { CopyButton } from "@/components/copy-button";
@@ -20,9 +22,20 @@ import { KeywordFields } from "@/components/keyword-fields";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { amazonMarkets, type Manuscript, type Optimization, type UploadProgress, type OptimizationResult, type MarketMetadata } from "@shared/schema";
-import { BookOpen, RefreshCw, History, Calendar, FileText, Sparkles } from "lucide-react";
+import { BookOpen, RefreshCw, History, Calendar, FileText, Sparkles, Search, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+
+const availableLanguages = [
+  { value: "all", label: "Todos los idiomas" },
+  { value: "en", label: "Inglés" },
+  { value: "es", label: "Español" },
+  { value: "ca", label: "Catalán" },
+  { value: "de", label: "Alemán" },
+  { value: "fr", label: "Francés" },
+  { value: "it", label: "Italiano" },
+  { value: "pt", label: "Portugués" },
+];
 
 export default function Library() {
   const { data: manuscripts, isLoading } = useQuery<Manuscript[]>({
@@ -35,6 +48,8 @@ export default function Library() {
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [result, setResult] = useState<OptimizationResult | null>(null);
   const [viewingOptimization, setViewingOptimization] = useState<Optimization | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedLanguage, setSelectedLanguage] = useState("all");
   const eventSourceRef = useRef<EventSource | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -234,6 +249,21 @@ export default function Library() {
     queryClient.invalidateQueries({ queryKey: ["/api/manuscripts", "optimizations"] });
   };
 
+  const filteredManuscripts = useMemo(() => {
+    if (!manuscripts) return [];
+    
+    return manuscripts.filter((manuscript) => {
+      const matchesSearch = searchQuery.trim() === "" || 
+        manuscript.originalTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        manuscript.author.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesLanguage = selectedLanguage === "all" || 
+        manuscript.language === selectedLanguage;
+      
+      return matchesSearch && matchesLanguage;
+    });
+  }, [manuscripts, searchQuery, selectedLanguage]);
+
   if (result) {
     return (
       <div className="min-h-screen bg-background">
@@ -275,6 +305,46 @@ export default function Library() {
               </div>
             </div>
           </div>
+
+          {!isLoading && manuscripts && manuscripts.length > 0 && (
+            <Card className="p-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Buscar por título o autor..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                    data-testid="input-search"
+                  />
+                </div>
+                <div className="sm:w-48">
+                  <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                    <SelectTrigger data-testid="select-language-filter">
+                      <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4" />
+                        <SelectValue />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableLanguages.map((lang) => (
+                        <SelectItem key={lang.value} value={lang.value} data-testid={`option-language-${lang.value}`}>
+                          {lang.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {(searchQuery || selectedLanguage !== "all") && (
+                <div className="mt-3 text-sm text-muted-foreground">
+                  Mostrando {filteredManuscripts.length} de {manuscripts.length} libro{manuscripts.length !== 1 ? "s" : ""}
+                </div>
+              )}
+            </Card>
+          )}
 
           {isLoading ? (
             <div className="space-y-4">
@@ -324,9 +394,37 @@ export default function Library() {
                 </Button>
               </div>
             </Card>
+          ) : filteredManuscripts.length === 0 ? (
+            <Card className="p-12">
+              <div className="text-center space-y-4">
+                <div className="flex justify-center">
+                  <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
+                    <Search className="h-10 w-10 text-muted-foreground" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold text-foreground">
+                    No se encontraron resultados
+                  </h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    No hay libros que coincidan con tu búsqueda. Intenta con otros términos o ajusta los filtros.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedLanguage("all");
+                  }}
+                  data-testid="button-clear-filters"
+                >
+                  Limpiar Filtros
+                </Button>
+              </div>
+            </Card>
           ) : (
             <div className="space-y-4">
-              {manuscripts.map((manuscript) => {
+              {filteredManuscripts.map((manuscript) => {
                 const optimizationCount = getOptimizationCount(manuscript.id);
                 const lastOptimization = getLastOptimizationDate(manuscript.id);
 
