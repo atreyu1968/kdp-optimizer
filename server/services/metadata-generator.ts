@@ -107,7 +107,7 @@ export async function generateOptimizationResult(
   request: OptimizationRequest,
   onProgress?: (stage: string, message: string, progress: number, currentMarket?: string) => void
 ) {
-  const { manuscriptText, originalTitle, language, targetMarkets, genre, targetAudience } = request;
+  const { manuscriptText, originalTitle, author, language, targetMarkets, genre, targetAudience, seriesName, seriesNumber } = request;
 
   try {
     onProgress?.("analyzing", "Leyendo y analizando manuscrito...", 5);
@@ -217,10 +217,13 @@ export async function generateOptimizationResult(
     return {
       id: randomUUID(),
       originalTitle,
+      author,
       manuscriptWordCount: wordCount,
       seedKeywords: analysis.seedKeywords.slice(0, 20),
       marketResults,
       createdAt: new Date().toISOString(),
+      seriesName,
+      seriesNumber,
     };
   } catch (error) {
     console.error("Error en generateOptimizationResult:", error);

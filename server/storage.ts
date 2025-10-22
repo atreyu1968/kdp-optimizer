@@ -51,30 +51,52 @@ export class DbStorage implements IStorage {
   }
 
   async getOptimization(id: string): Promise<OptimizationResult | undefined> {
-    const [optimization] = await this.db.select().from(optimizations).where(eq(optimizations.id, id));
+    const result = await this.db
+      .select({
+        optimization: optimizations,
+        manuscript: manuscripts,
+      })
+      .from(optimizations)
+      .innerJoin(manuscripts, eq(optimizations.manuscriptId, manuscripts.id))
+      .where(eq(optimizations.id, id));
     
-    if (!optimization) return undefined;
+    if (result.length === 0) return undefined;
+
+    const { optimization, manuscript } = result[0];
 
     return {
       id: optimization.id,
-      originalTitle: "",
-      manuscriptWordCount: 0,
+      originalTitle: manuscript.originalTitle,
+      author: manuscript.author,
+      manuscriptWordCount: manuscript.wordCount,
       seedKeywords: optimization.seedKeywords,
       marketResults: optimization.marketResults as MarketMetadata[],
       createdAt: optimization.createdAt.toISOString(),
+      seriesName: manuscript.seriesName ?? undefined,
+      seriesNumber: manuscript.seriesNumber ?? undefined,
     };
   }
 
   async getAllOptimizations(): Promise<OptimizationResult[]> {
-    const allOptimizations = await this.db.select().from(optimizations).orderBy(desc(optimizations.createdAt));
+    const results = await this.db
+      .select({
+        optimization: optimizations,
+        manuscript: manuscripts,
+      })
+      .from(optimizations)
+      .innerJoin(manuscripts, eq(optimizations.manuscriptId, manuscripts.id))
+      .orderBy(desc(optimizations.createdAt));
     
-    return allOptimizations.map(opt => ({
-      id: opt.id,
-      originalTitle: "",
-      manuscriptWordCount: 0,
-      seedKeywords: opt.seedKeywords,
-      marketResults: opt.marketResults as MarketMetadata[],
-      createdAt: opt.createdAt.toISOString(),
+    return results.map(({ optimization, manuscript }) => ({
+      id: optimization.id,
+      originalTitle: manuscript.originalTitle,
+      author: manuscript.author,
+      manuscriptWordCount: manuscript.wordCount,
+      seedKeywords: optimization.seedKeywords,
+      marketResults: optimization.marketResults as MarketMetadata[],
+      createdAt: optimization.createdAt.toISOString(),
+      seriesName: manuscript.seriesName ?? undefined,
+      seriesNumber: manuscript.seriesNumber ?? undefined,
     }));
   }
 

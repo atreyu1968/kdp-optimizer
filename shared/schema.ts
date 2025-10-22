@@ -38,10 +38,13 @@ export type BookGenre = typeof bookGenres[number];
 export const optimizationRequestSchema = z.object({
   manuscriptText: z.string().min(100, "El manuscrito debe tener al menos 100 caracteres"),
   originalTitle: z.string().min(1, "El título es requerido"),
+  author: z.string().min(1, "El nombre del autor es requerido"),
   language: z.string().min(2, "El idioma es requerido"),
   targetMarkets: z.array(z.string()).min(1, "Selecciona al menos un mercado"),
   genre: z.string().min(1, "El género es requerido"),
   targetAudience: z.string().optional(),
+  seriesName: z.string().optional(),
+  seriesNumber: z.number().int().positive().optional(),
 });
 
 export type OptimizationRequest = z.infer<typeof optimizationRequestSchema>;
@@ -112,10 +115,13 @@ export type MarketMetadata = z.infer<typeof marketMetadataSchema>;
 export const optimizationResultSchema = z.object({
   id: z.string(),
   originalTitle: z.string(),
+  author: z.string(),
   manuscriptWordCount: z.number(),
   seedKeywords: z.array(z.string()),
   marketResults: z.array(marketMetadataSchema),
   createdAt: z.string(),
+  seriesName: z.string().optional(),
+  seriesNumber: z.number().optional(),
 });
 
 export type OptimizationResult = z.infer<typeof optimizationResultSchema>;
@@ -152,8 +158,12 @@ export const manuscripts = pgTable("manuscripts", {
   originalTitle: text("original_title").notNull(),
   author: text("author").notNull(),
   genre: text("genre").notNull(),
+  targetAudience: text("target_audience"),
+  language: text("language").notNull(),
   manuscriptText: text("manuscript_text").notNull(),
   wordCount: integer("word_count").notNull(),
+  seriesName: text("series_name"),
+  seriesNumber: integer("series_number"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
