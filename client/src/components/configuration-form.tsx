@@ -126,6 +126,7 @@ export function ConfigurationForm({
                   <SelectContent>
                     <SelectItem value="en">Inglés</SelectItem>
                     <SelectItem value="es">Español</SelectItem>
+                    <SelectItem value="ca">Catalán</SelectItem>
                     <SelectItem value="de">Alemán</SelectItem>
                     <SelectItem value="fr">Francés</SelectItem>
                     <SelectItem value="it">Italiano</SelectItem>
