@@ -161,6 +161,14 @@ POST /api/manuscripts/:id/reoptimize - Re-optimizes existing manuscript for sele
 
 ## Recent Changes (October 22, 2025)
 
+### Corporate Branding (Latest)
+- **Favicon**: Generated AI-powered book icon favicon and configured in client/index.html
+- **Logo**: Updated AppHeader to display custom logo image (client/src/assets/logo.png) instead of simple BookOpen icon
+- **Footer**: Created AppFooter component with copyright "© {year} Atreyu Servicios Digitales. Todos los derechos reservados."
+- **Consistency**: Footer displays on all pages including home, library, and optimization result views
+- **Implementation**: Centralized branding components (AppHeader, AppFooter) used across entire application
+- **End-to-end testing**: Verified logo, footer, and favicon display correctly across all pages
+
 ### Author and Series Information
 - **Added required author field** to manuscripts table and configuration form
 - **Added optional series fields** (seriesName, seriesNumber) for book series tracking
