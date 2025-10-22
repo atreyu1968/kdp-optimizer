@@ -38,6 +38,8 @@ Preferred communication style: Simple, everyday language in Spanish.
 - Server-Sent Events (SSE) for real-time progress updates during long-running AI operations
 - EventSource lifecycle management with useRef and cleanup in useEffect to prevent memory leaks
 - Copy-to-clipboard functionality throughout for easy metadata export
+- PDF export functionality using jspdf library for comprehensive results documentation
+- Conditional form fields (seriesNumber only appears when seriesName is filled)
 - Responsive design with mobile breakpoint at 768px
 - Library page for viewing saved manuscripts and optimization history
 - Re-optimization workflow using existing manuscriptId to maintain history linkage
@@ -83,7 +85,7 @@ POST /api/manuscripts/:id/reoptimize - Re-optimizes existing manuscript for sele
 **Database Configuration:** Drizzle Kit configured to use PostgreSQL dialect with push migrations
 
 **Data Models:**
-- **Manuscripts Table:** Stores saved manuscripts with originalTitle, author, genre, targetAudience, language, wordCount, manuscriptText, createdAt
+- **Manuscripts Table:** Stores saved manuscripts with originalTitle, author (required), genre, targetAudience (optional), language (required), wordCount, manuscriptText, seriesName (optional), seriesNumber (optional), createdAt
 - **Optimizations Table:** Stores optimization results with foreign key relationship to manuscripts. Fields include manuscriptId, sessionId, targetMarkets, seedKeywords, marketMetadata (JSONB with titles, descriptions, keywords, pricing per market), validationWarnings, createdAt
 - **Progress Tracking:** In-memory session-based tracking with stages: uploading, analyzing, researching, generating, complete
 
@@ -139,6 +141,8 @@ POST /api/manuscripts/:id/reoptimize - Re-optimizes existing manuscript for sele
 - **React Dropzone:** File upload with drag-and-drop
 - **Lucide React:** Icon library
 - **date-fns:** Date formatting utilities
+- **jspdf:** PDF generation library for exporting optimization results
+- **html2canvas:** HTML to canvas conversion (available if needed for advanced PDF features)
 
 **Development Tools:**
 - **Replit Plugins:** Development banner, cartographer navigation, runtime error overlay
@@ -153,3 +157,27 @@ POST /api/manuscripts/:id/reoptimize - Re-optimizes existing manuscript for sele
 - File reading uses browser File API on client side
 - Session-based processing allows long-running AI operations without blocking
 - Environment variable configuration for all external service credentials
+- PDF generation handled client-side via `client/src/lib/pdf-exporter.ts`, creating structured documents with author info, series details, and per-market metadata
+
+## Recent Changes (October 22, 2025)
+
+### Author and Series Information
+- **Added required author field** to manuscripts table and configuration form
+- **Added optional series fields** (seriesName, seriesNumber) for book series tracking
+- **Conditional UI**: seriesNumber field only appears when seriesName is filled
+- **Database schema updated** with `npm run db:push --force` to include new fields
+- **Bug fix**: Corrected server/routes.ts mapping to ensure author, language, and series fields persist correctly
+
+### PDF Export Functionality
+- **New feature**: Export optimization results to PDF with single-click download
+- **Implementation**: `client/src/lib/pdf-exporter.ts` using jspdf library
+- **Content**: Comprehensive PDF includes book info (title, author, series), seed keywords, and detailed metadata for each market
+- **Formatting**: Multi-page layout with automatic page breaks, headers, and formatted sections
+- **User experience**: "Exportar a PDF" button in results panel with loading state and success notification
+- **File naming**: Automatic filename generation based on book title and date
+
+### Type Safety and Validation
+- **Schema updates**: All new fields integrated into Zod validation schemas
+- **Type conversions**: Proper null→undefined handling for optional database fields
+- **LSP compliance**: Zero TypeScript errors after implementation
+- **End-to-end testing**: Verified complete workflow from upload through PDF export
