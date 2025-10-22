@@ -24,6 +24,12 @@ export function FileUploadZone({
       const file = acceptedFiles[0];
       if (!file) return;
 
+      const MAX_FILE_SIZE = 11 * 1024 * 1024;
+      if (file.size > MAX_FILE_SIZE) {
+        setError(`El archivo es demasiado grande. El tamaño máximo permitido es 11 MB. Tu archivo tiene ${(file.size / (1024 * 1024)).toFixed(1)} MB.`);
+        return;
+      }
+
       setIsReading(true);
 
       try {
