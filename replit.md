@@ -62,6 +62,7 @@ Preferred communication style: Simple, everyday language in Spanish.
 - **Progress Streaming:** Separate GET endpoint `/api/optimize/progress/:sessionId` for SSE connection
 - **Session Management:** Map-based session tracking with connection polling to ensure SSE setup before processing starts
 - **Error Handling:** Centralized error middleware with proper HTTP status codes
+- **File Size Limits:** Express configured with 15MB body limit to accommodate Base64-encoded manuscripts (frontend validates 11MB raw file size, which becomes ~14.6MB after Base64 encoding)
 
 **API Structure:**
 ```
