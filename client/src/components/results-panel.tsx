@@ -11,15 +11,19 @@ import { amazonMarkets, type OptimizationResult } from "@shared/schema";
 import { Download, Sparkles, AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { exportOptimizationToPDF } from "@/lib/pdf-exporter";
+import { useToast } from "@/hooks/use-toast";
 
 interface ResultsPanelProps {
   result: OptimizationResult;
 }
 
 export function ResultsPanel({ result }: ResultsPanelProps) {
+  const { toast } = useToast();
   const [selectedMarket, setSelectedMarket] = useState(
     result.marketResults[0]?.market || ""
   );
+  const [isExporting, setIsExporting] = useState(false);
 
   const selectedResult = result.marketResults.find(
     (r) => r.market === selectedMarket
@@ -28,6 +32,26 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
   if (!selectedResult) return null;
 
   const market = amazonMarkets[selectedResult.market as keyof typeof amazonMarkets];
+
+  const handleExportPDF = async () => {
+    try {
+      setIsExporting(true);
+      await exportOptimizationToPDF(result);
+      toast({
+        title: "PDF generado exitosamente",
+        description: "La descarga debería comenzar automáticamente.",
+      });
+    } catch (error) {
+      console.error("Error al exportar PDF:", error);
+      toast({
+        variant: "destructive",
+        title: "Error al generar PDF",
+        description: "No se pudo crear el archivo PDF. Por favor, intenta de nuevo.",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6">
@@ -63,9 +87,15 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
               </span>
             </div>
           </div>
-          <Button variant="outline" size="sm" data-testid="button-download">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleExportPDF}
+            disabled={isExporting}
+            data-testid="button-download-pdf"
+          >
             <Download className="h-4 w-4 mr-2" />
-            Exportar Resultados
+            {isExporting ? "Generando PDF..." : "Exportar a PDF"}
           </Button>
         </div>
       </div>
