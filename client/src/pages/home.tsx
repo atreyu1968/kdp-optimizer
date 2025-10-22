@@ -5,6 +5,7 @@ import { LoadingOverlay } from "@/components/loading-overlay";
 import { ResultsPanel } from "@/components/results-panel";
 import { ProgressIndicator } from "@/components/progress-indicator";
 import { AppHeader } from "@/components/app-header";
+import { AppFooter } from "@/components/app-footer";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import type { OptimizationResult, UploadProgress } from "@shared/schema";
@@ -306,16 +307,7 @@ export default function Home() {
         )}
       </main>
 
-      <footer className="border-t border-border mt-16">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center text-sm text-muted-foreground">
-            <p>
-              © {new Date().getFullYear()} KDP Optimizer AI. Construido con IA para
-              ayudar a los autores a tener éxito.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <AppFooter />
     </div>
   );
 }
