@@ -138,12 +138,17 @@ export async function generateOptimizationResult(
 ) {
   const { manuscriptText, originalTitle, language, targetMarkets, genre, targetAudience } = request;
 
-  onProgress?.("analyzing", "Leyendo y analizando manuscrito...", 5);
-  
-  const wordCount = manuscriptText.trim().split(/\s+/).length;
+  try {
+    onProgress?.("analyzing", "Leyendo y analizando manuscrito...", 5);
+    
+    const wordCount = manuscriptText.trim().split(/\s+/).length;
 
-  onProgress?.("analyzing", "Extrayendo temas y palabras clave con IA...", 15);
-  const analysis = await analyzeManuscript(manuscriptText, language, genre);
+    onProgress?.("analyzing", "Extrayendo temas y palabras clave con IA...", 15);
+    const analysis = await analyzeManuscript(manuscriptText, language, genre);
+    
+    if (!analysis || !analysis.seedKeywords || analysis.seedKeywords.length === 0) {
+      throw new Error("El análisis del manuscrito no produjo resultados válidos. Por favor, intenta de nuevo.");
+    }
 
   const marketResults: MarketMetadata[] = [];
   const totalMarkets = targetMarkets.length;
@@ -241,14 +246,31 @@ export async function generateOptimizationResult(
     marketIndex++;
   }
 
-  onProgress?.("generating", "Finalizando resultados de optimización...", 95);
+    onProgress?.("generating", "Finalizando resultados de optimización...", 95);
 
-  return {
-    id: randomUUID(),
-    originalTitle,
-    manuscriptWordCount: wordCount,
-    seedKeywords: analysis.seedKeywords.slice(0, 20),
-    marketResults,
-    createdAt: new Date().toISOString(),
-  };
+    return {
+      id: randomUUID(),
+      originalTitle,
+      manuscriptWordCount: wordCount,
+      seedKeywords: analysis.seedKeywords.slice(0, 20),
+      marketResults,
+      createdAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error("Error en generateOptimizationResult:", error);
+    
+    if (error instanceof Error) {
+      if (error.message.includes("API key") || error.message.includes("authentication")) {
+        throw new Error("Error de autenticación con OpenAI. Por favor, contacta al administrador del sistema.");
+      } else if (error.message.includes("timeout") || error.message.includes("ECONNREFUSED")) {
+        throw new Error("La conexión con el servicio de IA tardó demasiado. Por favor, intenta de nuevo.");
+      } else if (error.message.includes("rate limit")) {
+        throw new Error("Se ha excedido el límite de solicitudes a la IA. Por favor, espera unos minutos e intenta de nuevo.");
+      } else {
+        throw new Error(`Error al procesar tu manuscrito: ${error.message}`);
+      }
+    }
+    
+    throw new Error("Ocurrió un error inesperado al optimizar tu manuscrito. Por favor, intenta de nuevo.");
+  }
 }

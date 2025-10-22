@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { FileUploadZone } from "@/components/file-upload-zone";
 import { ConfigurationForm } from "@/components/configuration-form";
 import { LoadingOverlay } from "@/components/loading-overlay";
@@ -9,14 +9,31 @@ import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import type { OptimizationResult, UploadProgress } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [manuscriptText, setManuscriptText] = useState("");
   const [wordCount, setWordCount] = useState(0);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [result, setResult] = useState<OptimizationResult | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const handleFileAccepted = (file: File, content: string) => {
     setUploadedFile(file);
@@ -29,6 +46,16 @@ export default function Home() {
   const handleConfigSubmit = async (configData: any) => {
     setCurrentStep(3);
     
+    // Limpiar cualquier optimización en curso antes de iniciar una nueva
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    
     try {
       const response = await apiRequest("POST", "/api/optimize", {
         ...configData,
@@ -37,15 +64,50 @@ export default function Home() {
       const { sessionId } = await response.json();
       
       const eventSource = new EventSource(`/api/optimize/progress/${sessionId}`);
+      eventSourceRef.current = eventSource;
+      
+      // Función para resetear el timeout watchdog - se reinicia con cada evento
+      const resetWatchdog = () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        timeoutRef.current = setTimeout(() => {
+          eventSource.close();
+          eventSourceRef.current = null;
+          timeoutRef.current = null;
+          setProgress(null);
+          setCurrentStep(2);
+          toast({
+            variant: "destructive",
+            title: "Tiempo de espera agotado",
+            description: "La optimización se detuvo inesperadamente. Por favor, intenta de nuevo o verifica tu conexión a internet.",
+          });
+        }, 20000);
+      };
+      
+      // Iniciar watchdog
+      resetWatchdog();
       
       eventSource.onmessage = (event) => {
+        // Reiniciar watchdog con cada mensaje para detectar si deja de enviar eventos
+        resetWatchdog();
         try {
           const progressData = JSON.parse(event.data);
           if (progressData.stage === "error") {
+            if (timeoutRef.current) {
+              clearTimeout(timeoutRef.current);
+              timeoutRef.current = null;
+            }
             setProgress(null);
             setCurrentStep(2);
-            alert("Error: " + progressData.message);
+            toast({
+              variant: "destructive",
+              title: "Error al optimizar",
+              description: progressData.message || "Ocurrió un error inesperado. Por favor, intenta de nuevo.",
+            });
             eventSource.close();
+            eventSourceRef.current = null;
             return;
           }
           setProgress(progressData as UploadProgress);
@@ -55,6 +117,10 @@ export default function Home() {
       };
 
       eventSource.addEventListener("complete", (event) => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
         try {
           const result = JSON.parse((event as MessageEvent).data);
           setResult(result);
@@ -64,17 +130,35 @@ export default function Home() {
           console.error("Failed to parse result:", e);
         } finally {
           eventSource.close();
+          eventSourceRef.current = null;
         }
       });
 
       eventSource.onerror = (error) => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
         console.error("EventSource error:", error);
         eventSource.close();
+        eventSourceRef.current = null;
         setProgress(null);
+        setCurrentStep(2);
+        toast({
+          variant: "destructive",
+          title: "Error de conexión",
+          description: "Se perdió la conexión con el servidor. Por favor, verifica tu conexión a internet e intenta de nuevo.",
+        });
       };
     } catch (error) {
       console.error("Optimization failed:", error);
       setProgress(null);
+      setCurrentStep(2);
+      toast({
+        variant: "destructive",
+        title: "Error al iniciar optimización",
+        description: error instanceof Error ? error.message : "No se pudo iniciar la optimización. Por favor, intenta de nuevo.",
+      });
     }
   };
 

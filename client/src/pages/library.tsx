@@ -30,6 +30,7 @@ export default function Library() {
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [result, setResult] = useState<OptimizationResult | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const manuscriptOptimizations = useQuery<Record<number, Optimization[]>>({
     queryKey: ["/api/manuscripts", "optimizations", manuscripts?.map(m => m.id).join(",")],
@@ -56,6 +57,10 @@ export default function Library() {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
     };
   }, []);
@@ -89,6 +94,11 @@ export default function Library() {
     try {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
 
       const response = await apiRequest("POST", `/api/manuscripts/${selectedManuscript}/reoptimize`, {
@@ -100,10 +110,38 @@ export default function Library() {
       const eventSource = new EventSource(`/api/optimize/progress/${sessionId}`);
       eventSourceRef.current = eventSource;
 
+      // Función para resetear el timeout watchdog - se reinicia con cada evento
+      const resetWatchdog = () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        timeoutRef.current = setTimeout(() => {
+          eventSource.close();
+          eventSourceRef.current = null;
+          timeoutRef.current = null;
+          setProgress(null);
+          toast({
+            variant: "destructive",
+            title: "Tiempo de espera agotado",
+            description: "La re-optimización se detuvo inesperadamente. Por favor, intenta de nuevo o verifica tu conexión a internet.",
+          });
+        }, 20000);
+      };
+
+      // Iniciar watchdog
+      resetWatchdog();
+
       eventSource.onmessage = (event) => {
+        // Reiniciar watchdog con cada mensaje para detectar si deja de enviar eventos
+        resetWatchdog();
         try {
           const progressData = JSON.parse(event.data);
           if (progressData.stage === "error") {
+            if (timeoutRef.current) {
+              clearTimeout(timeoutRef.current);
+              timeoutRef.current = null;
+            }
             setProgress(null);
             toast({
               title: "Error",
@@ -121,6 +159,10 @@ export default function Library() {
       };
 
       eventSource.addEventListener("complete", (event) => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
         try {
           const result = JSON.parse((event as MessageEvent).data);
           setResult(result);
@@ -140,18 +182,27 @@ export default function Library() {
       });
 
       eventSource.onerror = (error) => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
         console.error("EventSource error:", error);
         eventSource.close();
         eventSourceRef.current = null;
         setProgress(null);
+        toast({
+          variant: "destructive",
+          title: "Error de conexión",
+          description: "Se perdió la conexión con el servidor durante la re-optimización. Por favor, verifica tu conexión a internet e intenta de nuevo.",
+        });
       };
     } catch (error) {
       console.error("Reoptimization failed:", error);
       setProgress(null);
       toast({
-        title: "Error",
-        description: "No se pudo iniciar la re-optimización",
         variant: "destructive",
+        title: "Error al iniciar re-optimización",
+        description: error instanceof Error ? error.message : "No se pudo iniciar la re-optimización. Por favor, intenta de nuevo.",
       });
     }
   };

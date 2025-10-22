@@ -11,8 +11,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/optimize/progress/:sessionId", (req, res) => {
     const { sessionId } = req.params;
     
+    // Obtener el emitter que fue creado proactivamente en el POST endpoint
     let emitter = progressEmitters.get(sessionId);
     if (!emitter) {
+      // Fallback: crear uno nuevo si no existe (no debería suceder en flujo normal)
       emitter = new ProgressEmitter();
       progressEmitters.set(sessionId, emitter);
     }
@@ -23,21 +25,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/optimize", async (req, res) => {
     const sessionId = `session-${Date.now()}`;
     
+    // Crear emitter proactivamente para asegurar que siempre podemos emitir errores
+    let emitter = new ProgressEmitter();
+    progressEmitters.set(sessionId, emitter);
+    
     res.json({ sessionId });
 
     setImmediate(async () => {
       try {
         let attempts = 0;
-        while (attempts < 50 && !progressEmitters.get(sessionId)?.hasConnection()) {
+        // Aumentado a 15 segundos (150 intentos × 100ms) para conexiones lentas en producción
+        while (attempts < 150 && !emitter.hasConnection()) {
           await new Promise(resolve => setTimeout(resolve, 100));
           attempts++;
         }
 
-        const emitter = progressEmitters.get(sessionId);
-        if (!emitter || !emitter.hasConnection()) {
-          console.error("No emitter connection for session:", sessionId);
+        if (!emitter.hasConnection()) {
+          console.error(`[SSE] No se pudo establecer conexión SSE para sesión ${sessionId} después de 15 segundos. Cliente debe manejar timeout.`);
+          progressEmitters.delete(sessionId);
+          // No intentamos emitir error porque no hay response conectada.
+          // El EventSource del cliente debe detectar que no puede conectar y disparar onerror.
           return;
         }
+        
+        console.log(`[SSE] Conexión establecida para sesión ${sessionId}, iniciando optimización...`);
 
         const validation = optimizationRequestSchema.safeParse(req.body);
 
@@ -138,6 +149,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/manuscripts/:id/reoptimize", async (req, res) => {
     const sessionId = `session-${Date.now()}`;
     
+    // Crear emitter proactivamente para asegurar que siempre podemos emitir errores
+    let emitter = new ProgressEmitter();
+    progressEmitters.set(sessionId, emitter);
+    
     res.json({ sessionId });
 
     setImmediate(async () => {
@@ -149,16 +164,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         let attempts = 0;
-        while (attempts < 50 && !progressEmitters.get(sessionId)?.hasConnection()) {
+        // Aumentado a 15 segundos (150 intentos × 100ms) para conexiones lentas en producción
+        while (attempts < 150 && !emitter.hasConnection()) {
           await new Promise(resolve => setTimeout(resolve, 100));
           attempts++;
         }
 
-        const emitter = progressEmitters.get(sessionId);
-        if (!emitter || !emitter.hasConnection()) {
-          console.error("No emitter connection for session:", sessionId);
+        if (!emitter.hasConnection()) {
+          console.error(`[SSE] No se pudo establecer conexión SSE para re-optimización ${sessionId} después de 15 segundos. Cliente debe manejar timeout.`);
+          progressEmitters.delete(sessionId);
+          // No intentamos emitir error porque no hay response conectada.
+          // El EventSource del cliente debe detectar que no puede conectar y disparar onerror.
           return;
         }
+        
+        console.log(`[SSE] Conexión establecida para re-optimización ${sessionId}, iniciando...`);
 
         const manuscript = await storage.getManuscript(id);
         if (!manuscript) {
