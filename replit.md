@@ -110,7 +110,8 @@ POST /api/manuscripts/:id/reoptimize - Re-optimizes existing manuscript for sele
 - **OpenAI API:** GPT-4o-mini model for manuscript analysis and metadata generation
   - Manuscript analysis: Extracts long-tail keywords (3-5 word phrases), character archetypes, and specific themes optimized for Amazon A9 algorithm
   - Metadata generation: Creates conversion-focused metadata with main keyword at START of subtitle, 200-character title+subtitle limit, persuasive HTML descriptions with supported tags only
-  - Keyword optimization: Uses "bag of words" model, generates 40-50 market-native keywords without repeating title/subtitle words, includes synonyms and variants
+  - Keyword optimization: Generates EXACTLY 7 keyword phrases (50 characters max each) for the 7 KDP backend keyword fields - guarantees all fields are filled
+  - Uses "bag of words" model, generates market-native keywords optimized for buyer intent, includes variations and synonyms
   - All prompts emphasize native language generation (not translation) and conversion/sales optimization over traditional SEO
   - Uses JSON mode for structured responses
   - Configuration via environment variables: `AI_INTEGRATIONS_OPENAI_API_KEY`, `AI_INTEGRATIONS_OPENAI_BASE_URL`
@@ -118,10 +119,10 @@ POST /api/manuscripts/:id/reoptimize - Re-optimizes existing manuscript for sele
 **KDP Validation System:**
 - **Automatic Compliance:** Validates all generated metadata against Amazon KDP rules
   - Title + Subtitle: Maximum 200 characters combined with intelligent truncation
-  - Keywords Backend: 7 fields, 249 bytes each (uses TextEncoder for accurate byte counting)
+  - Keywords Backend: 7 fields, 50 characters each (exact KDP specification)
   - Prohibited Terms: Detects and warns about terms like "bestseller", "free", "new", "#1" (case-insensitive with symbol handling)
   - HTML Sanitization: Removes unsupported tags from descriptions, preserves text content
-  - UI Indicators: Color-coded counters (green ✓, yellow ℹ, red ⚠) for character/byte limits
+  - UI Indicators: Color-coded counters (green ✓, yellow ℹ, red ⚠) for character limits
 - **Implementation:** Validation utilities in `server/utils/kdp-validator.ts`, integrated into metadata generation pipeline
 
 **Database:**

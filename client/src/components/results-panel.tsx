@@ -188,7 +188,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
                           <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
                           <AlertTitle className="text-sm font-medium text-foreground">
                             {warning.type === "title_length" && "Longitud del Título"}
-                            {warning.type === "keyword_bytes" && "Tamaño de Palabra Clave"}
+                            {warning.type === "keyword_chars" && "Tamaño de Palabra Clave"}
                             {warning.type === "prohibited_terms" && "Términos Prohibidos"}
                             {warning.type === "html_tags" && "Etiquetas HTML"}
                           </AlertTitle>

@@ -47,15 +47,15 @@ export const optimizationRequestSchema = z.object({
 export type OptimizationRequest = z.infer<typeof optimizationRequestSchema>;
 
 export const keywordFieldSchema = z.object({
-  keywords: z.string().max(249, "Máximo 249 bytes por campo"),
-  byteCount: z.number(),
+  keywords: z.string().max(50, "Máximo 50 caracteres por campo"),
+  charCount: z.number(),
 });
 
 export type KeywordField = z.infer<typeof keywordFieldSchema>;
 
 export const kdpValidationRules = {
   maxTitleSubtitleLength: 200,
-  maxKeywordFieldBytes: 249,
+  maxKeywordFieldChars: 50,
   prohibitedTerms: [
     "bestseller",
     "best seller",
@@ -76,7 +76,7 @@ export const kdpValidationRules = {
 } as const;
 
 export const validationWarningSchema = z.object({
-  type: z.enum(["title_length", "keyword_bytes", "prohibited_terms", "html_tags"]),
+  type: z.enum(["title_length", "keyword_chars", "prohibited_terms", "html_tags"]),
   severity: z.enum(["warning", "error", "info"]),
   message: z.string(),
   field: z.string().optional(),

@@ -9,17 +9,17 @@ interface KeywordFieldsProps {
 }
 
 export function KeywordFields({ fields }: KeywordFieldsProps) {
-  const getByteCountColor = (byteCount: number) => {
-    if (byteCount === 0) return "text-muted-foreground";
-    if (byteCount > 249) return "text-destructive";
-    if (byteCount > 230) return "text-yellow-600 dark:text-yellow-500";
+  const getCharCountColor = (charCount: number) => {
+    if (charCount === 0) return "text-muted-foreground";
+    if (charCount > 50) return "text-destructive";
+    if (charCount > 45) return "text-yellow-600 dark:text-yellow-500";
     return "text-chart-2";
   };
 
-  const getByteCountIcon = (byteCount: number) => {
-    if (byteCount === 0) return null;
-    if (byteCount > 249) return <AlertTriangle className="h-3 w-3" />;
-    if (byteCount > 230) return <Info className="h-3 w-3" />;
+  const getCharCountIcon = (charCount: number) => {
+    if (charCount === 0) return null;
+    if (charCount > 50) return <AlertTriangle className="h-3 w-3" />;
+    if (charCount > 45) return <Info className="h-3 w-3" />;
     return <CheckCircle2 className="h-3 w-3" />;
   };
 
@@ -49,13 +49,13 @@ export function KeywordFields({ fields }: KeywordFieldsProps) {
                     Campo {index + 1}
                   </Badge>
                   <span
-                    className={`text-xs font-medium flex items-center gap-1 ${getByteCountColor(
-                      field.byteCount
+                    className={`text-xs font-medium flex items-center gap-1 ${getCharCountColor(
+                      field.charCount
                     )}`}
-                    data-testid={`byte-count-${index + 1}`}
+                    data-testid={`char-count-${index + 1}`}
                   >
-                    {getByteCountIcon(field.byteCount)}
-                    {field.byteCount}/249 bytes
+                    {getCharCountIcon(field.charCount)}
+                    {field.charCount}/50 caracteres
                   </span>
                 </div>
                 <p className="text-sm text-foreground break-words">
@@ -73,8 +73,8 @@ export function KeywordFields({ fields }: KeywordFieldsProps) {
           💡 Guías de Palabras Clave KDP:
         </p>
         <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
-          <li>Cada campo máximo 249 bytes</li>
-          <li>Separa palabras clave con espacios (no comas)</li>
+          <li>Cada campo máximo 50 caracteres</li>
+          <li>Separa palabras clave con comas</li>
           <li>Sin nombres de autores, ASINs o términos con marca registrada</li>
           <li>Mezcla de palabras clave de cola larga y corta</li>
         </ul>

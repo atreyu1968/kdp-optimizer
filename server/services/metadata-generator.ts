@@ -17,9 +17,9 @@ import {
   validateTitleLength,
   validateMetadata,
   truncateSubtitle,
-  truncateKeywordBytes,
+  truncateKeywordChars,
   sanitizeHTML,
-  validateKeywordBytes,
+  validateKeywordChars,
 } from "../utils/kdp-validator";
 
 function removeWordsFromKeywords(
@@ -39,48 +39,19 @@ function removeWordsFromKeywords(
   });
 }
 
-function distributeKeywordsToFields(keywords: string[]): KeywordField[] {
+function createKeywordFields(keywords: string[]): KeywordField[] {
   const fields: KeywordField[] = [];
-  const encoder = new TextEncoder();
-
-  let currentField = "";
-  let fieldIndex = 0;
-
-  for (const keyword of keywords) {
-    if (fieldIndex >= 7) break;
-
-    const testField = currentField
-      ? `${currentField} ${keyword}`
-      : keyword;
-    const byteCount = encoder.encode(testField).length;
-
-    if (byteCount <= 249) {
-      currentField = testField;
-    } else {
-      if (currentField) {
-        fields.push({
-          keywords: currentField,
-          byteCount: encoder.encode(currentField).length,
-        });
-        fieldIndex++;
-      }
-      currentField = keyword;
-    }
-  }
-
-  if (currentField && fieldIndex < 7) {
+  
+  // La IA ahora devuelve exactamente 7 keywords optimizadas de máximo 50 caracteres cada una
+  for (let i = 0; i < 7; i++) {
+    const keyword = keywords[i] || "";
     fields.push({
-      keywords: currentField,
-      byteCount: encoder.encode(currentField).length,
+      keywords: keyword.substring(0, 50), // Asegurar límite de 50 caracteres
+      charCount: Math.min(keyword.length, 50),
     });
-    fieldIndex++;
   }
-
-  while (fields.length < 7) {
-    fields.push({ keywords: "", byteCount: 0 });
-  }
-
-  return fields.slice(0, 7);
+  
+  return fields;
 }
 
 function calculatePrice(
@@ -181,13 +152,8 @@ export async function generateOptimizationResult(
       genre
     );
 
-    const titleSubtitle = `${metadata.title} ${metadata.subtitle}`;
-    const filteredKeywords = removeWordsFromKeywords(
-      optimizedKeywords,
-      titleSubtitle
-    );
-
-    const keywordFields = distributeKeywordsToFields(filteredKeywords);
+    // La IA ya optimizó las keywords para evitar duplicados con título/subtítulo
+    const keywordFields = createKeywordFields(optimizedKeywords);
 
     let finalTitle = metadata.title;
     let finalSubtitle = metadata.subtitle;
@@ -204,12 +170,12 @@ export async function generateOptimizationResult(
     }
     
     const finalKeywordFields = keywordFields.map((field, index) => {
-      if (field.keywords && !validateKeywordBytes(field.keywords)) {
-        const truncated = truncateKeywordBytes(field.keywords);
-        console.log(`[KDP Validation] Keyword field ${index + 1} truncated from ${field.byteCount} to ${new TextEncoder().encode(truncated).length} bytes`);
+      if (field.keywords && !validateKeywordChars(field.keywords)) {
+        const truncated = truncateKeywordChars(field.keywords);
+        console.log(`[KDP Validation] Keyword field ${index + 1} truncated from ${field.charCount} to ${truncated.length} characters`);
         return {
           keywords: truncated,
-          byteCount: new TextEncoder().encode(truncated).length,
+          charCount: truncated.length,
         };
       }
       return field;

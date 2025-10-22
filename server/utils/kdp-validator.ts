@@ -12,15 +12,12 @@ export function validateTitleLength(title: string, subtitle: string): boolean {
 }
 
 /**
- * Validates if a keyword field is within the byte limit
- * Uses TextEncoder to count bytes, not characters
+ * Validates if a keyword field is within the character limit
  * @param keyword - Keyword string to validate
- * @returns true if <= 249 bytes
+ * @returns true if <= 50 characters
  */
-export function validateKeywordBytes(keyword: string): boolean {
-  const encoder = new TextEncoder();
-  const byteCount = encoder.encode(keyword).length;
-  return byteCount <= kdpValidationRules.maxKeywordFieldBytes;
+export function validateKeywordChars(keyword: string): boolean {
+  return keyword.length <= kdpValidationRules.maxKeywordFieldChars;
 }
 
 /**
@@ -134,19 +131,17 @@ export function truncateSubtitle(
 }
 
 /**
- * Truncates keyword to fit within byte limit
+ * Truncates keyword to fit within character limit
  * Maintains whole words when possible
  * @param keyword - Keyword string to truncate
- * @param maxBytes - Maximum byte count (default 249)
- * @returns Truncated keyword within byte limit
+ * @param maxChars - Maximum character count (default 50)
+ * @returns Truncated keyword within character limit
  */
-export function truncateKeywordBytes(
+export function truncateKeywordChars(
   keyword: string,
-  maxBytes: number = kdpValidationRules.maxKeywordFieldBytes
+  maxChars: number = kdpValidationRules.maxKeywordFieldChars
 ): string {
-  const encoder = new TextEncoder();
-  
-  if (encoder.encode(keyword).length <= maxBytes) {
+  if (keyword.length <= maxChars) {
     return keyword;
   }
   
@@ -156,7 +151,7 @@ export function truncateKeywordBytes(
   for (const word of words) {
     const testString = truncated ? `${truncated} ${word}` : word;
     
-    if (encoder.encode(testString).length <= maxBytes) {
+    if (testString.length <= maxChars) {
       truncated = testString;
     } else {
       break;
@@ -228,15 +223,14 @@ export function validateMetadata(
   }
   
   keywordFields.forEach((keyword, index) => {
-    if (!validateKeywordBytes(keyword)) {
-      const encoder = new TextEncoder();
-      const byteCount = encoder.encode(keyword).length;
+    if (!validateKeywordChars(keyword)) {
+      const charCount = keyword.length;
       warnings.push({
-        type: "keyword_bytes",
+        type: "keyword_chars",
         severity: "warning",
-        message: `Keyword field ${index + 1} exceeds ${kdpValidationRules.maxKeywordFieldBytes} bytes (${byteCount} bytes)`,
+        message: `Keyword field ${index + 1} exceeds ${kdpValidationRules.maxKeywordFieldChars} characters (${charCount} characters)`,
         field: `keyword_${index + 1}`,
-        details: { byteCount, maxBytes: kdpValidationRules.maxKeywordFieldBytes }
+        details: { charCount, maxChars: kdpValidationRules.maxKeywordFieldChars }
       });
     }
   });

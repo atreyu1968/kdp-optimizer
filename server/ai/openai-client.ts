@@ -130,13 +130,14 @@ REQUIREMENTS:
    - Trademarked terms you don't own
    - Subjective claims without proof
 
-5. BACKEND KEYWORDS (50 keywords for the 7 KDP keyword fields):
-   - Generate 50 diverse, market-specific keywords
-   - Prioritize long-tail phrases (3-5 words) over single words
+5. BACKEND KEYWORDS (EXACTLY 7 keyword phrases):
+   - Generate EXACTLY 7 diverse, market-specific keyword phrases
+   - Each phrase MUST be maximum 50 characters
+   - Prioritize long-tail phrases (3-5 words) for each field
    - Include variations, synonyms, and common misspellings relevant to ${locale}
-   - These will be filtered and distributed across 7 fields automatically
    - Mix of different types: subgenre terms, character types, settings, themes, emotional hooks
    - Focus on high-intent buyer keywords, not casual browser terms
+   - Each field should be a complete, optimized phrase separated by commas if multiple keywords fit within 50 chars
 
 6. CATEGORIES (3 category suggestions):
    - 1 main broad category
@@ -144,7 +145,7 @@ REQUIREMENTS:
    - Format: "Category > Subcategory > Sub-subcategory" where applicable
 
 RESPONSE FORMAT:
-Return JSON with: title (string), subtitle (string), description (HTML string), keywords (array of 50 strings), categories (array of 3 strings)
+Return JSON with: title (string), subtitle (string), description (HTML string), keywords (array of EXACTLY 7 strings, each max 50 characters), categories (array of 3 strings)
 
 Remember: Write natively in ${locale} with cultural relevance and local search patterns. Optimize for CONVERSION - every word should help turn a browser into a buyer.`;
 
@@ -181,7 +182,7 @@ export async function optimizeKeywordsForMarket(
   const prompt = `Generate market-optimized backend keywords for Amazon KDP ${market} marketplace (${locale}).
 
 CRITICAL CONTEXT - Backend Keyword Strategy:
-- These go into KDP's 7 backend keyword fields (249 bytes each)
+- These go into KDP's 7 backend keyword fields (50 characters each max)
 - Amazon uses a "BAG OF WORDS" indexing model - logical order is NOT required
 - Amazon automatically indexes all permutations and combinations
 - Words from title/subtitle are ALREADY indexed - repeating them wastes space
@@ -189,21 +190,24 @@ CRITICAL CONTEXT - Backend Keyword Strategy:
 - Generate NATIVELY in ${locale} - understand local search patterns and idioms
 
 Genre: ${genre}
-Base Keywords: ${keywords.slice(0, 30).join(", ")}
+Base Keywords: ${keywords.slice(0, 15).join(", ")}
 
 REQUIREMENTS:
 
-1. LONG-TAIL FOCUS (70% of keywords should be 3-5 word phrases):
-   - Example: "cozy mystery small town secrets" NOT just "mystery"
-   - Example: "enemies to lovers romance series" NOT just "romance"
-   - Long-tail = lower competition + higher buyer intent
+1. EXACTLY 7 KEYWORD PHRASES:
+   - Generate EXACTLY 7 keyword phrases (one per KDP field)
+   - Each phrase MUST be maximum 50 characters
+   - You can combine multiple keywords within one phrase using commas if they fit (e.g., "mystery, thriller, suspense")
+   - Prioritize long-tail phrases when possible within the 50 char limit
 
-2. DIVERSITY - Include different types:
-   - Specific subgenre phrases (e.g., "paranormal romance werewolf pack", "hard boiled detective noir")
-   - Character archetype phrases (e.g., "strong female protagonist mystery", "reluctant hero journey")
-   - Setting-based phrases (e.g., "Victorian London historical fiction", "small town contemporary")
-   - Emotional/benefit phrases (e.g., "heartwarming second chance story", "edge of seat thriller")
-   - Trope-based phrases (e.g., "forbidden love triangle", "chosen one prophecy")
+2. DIVERSITY - Each field should target different aspects:
+   - Field 1: Specific subgenre phrases (e.g., "cozy mystery, amateur sleuth")
+   - Field 2: Character archetype phrases (e.g., "strong heroine, detective duo")
+   - Field 3: Setting-based phrases (e.g., "Victorian London, historical")
+   - Field 4: Emotional/benefit phrases (e.g., "heartwarming, second chance")
+   - Field 5: Trope-based phrases (e.g., "forbidden love, enemies to lovers")
+   - Field 6: Variations & synonyms (e.g., "thriller, suspense, page turner")
+   - Field 7: Additional relevant terms specific to the book
 
 3. NATIVE LANGUAGE GENERATION:
    - Think like a ${locale} reader searching on Amazon
@@ -212,32 +216,20 @@ REQUIREMENTS:
    - Consider cultural nuances in how ${locale} readers search for books
    - DO NOT simply translate - generate authentically
 
-4. VARIATIONS & SYNONYMS:
-   - Include common misspellings if they have search volume
-   - Add plural/singular variations (if not auto-handled by Amazon for that language)
-   - Include synonyms and related terms
-   - Add alternative genre names (e.g., "thriller" + "suspense" + "page turner")
-
-5. FORMAT RULES (CRITICAL):
-   - Each keyword/phrase is a separate array element
-   - NO commas within keyword phrases
-   - NO punctuation (no hyphens, apostrophes, quotes)
+4. FORMAT RULES (CRITICAL):
+   - EXACTLY 7 strings in the array (one per field)
+   - Each string maximum 50 characters
+   - Multiple keywords within one field separated by commas
    - NO prohibited terms: "bestseller", "free", "new", "#1", competitor names
-   - Example good format: ["cozy mystery cat detective", "small town secrets", "amateur sleuth series"]
-   - Example bad format: ["cozy, mystery, cat", "best-seller", "new release"]
+   - Example: ["mystery, thriller, suspense", "detective, sleuth, investigator", "Victorian London, historical"]
 
-6. QUANTITY:
-   - Generate 40-50 keywords/phrases
-   - Will be distributed across 7 fields (up to 249 bytes each) automatically
-   - Prioritize quality and diversity over quantity
-
-7. BUYER INTENT FOCUS:
+5. BUYER INTENT FOCUS:
    - Target searchers ready to BUY, not just browse
    - Specific phrases indicate higher purchase intent
    - Generic single words attract browsers, not buyers
 
 RESPONSE FORMAT:
-Return JSON with: keywords (array of 40-50 individual keyword strings/phrases)
+Return JSON with: keywords (array of EXACTLY 7 strings, each max 50 characters)
 
 Remember: Write for ${locale} native speakers. Think about how they ACTUALLY search when looking to buy a book. Optimize for CONVERSION.`;
 
