@@ -69,10 +69,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const wordCount = validation.data.manuscriptText.split(/\s+/).length;
         const manuscriptData = {
           originalTitle: validation.data.originalTitle,
-          author: validation.data.targetAudience || "Unknown",
+          author: validation.data.author,
           genre: validation.data.genre,
+          targetAudience: validation.data.targetAudience,
+          language: validation.data.language,
           manuscriptText: validation.data.manuscriptText,
           wordCount: wordCount,
+          seriesName: validation.data.seriesName,
+          seriesNumber: validation.data.seriesNumber,
         };
 
         await storage.saveOptimizationWithManuscript(
@@ -199,10 +203,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const optimizationRequest = {
           manuscriptText: manuscript.manuscriptText,
           originalTitle: manuscript.originalTitle,
-          language: language || "es",
+          author: manuscript.author,
+          language: language || manuscript.language || "es",
           targetMarkets,
           genre: manuscript.genre,
-          targetAudience: manuscript.author,
+          targetAudience: manuscript.targetAudience || undefined,
+          seriesName: manuscript.seriesName || undefined,
+          seriesNumber: manuscript.seriesNumber || undefined,
         };
 
         const result = await generateOptimizationResult(
@@ -217,8 +224,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             originalTitle: manuscript.originalTitle,
             author: manuscript.author,
             genre: manuscript.genre,
+            targetAudience: manuscript.targetAudience,
+            language: manuscript.language,
             manuscriptText: manuscript.manuscriptText,
             wordCount: manuscript.wordCount,
+            seriesName: manuscript.seriesName,
+            seriesNumber: manuscript.seriesNumber,
           },
           result.id,
           targetMarkets,
