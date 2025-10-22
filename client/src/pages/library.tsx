@@ -250,6 +250,7 @@ export default function Library() {
           </div>
           <ResultsPanel result={result} />
         </main>
+        <AppFooter />
       </div>
     );
   }
