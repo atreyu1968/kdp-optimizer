@@ -60,7 +60,30 @@ Preferred communication style: Simple, everyday language in Spanish.
 
 ## Recent Changes (October 25, 2025)
 
-### Complete Manuscript Analysis - Full Book Processing (Latest)
+### OpenAI Rate Limiting Protection (Latest - October 25, 2025)
+- **User Issue Fixed**: Error 429 (rate limit exceeded) when optimizing with multiple markets
+- **Root Cause**: System made up to 17 API calls in rapid succession (1 analysis + N metadata + N keywords for N markets), exceeding OpenAI rate limits
+- **Solution Implemented**:
+  - **Retry Logic**: Created `server/ai/retry-utils.ts` with `withRetry()` function
+    - Automatic retry with exponential backoff for 429 errors only
+    - Up to 5 retries: 1s → 2s → 4s → 8s → 16s delays (with jitter)
+    - Fails fast for non-429 errors
+  - **API Call Spacing**: Added delays between OpenAI calls
+    - 600ms delay between `generateMetadata()` and `optimizeKeywordsForMarket()` for same market
+    - 800ms delay between different markets
+    - For 8 markets: ~11 seconds total spacing across 16 API calls
+  - **Wrapped All OpenAI Calls**: All 3 OpenAI functions use `withRetry()`:
+    - `analyzeManuscript()` 
+    - `generateMetadata()`
+    - `optimizeKeywordsForMarket()`
+- **Benefits**: 
+  - Transparent handling of rate limits - users no longer see 429 errors
+  - Proactive spacing reduces likelihood of hitting limits
+  - Exponential backoff prevents overwhelming API during high load
+- **Performance Impact**: ~1.4s extra per market (acceptable vs. complete failure)
+- **Files Modified**: `server/ai/retry-utils.ts` (new), `server/ai/openai-client.ts`, `server/services/metadata-generator.ts`
+
+### Complete Manuscript Analysis - Full Book Processing (October 25, 2025)
 - **Critical Fix**: Resolved issue where AI was only analyzing the first 5,000 characters (~1% of typical books) instead of complete manuscripts
 - **User Reported Issue**: Fixed problem where metadata recommendations were based only on first few pages, missing key themes and plot elements from middle/ending sections
 - **New Implementation**: `prepareManuscriptForAnalysis()` function in `server/ai/openai-client.ts` now sends full manuscript text to OpenAI API
