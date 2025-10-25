@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { withRetry, delayBetweenCalls } from "./retry-utils.js";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -91,18 +92,20 @@ ${manuscriptText}
 
 Return a JSON object with: seedKeywords (array of strings with long-tail phrases), themes (array of specific theme strings), entities (array of strings).`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are an expert Amazon KDP marketing strategist specializing in conversion optimization. Your goal is to identify long-tail, high-intent keywords that attract buyers ready to purchase, not just browsers. You understand that Amazon's A9 algorithm prioritizes sales velocity and conversion rate over traditional SEO metrics.",
-      },
-      { role: "user", content: prompt },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.7,
+  const response = await withRetry(async () => {
+    return await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert Amazon KDP marketing strategist specializing in conversion optimization. Your goal is to identify long-tail, high-intent keywords that attract buyers ready to purchase, not just browsers. You understand that Amazon's A9 algorithm prioritizes sales velocity and conversion rate over traditional SEO metrics.",
+        },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.7,
+    });
   });
 
   const result = JSON.parse(response.choices[0].message.content || "{}");
@@ -196,18 +199,20 @@ Return JSON with: title (string), subtitle (string), description (HTML string), 
 
 Remember: Write natively in ${locale} with cultural relevance and local search patterns. Optimize for CONVERSION - every word should help turn a browser into a buyer.`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are an expert Amazon KDP conversion optimization specialist with deep knowledge of the A9 algorithm. Your primary goal is maximizing sales conversion, not just search visibility. You understand that Amazon rewards books that convert searchers into buyers. You are a skilled copywriter who creates persuasive, benefit-driven content while naturally incorporating keywords. You NEVER use prohibited terms. You write natively in the target language with cultural nuance, never simply translating.",
-      },
-      { role: "user", content: prompt },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.8,
+  const response = await withRetry(async () => {
+    return await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert Amazon KDP conversion optimization specialist with deep knowledge of the A9 algorithm. Your primary goal is maximizing sales conversion, not just search visibility. You understand that Amazon rewards books that convert searchers into buyers. You are a skilled copywriter who creates persuasive, benefit-driven content while naturally incorporating keywords. You NEVER use prohibited terms. You write natively in the target language with cultural nuance, never simply translating.",
+        },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.8,
+    });
   });
 
   const result = JSON.parse(response.choices[0].message.content || "{}");
@@ -280,18 +285,20 @@ Return JSON with: keywords (array of EXACTLY 7 strings, each max 50 characters)
 
 Remember: Write for ${locale} native speakers. Think about how they ACTUALLY search when looking to buy a book. Optimize for CONVERSION.`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are an expert in Amazon KDP backend keyword optimization and international market research. You understand the 'bag of words' indexing model and prioritize long-tail, high-intent keywords. You generate keywords natively in each language based on local search behavior, cultural nuances, and regional idioms - you never simply translate. Your goal is conversion optimization: attracting buyers, not just browsers.",
-      },
-      { role: "user", content: prompt },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.7,
+  const response = await withRetry(async () => {
+    return await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert in Amazon KDP backend keyword optimization and international market research. You understand the 'bag of words' indexing model and prioritize long-tail, high-intent keywords. You generate keywords natively in each language based on local search behavior, cultural nuances, and regional idioms - you never simply translate. Your goal is conversion optimization: attracting buyers, not just browsers.",
+        },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.7,
+    });
   });
 
   const result = JSON.parse(response.choices[0].message.content || "{}");

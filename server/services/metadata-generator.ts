@@ -3,6 +3,7 @@ import {
   generateMetadata,
   optimizeKeywordsForMarket,
 } from "../ai/openai-client";
+import { delayBetweenCalls } from "../ai/retry-utils.js";
 import {
   amazonMarkets,
   pricingRules,
@@ -143,6 +144,9 @@ export async function generateOptimizationResult(
       market.locale
     );
 
+    // Delay entre llamadas API del mismo mercado
+    await delayBetweenCalls(600);
+
     onProgress?.("researching", `Optimizando palabras clave para ${market.name}...`, baseProgress + 15);
 
     const optimizedKeywords = await optimizeKeywordsForMarket(
@@ -210,6 +214,11 @@ export async function generateOptimizationResult(
     });
 
     marketIndex++;
+    
+    // Agregar delay entre mercados para evitar rate limiting
+    if (marketIndex < totalMarkets) {
+      await delayBetweenCalls(800); // 800ms entre cada mercado
+    }
   }
 
     onProgress?.("generating", "Finalizando resultados de optimización...", 95);
