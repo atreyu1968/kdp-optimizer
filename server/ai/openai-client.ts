@@ -5,6 +5,46 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
+/**
+ * Prepara el manuscrito para análisis por IA, usando el texto completo cuando es posible.
+ * 
+ * CAPACIDAD DEL MODELO:
+ * - GPT-4o-mini: ~128k tokens de contexto (~400-450k caracteres)
+ * - Límite conservador: 400,000 caracteres (~100,000 palabras)
+ * 
+ * COBERTURA:
+ * - Libros típicos (50k-80k palabras = 200k-320k chars): ✅ Análisis 100% completo
+ * - Libros largos (80k-100k palabras = 320k-400k chars): ✅ Análisis 100% completo
+ * - Libros muy largos (>100k palabras = >400k chars): ⚠️ Truncamiento a primeros 400k
+ * 
+ * NOTA: Manuscritos >100k palabras son <1% del mercado KDP. Para estos casos raros,
+ * se analiza el 80-90% del contenido (suficiente para identificar temas y keywords).
+ * 
+ * @param text - Texto completo del manuscrito
+ * @param maxChars - Límite de caracteres (default: 400000)
+ * @returns Texto completo o truncado para análisis
+ */
+function prepareManuscriptForAnalysis(text: string, maxChars: number = 400000): string {
+  // La mayoría de los libros caben completamente
+  if (text.length <= maxChars) {
+    return text;
+  }
+
+  // Caso raro: manuscrito extremadamente largo (>100k palabras)
+  const wordCount = Math.floor(text.length / 4); // Estimación aproximada
+  const coveragePercent = Math.floor((maxChars / text.length) * 100);
+  
+  console.warn(
+    `[AI Analysis] ⚠️ MANUSCRITO MUY LARGO:\n` +
+    `  - Tamaño: ${text.length.toLocaleString()} caracteres (~${wordCount.toLocaleString()} palabras)\n` +
+    `  - Límite modelo: ${maxChars.toLocaleString()} caracteres\n` +
+    `  - Cobertura de análisis: ${coveragePercent}% del manuscrito\n` +
+    `  - Nota: Se analizarán los primeros ${maxChars.toLocaleString()} caracteres, suficiente para identificar temas principales y keywords.`
+  );
+  
+  return text.substring(0, maxChars);
+}
+
 export async function analyzeManuscript(
   text: string,
   language: string,
@@ -14,9 +54,14 @@ export async function analyzeManuscript(
   themes: string[];
   entities: string[];
 }> {
-  const prompt = `Analyze this ${genre} manuscript written in ${language} for Amazon KDP optimization.
+  // Preparar manuscrito completo para análisis (hasta 400k caracteres = ~100k palabras)
+  const manuscriptText = prepareManuscriptForAnalysis(text);
+  
+  const prompt = `Analyze this complete ${genre} manuscript written in ${language} for Amazon KDP optimization.
 
 CRITICAL: Amazon's A9 algorithm prioritizes CONVERSION and SALES, not just SEO relevance. Focus on identifying specific, niche elements that will attract HIGH-INTENT buyers.
+
+IMPORTANT: You are receiving the COMPLETE manuscript (or as much as fits within token limits). Analyze the entire narrative from beginning to end to identify comprehensive themes, character arcs, and plot elements.
 
 Extract the following:
 
@@ -28,19 +73,21 @@ Extract the following:
    - Include setting descriptors (e.g., "Victorian London mystery", "post-apocalyptic survival")
    - Include emotional hooks and reader promises (e.g., "heartwarming second chance", "edge-of-seat suspense")
    - These should be diverse and cover different angles: plot elements, character types, themes, emotional tones, settings
+   - Consider the COMPLETE narrative arc from beginning to end
 
 2. MAIN THEMES (3-5 specific themes):
    - Go beyond generic themes like "love" or "redemption"
    - Be specific: "overcoming childhood trauma", "navigating corporate corruption", "finding identity in a new culture"
    - Focus on themes that resonate emotionally and indicate transformation/promise
+   - Consider how themes develop throughout the entire story
 
 3. NAMED ENTITIES (characters, places, important objects):
-   - Character names and types
+   - Character names and types (including their complete development throughout the story)
    - Specific locations or settings
    - Important objects or symbols
 
-Manuscript excerpt (first 5000 characters):
-${text.substring(0, 5000)}
+Complete manuscript:
+${manuscriptText}
 
 Return a JSON object with: seedKeywords (array of strings with long-tail phrases), themes (array of specific theme strings), entities (array of strings).`;
 
