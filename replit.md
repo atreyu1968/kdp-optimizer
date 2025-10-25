@@ -60,7 +60,28 @@ Preferred communication style: Simple, everyday language in Spanish.
 
 ## Recent Changes (October 25, 2025)
 
-### OpenAI Rate Limiting Protection (Latest - October 25, 2025)
+### Strategic Manuscript Sampling - Token Optimization (Latest - October 25, 2025)
+- **User Issue**: Large manuscripts (>100k words) consumed too many tokens, causing rate limit errors even with retries
+- **Root Cause**: System sent up to 400,000 characters (~100k tokens) per analysis, exhausting API quotas rapidly
+- **Solution - Strategic Sampling**:
+  - **For manuscripts >60k characters**: Sample key sections instead of sending everything
+    - First 25,000 chars (introduction, characters, initial conflict)
+    - 20,000 chars from MIDDLE (development, plot twists)
+    - Last 15,000 chars (climax, resolution)
+    - **Total: ~60k chars (~15k tokens)** instead of 400k chars (~100k tokens)
+  - **For manuscripts ≤60k characters**: Send complete text (optimal for short books)
+  - **Benefits**:
+    - ✅ 85% reduction in token consumption (100k → 15k tokens)
+    - ✅ Complete narrative coverage (beginning, middle, end)
+    - ✅ Avoids rate limiting for large manuscripts
+    - ✅ Faster analysis and lower costs
+    - ✅ Maintains metadata quality with representative samples
+- **Example - User's 473k character manuscript**:
+  - Before: 473,377 chars sent → ~118k tokens → Rate limit errors
+  - Now: 60,000 chars sent → ~15k tokens → Works smoothly
+- **Files Modified**: `server/ai/openai-client.ts` (prepareManuscriptForAnalysis function)
+
+### OpenAI Rate Limiting Protection (October 25, 2025)
 - **User Issue Fixed**: Error 429 (rate limit exceeded) when optimizing with multiple markets
 - **Root Cause**: System made up to 17 API calls in rapid succession (1 analysis + N metadata + N keywords for N markets), exceeding OpenAI rate limits
 - **Solution Implemented**:
