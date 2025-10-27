@@ -2,6 +2,21 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart3, Users, BookOpen, TrendingUp } from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
+import { useMemo } from "react";
 
 interface PenName {
   id: number;
@@ -53,6 +68,90 @@ export default function AuraDashboard() {
 
   const isLoading = loadingPenNames || loadingBooks || loadingSales;
 
+  // Prepare chart data
+  const royaltyByDate = useMemo(() => {
+    if (!sales) return [];
+    
+    // Filter last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const dateMap = new Map<string, number>();
+    sales
+      .filter(sale => new Date(sale.saleDate) >= thirtyDaysAgo)
+      .forEach(sale => {
+        const dateKey = new Date(sale.saleDate).toISOString().split('T')[0]; // YYYY-MM-DD
+        const royalty = parseFloat(sale.royalty);
+        dateMap.set(dateKey, (dateMap.get(dateKey) || 0) + royalty);
+      });
+
+    // Sort by date ascending
+    return Array.from(dateMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([dateKey, royalty]) => ({ 
+        date: new Date(dateKey).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
+        royalty 
+      }));
+  }, [sales]);
+
+  const salesByMarketplace = useMemo(() => {
+    if (!sales) return [];
+    
+    const marketMap = new Map<string, number>();
+    sales.forEach(sale => {
+      const royalty = parseFloat(sale.royalty);
+      marketMap.set(sale.marketplace, (marketMap.get(sale.marketplace) || 0) + royalty);
+    });
+
+    return Array.from(marketMap.entries())
+      .map(([marketplace, royalty]) => ({ 
+        marketplace: marketplace.replace('Amazon.com.', '').toUpperCase(), 
+        royalty 
+      }))
+      .sort((a, b) => b.royalty - a.royalty);
+  }, [sales]);
+
+  const royaltyByPenName = useMemo(() => {
+    if (!sales || !penNames) return [];
+    
+    const penNameMap = new Map<number, number>();
+    sales.forEach(sale => {
+      const royalty = parseFloat(sale.royalty);
+      penNameMap.set(sale.penNameId, (penNameMap.get(sale.penNameId) || 0) + royalty);
+    });
+
+    return Array.from(penNameMap.entries())
+      .map(([penNameId, royalty]) => ({
+        name: penNames.find(p => p.id === penNameId)?.name || 'Desconocido',
+        royalty
+      }))
+      .sort((a, b) => b.royalty - a.royalty);
+  }, [sales, penNames]);
+
+  const kenpByDate = useMemo(() => {
+    if (!sales) return [];
+    
+    // Filter last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const dateMap = new Map<string, number>();
+    sales
+      .filter(s => s.transactionType === 'KENP Read' && new Date(s.saleDate) >= thirtyDaysAgo)
+      .forEach(sale => {
+        const dateKey = new Date(sale.saleDate).toISOString().split('T')[0]; // YYYY-MM-DD
+        dateMap.set(dateKey, (dateMap.get(dateKey) || 0) + sale.unitsOrPages);
+      });
+
+    // Sort by date ascending
+    return Array.from(dateMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([dateKey, pages]) => ({ 
+        date: new Date(dateKey).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
+        pages 
+      }));
+  }, [sales]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -64,7 +163,7 @@ export default function AuraDashboard() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Total Seudónimos
             </CardTitle>
@@ -85,7 +184,7 @@ export default function AuraDashboard() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Total Libros
             </CardTitle>
@@ -106,7 +205,7 @@ export default function AuraDashboard() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Ventas Totales
             </CardTitle>
@@ -127,7 +226,7 @@ export default function AuraDashboard() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Páginas KENP
             </CardTitle>
@@ -163,71 +262,264 @@ export default function AuraDashboard() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Seudónimos Activos</CardTitle>
-              <CardDescription>Tus identidades de autor</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {penNames?.slice(0, 5).map((penName) => (
-                    <div key={penName.id} className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{penName.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {books?.filter(b => b.penNameId === penName.id).length || 0} libros
-                      </span>
-                    </div>
-                  ))}
-                  {(penNames?.length || 0) > 5 && (
-                    <p className="text-xs text-muted-foreground">
-                      ... y {(penNames?.length || 0) - 5} más
-                    </p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <>
+          {/* Charts Section */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Royalty by Date */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Ingresos por Fecha</CardTitle>
+                <CardDescription>Evolución de regalías (últimos 30 días)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <Skeleton className="h-[300px] w-full" />
+                ) : royaltyByDate.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={royaltyByDate}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        dataKey="date" 
+                        className="text-xs"
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <YAxis 
+                        className="text-xs"
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'Regalías']}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="royalty" 
+                        stroke="hsl(var(--primary))" 
+                        fill="hsl(var(--primary))"
+                        fillOpacity={0.3}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                    No hay datos de ventas
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Actividad Reciente</CardTitle>
-              <CardDescription>Últimas transacciones</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {sales?.slice(-5).reverse().map((sale, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground truncate max-w-[200px]">
-                        {books?.find(b => b.id === sale.bookId)?.title || 'Libro desconocido'}
-                      </span>
-                      <span className="text-xs font-medium">
-                        {sale.transactionType === 'KENP Read' ? `${sale.unitsOrPages} pág` : sale.transactionType}
-                      </span>
-                    </div>
-                  ))}
-                  {!sales || sales.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      No hay transacciones registradas
-                    </p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+            {/* KENP Pages by Date */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Páginas KENP Leídas</CardTitle>
+                <CardDescription>Tendencia de lecturas KU (últimos 30 días)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <Skeleton className="h-[300px] w-full" />
+                ) : kenpByDate.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={kenpByDate}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        dataKey="date" 
+                        className="text-xs"
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <YAxis 
+                        className="text-xs"
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                        formatter={(value: number) => [`${value.toLocaleString()} pág`, 'KENP']}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="pages" 
+                        stroke="hsl(var(--chart-2))" 
+                        strokeWidth={2}
+                        dot={{ fill: 'hsl(var(--chart-2))' }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                    No hay datos de KENP
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Sales by Marketplace */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Ventas por Marketplace</CardTitle>
+                <CardDescription>Distribución de ingresos por país</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <Skeleton className="h-[300px] w-full" />
+                ) : salesByMarketplace.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={salesByMarketplace}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        dataKey="marketplace" 
+                        className="text-xs"
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <YAxis 
+                        className="text-xs"
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'Regalías']}
+                      />
+                      <Bar 
+                        dataKey="royalty" 
+                        fill="hsl(var(--chart-3))" 
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                    No hay datos de ventas
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Royalty by Pen Name */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Ingresos por Seudónimo</CardTitle>
+                <CardDescription>Rendimiento de cada autor</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <Skeleton className="h-[300px] w-full" />
+                ) : royaltyByPenName.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={royaltyByPenName} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        type="number"
+                        className="text-xs"
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <YAxis 
+                        type="category"
+                        dataKey="name" 
+                        className="text-xs"
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        width={100}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'Regalías']}
+                      />
+                      <Bar 
+                        dataKey="royalty" 
+                        fill="hsl(var(--chart-4))" 
+                        radius={[0, 4, 4, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                    No hay datos de ventas
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Lists Section */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Seudónimos Activos</CardTitle>
+                <CardDescription>Tus identidades de autor</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {penNames?.slice(0, 5).map((penName) => (
+                      <div key={penName.id} className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{penName.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {books?.filter(b => b.penNameId === penName.id).length || 0} libros
+                        </span>
+                      </div>
+                    ))}
+                    {(penNames?.length || 0) > 5 && (
+                      <p className="text-xs text-muted-foreground">
+                        ... y {(penNames?.length || 0) - 5} más
+                      </p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Actividad Reciente</CardTitle>
+                <CardDescription>Últimas transacciones</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {sales?.slice(-5).reverse().map((sale, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground truncate max-w-[200px]">
+                          {books?.find(b => b.id === sale.bookId)?.title || 'Libro desconocido'}
+                        </span>
+                        <span className="text-xs font-medium">
+                          {sale.transactionType === 'KENP Read' ? `${sale.unitsOrPages} pág` : sale.transactionType}
+                        </span>
+                      </div>
+                    ))}
+                    {!sales || sales.length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        No hay transacciones registradas
+                      </p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </>
       )}
     </div>
   );
