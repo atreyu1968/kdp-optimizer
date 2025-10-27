@@ -6,6 +6,7 @@ import { SchedulePublicationsDialog } from "@/components/schedule-publications-d
 import { MarkPublishedDialog } from "@/components/mark-published-dialog";
 import { ReschedulePublicationDialog } from "@/components/reschedule-publication-dialog";
 import { DeletePublicationDialog } from "@/components/delete-publication-dialog";
+import { TaskChecklist } from "@/components/task-checklist";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -616,6 +617,14 @@ export default function Publications() {
                             </div>
                           );
                         })}
+                      </div>
+
+                      {/* Task Checklist */}
+                      <div className="mt-6">
+                        <TaskChecklist 
+                          manuscriptId={manuscript.id} 
+                          manuscriptTitle={manuscript.originalTitle}
+                        />
                       </div>
 
                       {/* Actions */}
