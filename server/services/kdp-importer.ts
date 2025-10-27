@@ -4,6 +4,51 @@ import { storage } from '../storage';
 import type { InsertKdpSale, InsertAuraBook, PenName } from '@shared/schema';
 import { nanoid } from 'nanoid';
 
+/**
+ * Parsea una fecha de Excel que puede venir como número serial o como string
+ * Excel almacena fechas como números (días desde 1900-01-01)
+ * Retorna null si la fecha no es válida para que pueda ser manejada apropiadamente
+ */
+function parseExcelDate(value: any): Date | null {
+  // Valores vacíos, undefined, null, 0, o string vacío
+  if (!value || value === 0 || (typeof value === 'string' && value.trim() === '')) {
+    console.warn('[KDP Import] Valor de fecha inválido o vacío, retornando null');
+    return null;
+  }
+
+  // Si ya es una Date, retornarla
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return value;
+  }
+
+  // Si es un número (fecha serial de Excel) mayor que 0
+  if (typeof value === 'number' && value > 0) {
+    // Excel epoch starts on 1900-01-01 (with a bug counting 1900 as leap year)
+    // JavaScript epoch is 1970-01-01
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30)); // 30 Dec 1899
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const date = new Date(excelEpoch.getTime() + value * msPerDay);
+    
+    if (!isNaN(date.getTime())) {
+      console.log(`[KDP Import] Fecha Excel serial ${value} → ${date.toISOString()}`);
+      return date;
+    }
+  }
+
+  // Si es un string, intentar parsearlo
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = new Date(value);
+    if (!isNaN(parsed.getTime())) {
+      return parsed;
+    }
+    console.warn(`[KDP Import] No se pudo parsear fecha string: "${value}", retornando null`);
+    return null;
+  }
+
+  console.warn(`[KDP Import] Tipo de fecha desconocido: ${typeof value}, valor: ${value}, retornando null`);
+  return null;
+}
+
 interface KdpCombinedSale {
   'Fecha de las regalías': string;
   'Título': string;
@@ -123,7 +168,7 @@ async function getOrCreateBook(
   title: string,
   penNameId: number,
   marketplace: string,
-  booksCache: Map<string, { id: number; marketplaces: string[] }>
+  booksCache: Map<string, { id: number; marketplaces: string[]; publishDate: Date | null }>
 ): Promise<{ bookId: number; wasCreated: boolean }> {
   // Buscar en cache
   const existing = booksCache.get(asin);
@@ -139,14 +184,14 @@ async function getOrCreateBook(
     return { bookId: existing.id, wasCreated: false };
   }
   
-  // Crear nuevo libro
+  // Crear nuevo libro (publishDate se actualizará después con la primera venta)
   const book = await storage.createAuraBook({
     penNameId,
     seriesId: null,
     asin,
     title,
     subtitle: null,
-    publishDate: null,
+    publishDate: null, // Se actualizará después
     price: null,
     marketplaces: [marketplace],
   });
@@ -155,6 +200,7 @@ async function getOrCreateBook(
   booksCache.set(asin, {
     id: book.id,
     marketplaces: [marketplace],
+    publishDate: null,
   });
   
   return { bookId: book.id, wasCreated: true };
@@ -192,7 +238,7 @@ export async function importKdpXlsx(
 
     // Inicializar caches para optimizar rendimiento
     const penNamesCache = new Map<string, PenName>();
-    const booksCache = new Map<string, { id: number; marketplaces: string[] }>();
+    const booksCache = new Map<string, { id: number; marketplaces: string[]; publishDate: Date | null }>();
     
     // Cargar pen names existentes en cache
     const existingPenNames = await storage.getAllPenNames();
@@ -206,8 +252,12 @@ export async function importKdpXlsx(
       booksCache.set(book.asin, {
         id: book.id,
         marketplaces: [...book.marketplaces],
+        publishDate: book.publishDate ? new Date(book.publishDate) : null,
       });
     });
+    
+    // Mapeo para tracking de fechas de publicación más tempranas por libro
+    const bookEarliestDates = new Map<number, Date>();
 
     // Procesar hoja "Ventas combinadas"
     if (workbook.SheetNames.includes('Ventas combinadas')) {
@@ -242,6 +292,13 @@ export async function importKdpXlsx(
             stats.booksCreated++;
           }
           
+          // Validar fecha
+          const saleDate = parseExcelDate(row['Fecha de las regalías']);
+          if (!saleDate) {
+            stats.errors.push(`Fecha inválida para ${row['Título']}, fila omitida`);
+            continue;
+          }
+          
           // Normalizar tipo de transacción
           const transactionType = normalizeTransactionType(row['Tipo de transacción']);
           
@@ -249,7 +306,7 @@ export async function importKdpXlsx(
           await storage.createKdpSale({
             bookId,
             penNameId: penName.id,
-            saleDate: new Date(row['Fecha de las regalías']),
+            saleDate,
             marketplace,
             transactionType: transactionType as any,
             royalty: row['Regalías'].toString(),
@@ -259,6 +316,13 @@ export async function importKdpXlsx(
             title: row['Título'],
             importBatchId: batchId,
           });
+          
+          // Solo rastrear fecha de publicación para VENTAS reales (no KENP ni Free)
+          if (transactionType === "Sale") {
+            if (!bookEarliestDates.has(bookId) || saleDate < bookEarliestDates.get(bookId)!) {
+              bookEarliestDates.set(bookId, saleDate);
+            }
+          }
           
           stats.salesImported++;
         } catch (error) {
@@ -300,11 +364,18 @@ export async function importKdpXlsx(
             stats.booksCreated++;
           }
           
+          // Validar fecha
+          const saleDate = parseExcelDate(row['Fecha']);
+          if (!saleDate) {
+            stats.errors.push(`Fecha inválida para ${row['Título']}, fila omitida`);
+            continue;
+          }
+          
           // Crear registro KENP (regalías por página se calculan después)
           await storage.createKdpSale({
             bookId,
             penNameId: penName.id,
-            saleDate: new Date(row['Fecha']),
+            saleDate,
             marketplace,
             transactionType: 'KENP Read',
             royalty: '0', // Se calcula por el total de páginas del mes
@@ -356,11 +427,18 @@ export async function importKdpXlsx(
               stats.booksCreated++;
             }
             
+            // Validar fecha
+            const saleDate = parseExcelDate(row['Fecha']);
+            if (!saleDate) {
+              stats.errors.push(`Fecha inválida para ${row['Título']}, fila omitida`);
+              continue;
+            }
+            
             // Crear registro de promoción gratuita
             await storage.createKdpSale({
               bookId,
               penNameId: penName.id,
-              saleDate: new Date(row['Fecha']),
+              saleDate,
               marketplace,
               transactionType: 'Free',
               royalty: '0',
@@ -376,6 +454,16 @@ export async function importKdpXlsx(
         } catch (error) {
           stats.errors.push(`Error procesando pedido gratuito: ${error instanceof Error ? error.message : 'Unknown'}`);
         }
+      }
+    }
+
+    // Actualizar fechas de publicación de libros basándose en la primera venta
+    console.log(`[KDP Import] Actualizando fechas de publicación para ${bookEarliestDates.size} libros...`);
+    for (const [bookId, publishDate] of Array.from(bookEarliestDates.entries())) {
+      const cachedBook = Array.from(booksCache.values()).find(b => b.id === bookId);
+      if (!cachedBook?.publishDate || publishDate < cachedBook.publishDate) {
+        await storage.updateAuraBook(bookId, { publishDate });
+        console.log(`[KDP Import] Libro ID ${bookId} → publishDate: ${publishDate.toISOString()}`);
       }
     }
 
