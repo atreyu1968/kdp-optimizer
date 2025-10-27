@@ -4,10 +4,19 @@ import { AppHeader } from "@/components/app-header";
 import { AppFooter } from "@/components/app-footer";
 import { SchedulePublicationsDialog } from "@/components/schedule-publications-dialog";
 import { MarkPublishedDialog } from "@/components/mark-published-dialog";
+import { ReschedulePublicationDialog } from "@/components/reschedule-publication-dialog";
+import { DeletePublicationDialog } from "@/components/delete-publication-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   Calendar as CalendarIcon,
   CheckCircle2, 
@@ -17,6 +26,9 @@ import {
   TrendingUp,
   Loader2,
   ExternalLink,
+  MoreVertical,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { amazonMarkets, type Manuscript, type Publication, type AmazonMarket } from "@shared/schema";
 import { format } from "date-fns";
@@ -48,6 +60,18 @@ interface MarkPublishedDialogState {
   manuscriptTitle: string;
 }
 
+interface RescheduleDialogState {
+  open: boolean;
+  publication: Publication | null;
+  manuscriptTitle: string;
+}
+
+interface DeleteDialogState {
+  open: boolean;
+  publication: Publication | null;
+  manuscriptTitle: string;
+}
+
 export default function Publications() {
   const [scheduleDialog, setScheduleDialog] = useState<ScheduleDialogState>({
     open: false,
@@ -57,6 +81,18 @@ export default function Publications() {
   });
 
   const [markPublishedDialog, setMarkPublishedDialog] = useState<MarkPublishedDialogState>({
+    open: false,
+    publication: null,
+    manuscriptTitle: "",
+  });
+
+  const [rescheduleDialog, setRescheduleDialog] = useState<RescheduleDialogState>({
+    open: false,
+    publication: null,
+    manuscriptTitle: "",
+  });
+
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>({
     open: false,
     publication: null,
     manuscriptTitle: "",
@@ -236,7 +272,7 @@ export default function Publications() {
                               className="group flex flex-col gap-2 p-3 rounded-lg border border-border bg-card hover-elevate"
                               data-testid={`market-${marketKey}-${manuscript.id}`}
                             >
-                              <div className="flex items-start justify-between">
+                              <div className="flex items-start justify-between gap-2">
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
                                   <span className="text-2xl flex-shrink-0">{marketInfo.flag}</span>
                                   <div className="flex-1 min-w-0">
@@ -254,52 +290,94 @@ export default function Publications() {
                                     )}
                                   </div>
                                 </div>
-                                <div className="flex-shrink-0">
+                                <div className="flex items-center gap-1 flex-shrink-0">
                                   {publication ? getStatusBadge(publication.status) : (
                                     <Badge variant="outline" className="gap-1">
                                       <AlertCircle className="h-3 w-3" />
                                       Sin programar
                                     </Badge>
                                   )}
+                                  
+                                  {/* Actions Menu */}
+                                  {publication && (
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-7 w-7"
+                                          data-testid={`button-menu-${marketKey}-${manuscript.id}`}
+                                        >
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        {publication.status === "scheduled" && (
+                                          <>
+                                            <DropdownMenuItem
+                                              onClick={() => {
+                                                setMarkPublishedDialog({
+                                                  open: true,
+                                                  publication,
+                                                  manuscriptTitle: manuscript.originalTitle,
+                                                });
+                                              }}
+                                              data-testid={`menu-mark-published-${marketKey}-${manuscript.id}`}
+                                            >
+                                              <CheckCircle2 className="h-4 w-4 mr-2" />
+                                              Marcar como publicado
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                              onClick={() => {
+                                                setRescheduleDialog({
+                                                  open: true,
+                                                  publication,
+                                                  manuscriptTitle: manuscript.originalTitle,
+                                                });
+                                              }}
+                                              data-testid={`menu-reschedule-${marketKey}-${manuscript.id}`}
+                                            >
+                                              <Edit className="h-4 w-4 mr-2" />
+                                              Reprogramar fecha
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                          </>
+                                        )}
+                                        {publication.status === "published" && publication.kdpUrl && (
+                                          <>
+                                            <DropdownMenuItem asChild>
+                                              <a
+                                                href={publication.kdpUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                data-testid={`menu-view-kdp-${marketKey}-${manuscript.id}`}
+                                              >
+                                                <ExternalLink className="h-4 w-4 mr-2" />
+                                                Ver en KDP
+                                              </a>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                          </>
+                                        )}
+                                        <DropdownMenuItem
+                                          className="text-destructive focus:text-destructive"
+                                          onClick={() => {
+                                            setDeleteDialog({
+                                              open: true,
+                                              publication,
+                                              manuscriptTitle: manuscript.originalTitle,
+                                            });
+                                          }}
+                                          data-testid={`menu-delete-${marketKey}-${manuscript.id}`}
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-2" />
+                                          Eliminar publicación
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  )}
                                 </div>
                               </div>
-
-                              {/* Actions */}
-                              {publication && (
-                                <div className="flex items-center gap-2 mt-1">
-                                  {publication.status === "published" && publication.kdpUrl && (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7 text-xs gap-1 flex-1"
-                                      asChild
-                                    >
-                                      <a href={publication.kdpUrl} target="_blank" rel="noopener noreferrer">
-                                        <ExternalLink className="h-3 w-3" />
-                                        Ver en KDP
-                                      </a>
-                                    </Button>
-                                  )}
-                                  {publication.status === "scheduled" && (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7 text-xs gap-1 flex-1"
-                                      onClick={() => {
-                                        setMarkPublishedDialog({
-                                          open: true,
-                                          publication,
-                                          manuscriptTitle: manuscript.originalTitle,
-                                        });
-                                      }}
-                                      data-testid={`button-mark-published-${marketKey}-${manuscript.id}`}
-                                    >
-                                      <CheckCircle2 className="h-3 w-3" />
-                                      Marcar publicado
-                                    </Button>
-                                  )}
-                                </div>
-                              )}
                             </div>
                           );
                         })}
@@ -394,6 +472,22 @@ export default function Publications() {
         onOpenChange={(open) => setMarkPublishedDialog({ ...markPublishedDialog, open })}
         publication={markPublishedDialog.publication}
         manuscriptTitle={markPublishedDialog.manuscriptTitle}
+      />
+
+      {/* Reschedule Publication Dialog */}
+      <ReschedulePublicationDialog
+        open={rescheduleDialog.open}
+        onOpenChange={(open) => setRescheduleDialog({ ...rescheduleDialog, open })}
+        publication={rescheduleDialog.publication}
+        manuscriptTitle={rescheduleDialog.manuscriptTitle}
+      />
+
+      {/* Delete Publication Dialog */}
+      <DeletePublicationDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
+        publication={deleteDialog.publication}
+        manuscriptTitle={deleteDialog.manuscriptTitle}
       />
     </div>
   );
