@@ -12,6 +12,7 @@ import {
 } from "./services/publication-scheduler";
 import { createDefaultTasks, updateTaskDueDates } from "./services/default-tasks";
 import { importKdpXlsx } from "./services/kdp-importer";
+import { analyzeAllBooks, getEnrichedInsights } from "./services/book-analyzer";
 import multer from "multer";
 import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
@@ -998,6 +999,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching sales by pen name:", error);
       res.status(500).json({ error: "Failed to fetch sales by pen name" });
+    }
+  });
+
+  // ========== BOOK INSIGHTS (AI ANALYSIS) ==========
+
+  // Obtener todos los insights con información enriquecida
+  app.get("/api/aura/insights", async (req, res) => {
+    try {
+      const insights = await getEnrichedInsights();
+      res.json(insights);
+    } catch (error) {
+      console.error("Error fetching insights:", error);
+      res.status(500).json({ error: "Failed to fetch insights" });
+    }
+  });
+
+  // Analizar todos los libros (puede tardar)
+  app.post("/api/aura/analyze-books", async (req, res) => {
+    try {
+      // Ejecutar análisis en segundo plano
+      analyzeAllBooks().catch(err => {
+        console.error("Error during book analysis:", err);
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Análisis iniciado. Los resultados se mostrarán en breve." 
+      });
+    } catch (error) {
+      console.error("Error starting book analysis:", error);
+      res.status(500).json({ error: "Failed to start book analysis" });
     }
   });
 

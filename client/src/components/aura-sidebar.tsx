@@ -9,13 +9,18 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { BarChart3, Upload, Users, BookOpen, TrendingUp, Library } from "lucide-react";
+import { BarChart3, Upload, Users, BookOpen, TrendingUp, Library, Sparkles } from "lucide-react";
 
 const menuItems = [
   {
     title: "Dashboard",
     url: "/aura",
     icon: BarChart3,
+  },
+  {
+    title: "Análisis IA",
+    url: "/aura/insights",
+    icon: Sparkles,
   },
   {
     title: "Importar",

@@ -11,6 +11,7 @@ import {
   bookSeries,
   auraBooks,
   kdpSales,
+  auraBookInsights,
   type Manuscript, 
   type Optimization,
   type Publication,
@@ -20,6 +21,7 @@ import {
   type BookSeries,
   type AuraBook,
   type KdpSale,
+  type BookInsight,
   type InsertManuscript,
   type InsertPublication,
   type InsertTask,
@@ -28,6 +30,7 @@ import {
   type InsertBookSeries,
   type InsertAuraBook,
   type InsertKdpSale,
+  type InsertBookInsight,
   type OptimizationResult,
   type MarketMetadata,
   amazonMarkets,
@@ -117,6 +120,13 @@ export interface IStorage {
   createKdpSale(data: InsertKdpSale): Promise<KdpSale>;
   bulkCreateKdpSales(data: InsertKdpSale[]): Promise<KdpSale[]>;
   deleteKdpSalesByBatchId(batchId: string): Promise<void>;
+  
+  // Book Insights (AI Analysis)
+  getAllBookInsights(): Promise<BookInsight[]>;
+  getBookInsight(bookId: number): Promise<BookInsight | undefined>;
+  createOrUpdateBookInsight(data: InsertBookInsight): Promise<BookInsight>;
+  deleteBookInsight(bookId: number): Promise<void>;
+  markInsightsAsStale(): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -671,6 +681,42 @@ export class DbStorage implements IStorage {
   async deleteKdpSalesByBatchId(batchId: string): Promise<void> {
     await this.db.delete(kdpSales).where(eq(kdpSales.importBatchId, batchId));
   }
+
+  // Book Insights (AI Analysis)
+  async getAllBookInsights(): Promise<BookInsight[]> {
+    return await this.db.select().from(auraBookInsights).orderBy(desc(auraBookInsights.analyzedAt));
+  }
+
+  async getBookInsight(bookId: number): Promise<BookInsight | undefined> {
+    const [insight] = await this.db.select().from(auraBookInsights).where(eq(auraBookInsights.bookId, bookId));
+    return insight;
+  }
+
+  async createOrUpdateBookInsight(data: InsertBookInsight): Promise<BookInsight> {
+    // Primero intentamos actualizar si existe
+    const existing = await this.getBookInsight(data.bookId);
+    
+    if (existing) {
+      const [updated] = await this.db
+        .update(auraBookInsights)
+        .set({ ...data, analyzedAt: new Date() })
+        .where(eq(auraBookInsights.bookId, data.bookId))
+        .returning();
+      return updated;
+    }
+    
+    // Si no existe, creamos nuevo
+    const [insight] = await this.db.insert(auraBookInsights).values(data).returning();
+    return insight;
+  }
+
+  async deleteBookInsight(bookId: number): Promise<void> {
+    await this.db.delete(auraBookInsights).where(eq(auraBookInsights.bookId, bookId));
+  }
+
+  async markInsightsAsStale(): Promise<void> {
+    await this.db.update(auraBookInsights).set({ status: 'stale' });
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -890,6 +936,26 @@ export class MemStorage implements IStorage {
   }
 
   async deleteKdpSalesByBatchId(batchId: string): Promise<void> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getAllBookInsights(): Promise<BookInsight[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getBookInsight(bookId: number): Promise<BookInsight | undefined> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async createOrUpdateBookInsight(data: InsertBookInsight): Promise<BookInsight> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async deleteBookInsight(bookId: number): Promise<void> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async markInsightsAsStale(): Promise<void> {
     throw new Error("MemStorage does not support Aura operations");
   }
 }

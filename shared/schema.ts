@@ -344,3 +344,31 @@ export const insertKdpSaleSchema = createInsertSchema(kdpSales).omit({
 });
 export type InsertKdpSale = z.infer<typeof insertKdpSaleSchema>;
 export type KdpSale = typeof kdpSales.$inferSelect;
+
+// Tipos de recomendación para análisis de libros
+export const bookRecommendationTypes = ["OPTIMIZE", "HOLD", "RAISE_PRICE"] as const;
+export type BookRecommendationType = typeof bookRecommendationTypes[number];
+
+export const insightStatuses = ["fresh", "stale"] as const;
+export type InsightStatus = typeof insightStatuses[number];
+
+// Tabla de análisis e insights de libros (IA)
+export const auraBookInsights = pgTable("aura_book_insights", {
+  id: serial("id").primaryKey(),
+  bookId: integer("book_id").notNull().references(() => auraBooks.id),
+  recommendation: text("recommendation").notNull(), // "OPTIMIZE", "HOLD", "RAISE_PRICE"
+  rationale: text("rationale").notNull(), // Explicación de la IA
+  actionPlan: text("action_plan").notNull(), // JSON array de acciones específicas
+  priceSuggestion: text("price_suggestion"), // Precio sugerido (opcional)
+  confidence: integer("confidence").notNull(), // 0-100
+  metricsPayload: text("metrics_payload").notNull(), // JSON con métricas usadas en el análisis
+  analyzedAt: timestamp("analyzed_at").defaultNow().notNull(),
+  status: text("status").notNull().default("fresh"), // "fresh" o "stale"
+});
+
+export const insertBookInsightSchema = createInsertSchema(auraBookInsights).omit({ 
+  id: true, 
+  analyzedAt: true 
+});
+export type InsertBookInsight = z.infer<typeof insertBookInsightSchema>;
+export type BookInsight = typeof auraBookInsights.$inferSelect;
