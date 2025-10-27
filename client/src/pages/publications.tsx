@@ -7,6 +7,7 @@ import { MarkPublishedDialog } from "@/components/mark-published-dialog";
 import { ReschedulePublicationDialog } from "@/components/reschedule-publication-dialog";
 import { DeletePublicationDialog } from "@/components/delete-publication-dialog";
 import { TaskChecklist } from "@/components/task-checklist";
+import { AllTasksView } from "@/components/all-tasks-view";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,7 @@ import {
   ChevronRight,
   MapPin,
   BarChart3,
+  ListTodo,
 } from "lucide-react";
 import { amazonMarkets, type Manuscript, type Publication, type AmazonMarket } from "@shared/schema";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, parseISO, startOfWeek, endOfWeek, isSameMonth } from "date-fns";
@@ -405,16 +407,20 @@ export default function Publications() {
         )}
 
         <Tabs defaultValue="manuscripts" className="w-full">
-          <TabsList className="grid w-full md:w-auto grid-cols-3 mb-6">
-            <TabsTrigger value="manuscripts" className="gap-2">
+          <TabsList className="grid w-full md:w-auto grid-cols-2 lg:grid-cols-4 mb-6">
+            <TabsTrigger value="manuscripts" className="gap-2" data-testid="tab-manuscripts">
               <BookOpen className="h-4 w-4" />
               Por Manuscrito
             </TabsTrigger>
-            <TabsTrigger value="calendar" className="gap-2">
+            <TabsTrigger value="tasks" className="gap-2" data-testid="tab-all-tasks">
+              <ListTodo className="h-4 w-4" />
+              Todas las Tareas
+            </TabsTrigger>
+            <TabsTrigger value="calendar" className="gap-2" data-testid="tab-calendar">
               <CalendarIcon className="h-4 w-4" />
               Calendario
             </TabsTrigger>
-            <TabsTrigger value="stats" className="gap-2">
+            <TabsTrigger value="stats" className="gap-2" data-testid="tab-stats">
               <TrendingUp className="h-4 w-4" />
               Estadísticas
             </TabsTrigger>
@@ -1189,6 +1195,11 @@ export default function Publications() {
                 </Card>
               </>
             )}
+          </TabsContent>
+
+          {/* Tab: All Tasks */}
+          <TabsContent value="tasks" className="space-y-4">
+            <AllTasksView />
           </TabsContent>
         </Tabs>
       </main>

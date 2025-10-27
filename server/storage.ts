@@ -18,6 +18,11 @@ import {
   amazonMarkets,
 } from "@shared/schema";
 
+export interface TaskWithManuscript extends Task {
+  manuscriptTitle: string;
+  manuscriptAuthor: string;
+}
+
 export interface IStorage {
   getOptimization(id: string): Promise<OptimizationResult | undefined>;
   getAllOptimizations(): Promise<OptimizationResult[]>;
@@ -45,6 +50,7 @@ export interface IStorage {
   
   // Task management
   getAllTasks(): Promise<Task[]>;
+  getAllTasksWithManuscriptInfo(): Promise<TaskWithManuscript[]>;
   getTasksByManuscript(manuscriptId: number): Promise<Task[]>;
   createTask(data: InsertTask): Promise<Task>;
   updateTask(id: number, data: Partial<InsertTask>): Promise<Task>;
@@ -194,6 +200,23 @@ export class DbStorage implements IStorage {
     return await this.db.select().from(tasks).orderBy(tasks.priority, desc(tasks.createdAt));
   }
 
+  async getAllTasksWithManuscriptInfo(): Promise<TaskWithManuscript[]> {
+    const results = await this.db
+      .select({
+        task: tasks,
+        manuscript: manuscripts,
+      })
+      .from(tasks)
+      .innerJoin(manuscripts, eq(tasks.manuscriptId, manuscripts.id))
+      .orderBy(tasks.completed, tasks.priority, desc(tasks.createdAt));
+
+    return results.map(({ task, manuscript }) => ({
+      ...task,
+      manuscriptTitle: manuscript.originalTitle,
+      manuscriptAuthor: manuscript.author,
+    }));
+  }
+
   async getTasksByManuscript(manuscriptId: number): Promise<Task[]> {
     return await this.db
       .select()
@@ -331,6 +354,10 @@ export class MemStorage implements IStorage {
   }
 
   async getAllTasks(): Promise<Task[]> {
+    throw new Error("MemStorage does not support task operations");
+  }
+
+  async getAllTasksWithManuscriptInfo(): Promise<TaskWithManuscript[]> {
     throw new Error("MemStorage does not support task operations");
   }
 

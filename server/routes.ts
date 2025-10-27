@@ -423,10 +423,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============ TASK ENDPOINTS ============
 
-  // Obtener todas las tareas
+  // Obtener todas las tareas con información del manuscrito
   app.get("/api/tasks", async (req, res) => {
     try {
-      const tasks = await storage.getAllTasks();
+      const tasks = await storage.getAllTasksWithManuscriptInfo();
       res.json(tasks);
     } catch (error) {
       console.error("Error fetching tasks:", error);
