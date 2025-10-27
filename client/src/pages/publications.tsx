@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +30,9 @@ import {
   MoreVertical,
   Edit,
   Trash2,
+  Search,
+  X,
+  Filter,
 } from "lucide-react";
 import { amazonMarkets, type Manuscript, type Publication, type AmazonMarket } from "@shared/schema";
 import { format } from "date-fns";
@@ -72,7 +76,14 @@ interface DeleteDialogState {
   manuscriptTitle: string;
 }
 
+type StatusFilter = "all" | "published" | "scheduled" | "unpublished";
+
 export default function Publications() {
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [marketFilter, setMarketFilter] = useState<string>("all");
+
   const [scheduleDialog, setScheduleDialog] = useState<ScheduleDialogState>({
     open: false,
     manuscriptId: null,
@@ -117,6 +128,49 @@ export default function Publications() {
     return allPublications.filter(p => p.manuscriptId === manuscriptId);
   };
 
+  // Filter manuscripts based on search and filters
+  const filteredManuscripts = manuscripts.filter(manuscript => {
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = 
+        manuscript.originalTitle.toLowerCase().includes(query) ||
+        (manuscript.author ?? "").toLowerCase().includes(query) ||
+        (manuscript.genre ?? "").toLowerCase().includes(query);
+      
+      if (!matchesSearch) return false;
+    }
+
+    const publications = getPublicationsForManuscript(manuscript.id);
+    
+    // Status filter
+    if (statusFilter !== "all") {
+      if (statusFilter === "published") {
+        const hasPublished = publications.some(p => p.status === "published");
+        if (!hasPublished) return false;
+      } else if (statusFilter === "scheduled") {
+        const hasScheduled = publications.some(p => p.status === "scheduled");
+        if (!hasScheduled) return false;
+      } else if (statusFilter === "unpublished") {
+        // Has publications but none are published
+        const allMarkets = Object.keys(amazonMarkets);
+        const hasAnyUnpublished = allMarkets.some(market => {
+          const pub = publications.find(p => p.market === market);
+          return !pub || pub.status !== "published";
+        });
+        if (!hasAnyUnpublished) return false;
+      }
+    }
+
+    // Market filter
+    if (marketFilter !== "all") {
+      const hasMarket = publications.some(p => p.market === marketFilter);
+      if (!hasMarket) return false;
+    }
+
+    return true;
+  });
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "published":
@@ -149,6 +203,158 @@ export default function Publications() {
             Administra tus publicaciones en Amazon KDP con límite de 3 por día
           </p>
         </div>
+
+        {/* Search and Filters */}
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por título, autor o género..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 pr-10"
+                  data-testid="input-search-manuscripts"
+                />
+                {searchQuery && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7"
+                    onClick={() => setSearchQuery("")}
+                    data-testid="button-clear-search"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              {/* Filters */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">Estado:</span>
+                </div>
+                
+                <Button
+                  size="sm"
+                  variant={statusFilter === "all" ? "default" : "outline"}
+                  onClick={() => setStatusFilter("all")}
+                  className="h-8"
+                  data-testid="filter-status-all"
+                >
+                  Todos
+                </Button>
+                <Button
+                  size="sm"
+                  variant={statusFilter === "published" ? "default" : "outline"}
+                  onClick={() => setStatusFilter("published")}
+                  className="h-8 gap-1"
+                  data-testid="filter-status-published"
+                >
+                  <CheckCircle2 className="h-3 w-3" />
+                  Publicados
+                </Button>
+                <Button
+                  size="sm"
+                  variant={statusFilter === "scheduled" ? "default" : "outline"}
+                  onClick={() => setStatusFilter("scheduled")}
+                  className="h-8 gap-1"
+                  data-testid="filter-status-scheduled"
+                >
+                  <Clock className="h-3 w-3" />
+                  Programados
+                </Button>
+                <Button
+                  size="sm"
+                  variant={statusFilter === "unpublished" ? "default" : "outline"}
+                  onClick={() => setStatusFilter("unpublished")}
+                  className="h-8 gap-1"
+                  data-testid="filter-status-unpublished"
+                >
+                  <AlertCircle className="h-3 w-3" />
+                  Sin publicar
+                </Button>
+
+                <div className="h-4 w-px bg-border mx-2" />
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">Mercado:</span>
+                </div>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-2"
+                      data-testid="dropdown-market-filter"
+                    >
+                      {marketFilter === "all" 
+                        ? "Todos los mercados" 
+                        : amazonMarkets[marketFilter as AmazonMarket]?.name || marketFilter}
+                      <Filter className="h-3 w-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="max-h-96 overflow-y-auto">
+                    <DropdownMenuItem
+                      onClick={() => setMarketFilter("all")}
+                      data-testid="filter-market-all"
+                    >
+                      Todos los mercados
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {Object.entries(amazonMarkets).map(([key, market]) => (
+                      <DropdownMenuItem
+                        key={key}
+                        onClick={() => setMarketFilter(key)}
+                        data-testid={`filter-market-${key}`}
+                      >
+                        <span className="mr-2">{market.flag}</span>
+                        {market.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {(searchQuery || statusFilter !== "all" || marketFilter !== "all") && (
+                  <>
+                    <div className="h-4 w-px bg-border mx-2" />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setStatusFilter("all");
+                        setMarketFilter("all");
+                      }}
+                      className="h-8 gap-1"
+                      data-testid="button-clear-all-filters"
+                    >
+                      <X className="h-3 w-3" />
+                      Limpiar filtros
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              {/* Results Counter */}
+              {(searchQuery || statusFilter !== "all" || marketFilter !== "all") && (
+                <div className="text-sm text-muted-foreground" data-testid="text-results-count">
+                  {filteredManuscripts.length === 0 ? (
+                    "No se encontraron manuscritos con estos filtros"
+                  ) : filteredManuscripts.length === 1 ? (
+                    "1 manuscrito encontrado"
+                  ) : (
+                    `${filteredManuscripts.length} manuscritos encontrados`
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stats Cards */}
         {stats && (
@@ -219,8 +425,29 @@ export default function Publications() {
                   </p>
                 </CardContent>
               </Card>
+            ) : filteredManuscripts.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <p className="text-muted-foreground">
+                    No se encontraron manuscritos que coincidan con los filtros seleccionados.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setStatusFilter("all");
+                      setMarketFilter("all");
+                    }}
+                    className="mt-4"
+                    data-testid="button-clear-filters-empty"
+                  >
+                    Limpiar filtros
+                  </Button>
+                </CardContent>
+              </Card>
             ) : (
-              manuscripts.map((manuscript) => {
+              filteredManuscripts.map((manuscript) => {
                 const publications = getPublicationsForManuscript(manuscript.id);
                 const publishedCount = publications.filter(p => p.status === "published").length;
                 const scheduledCount = publications.filter(p => p.status === "scheduled").length;
