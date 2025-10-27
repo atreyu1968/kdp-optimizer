@@ -46,7 +46,7 @@ The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessibl
 **Nueva Funcionalidad**: Sistema completo de gestión de tareas pendientes por manuscrito para trackear preparación de archivos multi-idioma
 
 #### Tabla Tasks en Base de Datos
-- **Schema**: id (serial), manuscriptId (FK), description (text), priority (1=Alta, 2=Media, 3=Baja), completed (0/1), createdAt, updatedAt
+- **Schema**: id (serial), manuscriptId (FK), description (text), priority (1=Alta, 2=Media, 3=Baja), completed (0/1), dueDate (fecha límite opcional), createdAt, updatedAt
 - **Migración**: Ejecutada exitosamente con `npm run db:push`
 - **Storage Interface**: 6 métodos CRUD (getAllTasks, getTasksByManuscript, createTask, updateTask, toggleTaskCompleted, deleteTask)
 
@@ -61,13 +61,21 @@ The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessibl
 - **Props**: manuscriptId, manuscriptTitle
 - **Funcionalidades**:
   - Añadir tareas con descripción y prioridad (Alta/Media/Baja)
+  - **Fecha límite opcional**: Selector de fecha con Calendar y Popover
+    - Sugerencias rápidas: Mañana, En 3 días, En 1 semana
+    - **Sugerencia automática**: Basada en la próxima fecha de publicación programada del manuscrito
+  - **Indicadores visuales de urgencia**:
+    - Vencida (rojo + AlertCircle): Fecha pasada
+    - Hoy (rojo + Clock): Vence hoy
+    - Pronto (default + Clock): Vence en 1-3 días
+    - Próxima (outline + Clock): Vence en más de 3 días
   - Marcar/desmarcar como completadas con checkbox (sin disabled para UX fluida)
   - Eliminar tareas mediante menú desplegable
   - Ordenamiento: tareas incompletas primero, luego por prioridad
   - Estilo tachado para tareas completadas
   - Contador "X de Y completadas"
 - **React Query**: Invalidación automática de cache tras mutaciones (create/toggle/delete)
-- **Data-testids**: Completos para todos los elementos interactivos (17+ testids)
+- **Data-testids**: Completos para todos los elementos interactivos (20+ testids)
 
 #### Integración en Publicaciones
 - **Ubicación**: Pestaña "Por Manuscrito" en `/publications`, debajo del grid de mercados
@@ -75,8 +83,18 @@ The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessibl
 - **UX**: Card integrada con título, descripción, botón "Añadir"
 - **Testing E2E**: ✅ Completado - Crear, toggle, eliminar tareas funcionando correctamente
 
-**Archivos**: `shared/schema.ts`, `server/storage.ts`, `server/routes.ts`, `client/src/components/task-checklist.tsx`, `client/src/pages/publications.tsx`
-**Mejoras futuras**: Drag & drop para reordenar prioridades, edición inline de descripción, filtros por prioridad, exportar checklist a PDF
+#### Vista "Todas las Tareas"
+- **Ubicación**: Segunda pestaña en `/publications`
+- **Funcionalidades**:
+  - Vista consolidada de todas las tareas de todos los manuscritos
+  - Muestra título y autor del manuscrito junto a cada tarea
+  - Filtros por prioridad (Alta/Media/Baja) y estado (Completas/Incompletas)
+  - Indicadores visuales de fecha límite con urgencia
+  - Mismo sistema de toggle/delete que vista individual
+- **Data-testids**: Completos para filtros y acciones
+
+**Archivos**: `shared/schema.ts`, `server/storage.ts`, `server/routes.ts`, `client/src/components/task-checklist.tsx`, `client/src/components/all-tasks-view.tsx`, `client/src/pages/publications.tsx`
+**Mejoras futuras**: Drag & drop para reordenar prioridades, edición inline de descripción y fecha límite, filtros por fecha límite, exportar checklist a PDF, notificaciones de tareas vencidas
 
 ### Vista de Calendario y Estadísticas
 **Nueva Funcionalidad**: Vistas completas de Calendario mensual y Estadísticas detalladas con gráficos interactivos
