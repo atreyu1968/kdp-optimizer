@@ -287,7 +287,7 @@ function InsightCard({ insight }: { insight: EnrichedInsight }) {
                 <Info className="h-3 w-3" />
               </Badge>
             </TooltipTrigger>
-            <TooltipContent className="max-w-xs">
+            <TooltipContent className="w-80 max-w-[90vw]">
               <div className="space-y-1">
                 <p className="font-semibold">{getConfidenceLabel(insight.confidence)}</p>
                 <p className="text-xs">{getConfidenceExplanation(insight.confidence)}</p>
@@ -335,7 +335,7 @@ function InsightCard({ insight }: { insight: EnrichedInsight }) {
               </span>
             </div>
           </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
+          <TooltipContent className="w-80 max-w-[90vw]">
             <div className="space-y-1">
               <p className="font-semibold">Comparación últimos 30 vs 60 días</p>
               <p className="text-xs">
