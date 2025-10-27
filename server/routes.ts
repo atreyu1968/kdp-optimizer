@@ -502,7 +502,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      const task = await storage.updateTask(id, req.body);
+      // Si se actualiza la fecha límite, marcarla como manual
+      const updates = { ...req.body };
+      if (updates.dueDate !== undefined) {
+        updates.isManualDueDate = 1;
+      }
+
+      const task = await storage.updateTask(id, updates);
       res.json(task);
     } catch (error) {
       console.error("Error updating task:", error);

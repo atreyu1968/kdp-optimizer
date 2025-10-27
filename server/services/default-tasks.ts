@@ -9,7 +9,7 @@ export interface TaskTemplate {
 
 /**
  * Template de tareas estándar para preparar un libro KDP
- * Ordenadas por prioridad y fecha sugerida
+ * Ordenadas por prioridad y fecha sugerida (6 tareas estándar)
  */
 export const DEFAULT_TASK_TEMPLATES: TaskTemplate[] = [
   {
@@ -38,13 +38,8 @@ export const DEFAULT_TASK_TEMPLATES: TaskTemplate[] = [
     daysBeforePublication: 3,
   },
   {
-    description: "Revisar vista previa del libro en KDP",
+    description: "Revisar vista previa, categorías y palabras clave en KDP",
     priority: 1,
-    daysBeforePublication: 2,
-  },
-  {
-    description: "Verificar categorías y palabras clave",
-    priority: 2,
     daysBeforePublication: 2,
   },
 ];
@@ -81,6 +76,7 @@ export function createDefaultTasks(
       description: template.description,
       priority: template.priority,
       dueDate,
+      isManualDueDate: 0, // Auto-generada
       completed: 0,
     };
   });
@@ -88,6 +84,7 @@ export function createDefaultTasks(
 
 /**
  * Actualiza las fechas límite de las tareas de un manuscrito basándose en la primera publicación
+ * Solo actualiza tareas con fechas auto-generadas, respeta las fechas configuradas manualmente
  * @param manuscriptId - ID del manuscrito
  * @param firstPublicationDate - Fecha de la primera publicación programada
  */
@@ -99,8 +96,8 @@ export async function updateTaskDueDates(
   
   // Encontrar el template correspondiente para cada tarea y actualizar su fecha límite
   for (const task of tasks) {
-    // Si la tarea ya tiene una fecha límite personalizada por el usuario, no la sobrescribimos
-    if (task.dueDate) {
+    // Si la fecha límite fue configurada manualmente por el usuario, respetarla
+    if (task.isManualDueDate === 1) {
       continue;
     }
     
