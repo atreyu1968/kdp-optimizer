@@ -505,6 +505,42 @@ export class DbStorage implements IStorage {
   }
 
   async deletePenName(id: number): Promise<void> {
+    // Verificar si hay libros asociados
+    const booksCount = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(auraBooks)
+      .where(eq(auraBooks.penNameId, id));
+    
+    const books = Number(booksCount[0]?.count || 0);
+    
+    // Verificar si hay ventas asociadas
+    const salesCount = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(kdpSales)
+      .where(eq(kdpSales.penNameId, id));
+    
+    const sales = Number(salesCount[0]?.count || 0);
+    
+    // Verificar si hay series asociadas
+    const seriesCount = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(bookSeries)
+      .where(eq(bookSeries.penNameId, id));
+    
+    const series = Number(seriesCount[0]?.count || 0);
+    
+    if (books > 0 || sales > 0 || series > 0) {
+      const details = [];
+      if (books > 0) details.push(`${books} libro${books > 1 ? 's' : ''}`);
+      if (series > 0) details.push(`${series} serie${series > 1 ? 's' : ''}`);
+      if (sales > 0) details.push(`${sales} venta${sales > 1 ? 's' : ''}`);
+      
+      throw new Error(
+        `No se puede eliminar el seudónimo porque tiene datos asociados: ${details.join(', ')}. ` +
+        `Primero elimine o reasigne estos elementos.`
+      );
+    }
+    
     await this.db.delete(penNames).where(eq(penNames.id, id));
   }
 

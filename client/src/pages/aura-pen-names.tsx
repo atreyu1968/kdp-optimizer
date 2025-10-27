@@ -120,12 +120,9 @@ export default function AuraPenNames() {
   const handleCreate = async (data: PenNameForm) => {
     setIsSubmitting(true);
     try {
-      await apiRequest('/api/aura/pen-names', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: data.name,
-          description: data.description || null,
-        }),
+      await apiRequest('POST', '/api/aura/pen-names', {
+        name: data.name,
+        description: data.description || null,
       });
 
       await queryClient.invalidateQueries({ queryKey: ['/api/aura/pen-names'] });
@@ -154,12 +151,9 @@ export default function AuraPenNames() {
 
     setIsSubmitting(true);
     try {
-      await apiRequest(`/api/aura/pen-names/${selectedPenName.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          name: data.name,
-          description: data.description || null,
-        }),
+      await apiRequest('PUT', `/api/aura/pen-names/${selectedPenName.id}`, {
+        name: data.name,
+        description: data.description || null,
       });
 
       await queryClient.invalidateQueries({ queryKey: ['/api/aura/pen-names'] });
@@ -188,9 +182,7 @@ export default function AuraPenNames() {
 
     setIsSubmitting(true);
     try {
-      await apiRequest(`/api/aura/pen-names/${selectedPenName.id}`, {
-        method: 'DELETE',
-      });
+      await apiRequest('DELETE', `/api/aura/pen-names/${selectedPenName.id}`);
 
       await queryClient.invalidateQueries({ queryKey: ['/api/aura/pen-names'] });
       await queryClient.invalidateQueries({ queryKey: ['/api/aura/books'] });
