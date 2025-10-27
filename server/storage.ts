@@ -6,13 +6,16 @@ import {
   optimizations,
   publications,
   tasks,
+  blockedDates,
   type Manuscript, 
   type Optimization,
   type Publication,
   type Task,
+  type BlockedDate,
   type InsertManuscript,
   type InsertPublication,
   type InsertTask,
+  type InsertBlockedDate,
   type OptimizationResult,
   type MarketMetadata,
   amazonMarkets,
@@ -56,6 +59,14 @@ export interface IStorage {
   updateTask(id: number, data: Partial<InsertTask>): Promise<Task>;
   toggleTaskCompleted(id: number): Promise<Task>;
   deleteTask(id: number): Promise<void>;
+  
+  // Blocked dates management
+  getAllBlockedDates(): Promise<BlockedDate[]>;
+  getBlockedDatesByRange(start: Date, end: Date): Promise<BlockedDate[]>;
+  isDateBlocked(date: Date): Promise<boolean>;
+  createBlockedDate(data: InsertBlockedDate): Promise<BlockedDate>;
+  deleteBlockedDate(id: number): Promise<void>;
+  reschedulePublicationsFromBlockedDate(blockedDate: Date): Promise<Publication[]>;
 }
 
 export class DbStorage implements IStorage {
@@ -257,6 +268,132 @@ export class DbStorage implements IStorage {
     await this.db.delete(tasks).where(eq(tasks.id, id));
   }
 
+  // Blocked dates management
+  async getAllBlockedDates(): Promise<BlockedDate[]> {
+    return await this.db.select().from(blockedDates).orderBy(blockedDates.date);
+  }
+
+  async getBlockedDatesByRange(start: Date, end: Date): Promise<BlockedDate[]> {
+    return await this.db
+      .select()
+      .from(blockedDates)
+      .where(and(gte(blockedDates.date, start), lte(blockedDates.date, end)))
+      .orderBy(blockedDates.date);
+  }
+
+  async isDateBlocked(date: Date): Promise<boolean> {
+    // Normalizar la fecha a las 00:00:00 para comparar solo el día
+    const normalizedDate = new Date(date);
+    normalizedDate.setHours(0, 0, 0, 0);
+    
+    const startOfDay = normalizedDate;
+    const endOfDay = new Date(normalizedDate);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    const blocked = await this.db
+      .select()
+      .from(blockedDates)
+      .where(and(gte(blockedDates.date, startOfDay), lte(blockedDates.date, endOfDay)))
+      .limit(1);
+    
+    return blocked.length > 0;
+  }
+
+  async createBlockedDate(data: InsertBlockedDate): Promise<BlockedDate> {
+    // Normalizar la fecha a las 00:00:00
+    const normalizedDate = new Date(data.date);
+    normalizedDate.setHours(0, 0, 0, 0);
+    
+    const [blockedDate] = await this.db
+      .insert(blockedDates)
+      .values({ ...data, date: normalizedDate })
+      .returning();
+    
+    return blockedDate;
+  }
+
+  async deleteBlockedDate(id: number): Promise<void> {
+    await this.db.delete(blockedDates).where(eq(blockedDates.id, id));
+  }
+
+  async reschedulePublicationsFromBlockedDate(blockedDate: Date): Promise<Publication[]> {
+    // Normalizar la fecha
+    const normalizedDate = new Date(blockedDate);
+    normalizedDate.setHours(0, 0, 0, 0);
+    
+    const startOfDay = normalizedDate;
+    const endOfDay = new Date(normalizedDate);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    // Obtener todas las publicaciones programadas para ese día
+    const publicationsToReschedule = await this.db
+      .select()
+      .from(publications)
+      .where(
+        and(
+          eq(publications.status, 'scheduled'),
+          gte(publications.scheduledDate, startOfDay),
+          lte(publications.scheduledDate, endOfDay)
+        )
+      );
+    
+    if (publicationsToReschedule.length === 0) {
+      return [];
+    }
+    
+    // Encontrar el próximo día disponible
+    const rescheduledPubs: Publication[] = [];
+    for (const pub of publicationsToReschedule) {
+      let nextDate = new Date(normalizedDate);
+      nextDate.setDate(nextDate.getDate() + 1);
+      
+      // Buscar el próximo día no bloqueado con menos de 3 publicaciones
+      let attempts = 0;
+      while (attempts < 365) { // Límite de seguridad
+        const isBlocked = await this.isDateBlocked(nextDate);
+        
+        if (!isBlocked) {
+          // Verificar cuántas publicaciones hay ese día
+          const startOfNextDay = new Date(nextDate);
+          startOfNextDay.setHours(0, 0, 0, 0);
+          const endOfNextDay = new Date(nextDate);
+          endOfNextDay.setHours(23, 59, 59, 999);
+          
+          const pubsOnDay = await this.db
+            .select()
+            .from(publications)
+            .where(
+              and(
+                eq(publications.status, 'scheduled'),
+                gte(publications.scheduledDate, startOfNextDay),
+                lte(publications.scheduledDate, endOfNextDay)
+              )
+            );
+          
+          if (pubsOnDay.length < 3) {
+            // Día disponible encontrado
+            const [updated] = await this.db
+              .update(publications)
+              .set({ 
+                scheduledDate: nextDate,
+                updatedAt: new Date()
+              })
+              .where(eq(publications.id, pub.id))
+              .returning();
+            
+            rescheduledPubs.push(updated);
+            break;
+          }
+        }
+        
+        nextDate.setDate(nextDate.getDate() + 1);
+        attempts++;
+      }
+    }
+    
+    return rescheduledPubs;
+  }
+
   async saveOptimizationWithManuscript(
     manuscriptData: InsertManuscript,
     optimizationId: string,
@@ -379,6 +516,30 @@ export class MemStorage implements IStorage {
 
   async deleteTask(id: number): Promise<void> {
     throw new Error("MemStorage does not support task operations");
+  }
+
+  async getAllBlockedDates(): Promise<BlockedDate[]> {
+    throw new Error("MemStorage does not support blocked dates operations");
+  }
+
+  async getBlockedDatesByRange(start: Date, end: Date): Promise<BlockedDate[]> {
+    throw new Error("MemStorage does not support blocked dates operations");
+  }
+
+  async isDateBlocked(date: Date): Promise<boolean> {
+    throw new Error("MemStorage does not support blocked dates operations");
+  }
+
+  async createBlockedDate(data: InsertBlockedDate): Promise<BlockedDate> {
+    throw new Error("MemStorage does not support blocked dates operations");
+  }
+
+  async deleteBlockedDate(id: number): Promise<void> {
+    throw new Error("MemStorage does not support blocked dates operations");
+  }
+
+  async reschedulePublicationsFromBlockedDate(blockedDate: Date): Promise<Publication[]> {
+    throw new Error("MemStorage does not support blocked dates operations");
   }
 }
 

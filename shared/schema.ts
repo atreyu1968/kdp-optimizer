@@ -204,6 +204,14 @@ export const tasks = pgTable("tasks", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Tabla de días bloqueados (días en los que no se puede publicar)
+export const blockedDates = pgTable("blocked_dates", {
+  id: serial("id").primaryKey(),
+  date: timestamp("date").notNull(), // La fecha bloqueada
+  reason: text("reason"), // Razón opcional para el bloqueo (ej: "Vacaciones", "Feriado", etc.)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Estados de publicación
 export const publicationStatuses = ["pending", "scheduled", "published"] as const;
 export type PublicationStatus = typeof publicationStatuses[number];
@@ -235,3 +243,10 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({
 });
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type Task = typeof tasks.$inferSelect;
+
+export const insertBlockedDateSchema = createInsertSchema(blockedDates).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export type InsertBlockedDate = z.infer<typeof insertBlockedDateSchema>;
+export type BlockedDate = typeof blockedDates.$inferSelect;
