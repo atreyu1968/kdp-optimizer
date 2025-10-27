@@ -1,14 +1,18 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
 import { 
   manuscripts, 
-  optimizations, 
+  optimizations,
+  publications,
   type Manuscript, 
-  type Optimization, 
+  type Optimization,
+  type Publication,
   type InsertManuscript,
+  type InsertPublication,
   type OptimizationResult,
-  type MarketMetadata
+  type MarketMetadata,
+  amazonMarkets,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -26,6 +30,15 @@ export interface IStorage {
     existingManuscriptId?: number
   ): Promise<{ manuscript: Manuscript; optimization: Optimization }>;
   getOptimizationsByManuscriptId(manuscriptId: number): Promise<Optimization[]>;
+  
+  // Publication management
+  getAllPublications(): Promise<Publication[]>;
+  getPublicationsByManuscript(manuscriptId: number): Promise<Publication[]>;
+  createPublication(data: InsertPublication): Promise<Publication>;
+  updatePublication(id: number, data: Partial<InsertPublication>): Promise<Publication>;
+  markAsPublished(id: number, publishedDate: Date, kdpUrl?: string): Promise<Publication>;
+  getPublicationsByDateRange(start: Date, end: Date): Promise<Publication[]>;
+  deletePublication(id: number): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -104,6 +117,67 @@ export class DbStorage implements IStorage {
     return await this.db.select().from(optimizations).where(eq(optimizations.manuscriptId, manuscriptId)).orderBy(desc(optimizations.createdAt));
   }
 
+  // Publication methods
+  async getAllPublications(): Promise<Publication[]> {
+    return await this.db.select().from(publications).orderBy(desc(publications.createdAt));
+  }
+
+  async getPublicationsByManuscript(manuscriptId: number): Promise<Publication[]> {
+    return await this.db
+      .select()
+      .from(publications)
+      .where(eq(publications.manuscriptId, manuscriptId))
+      .orderBy(desc(publications.scheduledDate));
+  }
+
+  async createPublication(data: InsertPublication): Promise<Publication> {
+    const [publication] = await this.db.insert(publications).values(data).returning();
+    return publication;
+  }
+
+  async updatePublication(id: number, data: Partial<InsertPublication>): Promise<Publication> {
+    const [publication] = await this.db
+      .update(publications)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(publications.id, id))
+      .returning();
+    return publication;
+  }
+
+  async markAsPublished(id: number, publishedDate: Date, kdpUrl?: string): Promise<Publication> {
+    const updateData: any = {
+      status: "published",
+      publishedDate,
+      updatedAt: new Date(),
+    };
+    if (kdpUrl) {
+      updateData.kdpUrl = kdpUrl;
+    }
+    const [publication] = await this.db
+      .update(publications)
+      .set(updateData)
+      .where(eq(publications.id, id))
+      .returning();
+    return publication;
+  }
+
+  async getPublicationsByDateRange(start: Date, end: Date): Promise<Publication[]> {
+    return await this.db
+      .select()
+      .from(publications)
+      .where(
+        and(
+          gte(publications.scheduledDate, start),
+          lte(publications.scheduledDate, end)
+        )
+      )
+      .orderBy(publications.scheduledDate);
+  }
+
+  async deletePublication(id: number): Promise<void> {
+    await this.db.delete(publications).where(eq(publications.id, id));
+  }
+
   async saveOptimizationWithManuscript(
     manuscriptData: InsertManuscript,
     optimizationId: string,
@@ -170,6 +244,34 @@ export class MemStorage implements IStorage {
 
   async getOptimizationsByManuscriptId(manuscriptId: number): Promise<Optimization[]> {
     throw new Error("MemStorage does not support manuscript operations");
+  }
+
+  async getAllPublications(): Promise<Publication[]> {
+    throw new Error("MemStorage does not support publication operations");
+  }
+
+  async getPublicationsByManuscript(manuscriptId: number): Promise<Publication[]> {
+    throw new Error("MemStorage does not support publication operations");
+  }
+
+  async createPublication(data: InsertPublication): Promise<Publication> {
+    throw new Error("MemStorage does not support publication operations");
+  }
+
+  async updatePublication(id: number, data: Partial<InsertPublication>): Promise<Publication> {
+    throw new Error("MemStorage does not support publication operations");
+  }
+
+  async markAsPublished(id: number, publishedDate: Date, kdpUrl?: string): Promise<Publication> {
+    throw new Error("MemStorage does not support publication operations");
+  }
+
+  async getPublicationsByDateRange(start: Date, end: Date): Promise<Publication[]> {
+    throw new Error("MemStorage does not support publication operations");
+  }
+
+  async deletePublication(id: number): Promise<void> {
+    throw new Error("MemStorage does not support publication operations");
   }
 }
 

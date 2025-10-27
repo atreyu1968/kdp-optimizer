@@ -178,6 +178,24 @@ export const optimizations = pgTable("optimizations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Tabla de publicaciones KDP (tracking de publicaciones por manuscrito y mercado)
+export const publications = pgTable("publications", {
+  id: serial("id").primaryKey(),
+  manuscriptId: integer("manuscript_id").notNull().references(() => manuscripts.id),
+  market: text("market").notNull(),
+  status: text("status").notNull(),
+  scheduledDate: timestamp("scheduled_date"),
+  publishedDate: timestamp("published_date"),
+  kdpUrl: text("kdp_url"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Estados de publicación
+export const publicationStatuses = ["pending", "scheduled", "published"] as const;
+export type PublicationStatus = typeof publicationStatuses[number];
+
 // Tipos de inserción y selección
 export const insertManuscriptSchema = createInsertSchema(manuscripts).omit({ id: true, createdAt: true });
 export type InsertManuscript = z.infer<typeof insertManuscriptSchema>;
@@ -186,3 +204,14 @@ export type Manuscript = typeof manuscripts.$inferSelect;
 export const insertOptimizationSchema = createInsertSchema(optimizations).omit({ createdAt: true });
 export type InsertOptimization = z.infer<typeof insertOptimizationSchema>;
 export type Optimization = typeof optimizations.$inferSelect;
+
+export const insertPublicationSchema = createInsertSchema(publications).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+}).extend({
+  status: z.enum(publicationStatuses),
+  market: z.string().refine((m) => m in amazonMarkets, "Mercado inválido"),
+});
+export type InsertPublication = z.infer<typeof insertPublicationSchema>;
+export type Publication = typeof publications.$inferSelect;
