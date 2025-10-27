@@ -33,10 +33,15 @@ import {
   Search,
   X,
   Filter,
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+  BarChart3,
 } from "lucide-react";
 import { amazonMarkets, type Manuscript, type Publication, type AmazonMarket } from "@shared/schema";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, parseISO, startOfWeek, endOfWeek, isSameMonth } from "date-fns";
 import { es } from "date-fns/locale";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from "recharts";
 
 interface PublicationStats {
   total: number;
@@ -83,6 +88,9 @@ export default function Publications() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [marketFilter, setMarketFilter] = useState<string>("all");
+  
+  // Calendar state
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const [scheduleDialog, setScheduleDialog] = useState<ScheduleDialogState>({
     open: false,
@@ -645,37 +653,533 @@ export default function Publications() {
           </TabsContent>
 
           {/* Tab: Calendar */}
-          <TabsContent value="calendar">
+          <TabsContent value="calendar" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Calendario de Publicaciones</CardTitle>
-                <CardDescription>
-                  Vista mensual con máximo 3 publicaciones por día
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <CalendarIcon className="h-5 w-5" />
+                      Calendario de Publicaciones
+                    </CardTitle>
+                    <CardDescription>
+                      Vista mensual con máximo 3 publicaciones por día
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                      data-testid="button-prev-month"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="min-w-[180px] text-center">
+                      <p className="text-sm font-medium">
+                        {format(currentMonth, "MMMM yyyy", { locale: es })}
+                      </p>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+                      data-testid="button-next-month"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setCurrentMonth(new Date())}
+                      data-testid="button-today"
+                    >
+                      Hoy
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">
-                  Vista de calendario próximamente...
-                </p>
+              <CardContent>
+                {publicationsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Calendar Grid */}
+                    <div className="grid grid-cols-7 gap-2">
+                      {/* Day headers */}
+                      {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((day) => (
+                        <div key={day} className="text-center text-sm font-medium text-muted-foreground p-2">
+                          {day}
+                        </div>
+                      ))}
+                      
+                      {/* Calendar days */}
+                      {(() => {
+                        const monthStart = startOfMonth(currentMonth);
+                        const monthEnd = endOfMonth(currentMonth);
+                        const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+                        const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+                        const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+                        
+                        return calendarDays.map((day) => {
+                          const dayPublications = allPublications.filter(pub => {
+                            const pubDate = pub.scheduledDate ? new Date(pub.scheduledDate) : null;
+                            return pubDate && isSameDay(pubDate, day);
+                          });
+                          
+                          const isCurrentMonth = isSameMonth(day, currentMonth);
+                          const isToday = isSameDay(day, new Date());
+                          const hasPublications = dayPublications.length > 0;
+                          const isAtLimit = dayPublications.length >= 3;
+                          
+                          return (
+                            <div
+                              key={day.toString()}
+                              className={`min-h-[100px] border rounded-md p-2 ${
+                                !isCurrentMonth ? "bg-muted/30 text-muted-foreground" : "bg-card"
+                              } ${isToday ? "border-primary border-2" : ""}`}
+                              data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className={`text-xs font-medium ${isToday ? "text-primary" : ""}`}>
+                                  {format(day, "d")}
+                                </span>
+                                {isAtLimit && (
+                                  <Badge variant="destructive" className="h-4 text-[10px] px-1">
+                                    Límite
+                                  </Badge>
+                                )}
+                              </div>
+                              
+                              {hasPublications && (
+                                <div className="space-y-1">
+                                  {dayPublications.slice(0, 3).map((pub) => {
+                                    const manuscript = manuscripts.find(m => m.id === pub.manuscriptId);
+                                    const market = amazonMarkets[pub.market as AmazonMarket];
+                                    
+                                    return (
+                                      <div
+                                        key={pub.id}
+                                        className="text-[10px] bg-secondary/50 rounded px-1 py-0.5 truncate"
+                                        title={`${manuscript?.originalTitle} - ${market?.name}`}
+                                        data-testid={`calendar-publication-${pub.id}`}
+                                      >
+                                        <span className="mr-1">{market?.flag}</span>
+                                        <span className="truncate">{manuscript?.originalTitle}</span>
+                                      </div>
+                                    );
+                                  })}
+                                  {dayPublications.length > 3 && (
+                                    <div className="text-[10px] text-muted-foreground px-1">
+                                      +{dayPublications.length - 3} más
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                    
+                    {/* Legend */}
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground pt-4 border-t">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-primary rounded"></div>
+                        <span>Hoy</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="destructive" className="h-4 text-[10px] px-1">Límite</Badge>
+                        <span>3/3 publicaciones (límite diario)</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
           {/* Tab: Stats */}
-          <TabsContent value="stats">
-            <Card>
-              <CardHeader>
-                <CardTitle>Estadísticas Detalladas</CardTitle>
-                <CardDescription>
-                  Análisis de publicaciones por mercado y periodo
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">
-                  Estadísticas detalladas próximamente...
-                </p>
-              </CardContent>
-            </Card>
+          <TabsContent value="stats" className="space-y-4">
+            {publicationsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                {/* Distribution by Market */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      Distribución por Mercado
+                    </CardTitle>
+                    <CardDescription>
+                      Publicaciones programadas y publicadas por mercado Amazon
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[400px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={Object.entries(amazonMarkets).map(([key, market]) => {
+                            const marketPubs = allPublications.filter(p => p.market === key);
+                            return {
+                              market: market.name.split(' (')[0],
+                              flag: market.flag,
+                              publicadas: marketPubs.filter(p => p.status === "published").length,
+                              programadas: marketPubs.filter(p => p.status === "scheduled").length,
+                              total: marketPubs.length,
+                            };
+                          })}
+                          margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis 
+                            dataKey="market" 
+                            angle={-45}
+                            textAnchor="end"
+                            height={80}
+                          />
+                          <YAxis />
+                          <Tooltip 
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                return (
+                                  <div className="bg-card border rounded-md p-3 shadow-lg">
+                                    <p className="font-medium mb-2">
+                                      {payload[0].payload.flag} {payload[0].payload.market}
+                                    </p>
+                                    <p className="text-sm text-green-600">
+                                      Publicadas: {payload[0].value}
+                                    </p>
+                                    <p className="text-sm text-blue-600">
+                                      Programadas: {payload[1].value}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Total: {payload[0].payload.total}
+                                    </p>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                          <Legend />
+                          <Bar dataKey="publicadas" fill="hsl(var(--chart-1))" name="Publicadas" />
+                          <Bar dataKey="programadas" fill="hsl(var(--chart-2))" name="Programadas" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Distribution by Status */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5" />
+                        Distribución por Estado
+                      </CardTitle>
+                      <CardDescription>
+                        Proporción de publicaciones por estado
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { 
+                                  name: "Publicadas", 
+                                  value: allPublications.filter(p => p.status === "published").length,
+                                  color: "hsl(var(--chart-1))"
+                                },
+                                { 
+                                  name: "Programadas", 
+                                  value: allPublications.filter(p => p.status === "scheduled").length,
+                                  color: "hsl(var(--chart-2))"
+                                },
+                                { 
+                                  name: "Pendientes", 
+                                  value: (manuscripts.length * Object.keys(amazonMarkets).length) - allPublications.length,
+                                  color: "hsl(var(--chart-3))"
+                                },
+                              ].filter(item => item.value > 0)}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {[
+                                { color: "hsl(var(--chart-1))" },
+                                { color: "hsl(var(--chart-2))" },
+                                { color: "hsl(var(--chart-3))" },
+                              ].map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip 
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  return (
+                                    <div className="bg-card border rounded-md p-3 shadow-lg">
+                                      <p className="font-medium">{payload[0].name}</p>
+                                      <p className="text-sm">{payload[0].value} publicaciones</p>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Additional Metrics */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5" />
+                        Métricas Adicionales
+                      </CardTitle>
+                      <CardDescription>
+                        Estadísticas generales de publicaciones
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Total de manuscritos:</span>
+                          <span className="text-lg font-semibold">{manuscripts.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Total de publicaciones:</span>
+                          <span className="text-lg font-semibold">{allPublications.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Mercados disponibles:</span>
+                          <span className="text-lg font-semibold">{Object.keys(amazonMarkets).length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Potencial máximo:</span>
+                          <span className="text-lg font-semibold">
+                            {manuscripts.length * Object.keys(amazonMarkets).length}
+                          </span>
+                        </div>
+                        <div className="pt-3 border-t">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Tasa de cobertura:</span>
+                            <span className="text-lg font-semibold text-primary">
+                              {manuscripts.length > 0 
+                                ? ((allPublications.length / (manuscripts.length * Object.keys(amazonMarkets).length)) * 100).toFixed(1)
+                                : 0}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Tasa de publicación:</span>
+                          <span className="text-lg font-semibold text-green-600">
+                            {allPublications.length > 0
+                              ? ((allPublications.filter(p => p.status === "published").length / allPublications.length) * 100).toFixed(1)
+                              : 0}%
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Próximas publicaciones:</span>
+                          <span className="text-lg font-semibold text-blue-600">
+                            {allPublications.filter(p => {
+                              if (!p.scheduledDate) return false;
+                              const schedDate = new Date(p.scheduledDate);
+                              const today = new Date();
+                              const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+                              return schedDate >= today && schedDate <= nextWeek;
+                            }).length}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Monthly Timeline */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CalendarIcon className="h-5 w-5" />
+                      Timeline de Publicaciones
+                    </CardTitle>
+                    <CardDescription>
+                      Evolución mensual de publicaciones programadas y publicadas
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[350px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart
+                          data={(() => {
+                            // Generate timeline data for last 12 months and next 6 months
+                            const timelineData: Record<string, { 
+                              month: string; 
+                              publicadas: number; 
+                              programadas: number;
+                              total: number;
+                            }> = {};
+                            
+                            // Initialize months
+                            const today = new Date();
+                            for (let i = -12; i <= 6; i++) {
+                              const date = addMonths(today, i);
+                              const key = format(date, "yyyy-MM");
+                              timelineData[key] = {
+                                month: format(date, "MMM yyyy", { locale: es }),
+                                publicadas: 0,
+                                programadas: 0,
+                                total: 0,
+                              };
+                            }
+                            
+                            // Aggregate publications by month
+                            allPublications.forEach(pub => {
+                              const date = pub.scheduledDate ? new Date(pub.scheduledDate) : null;
+                              if (date) {
+                                const key = format(date, "yyyy-MM");
+                                if (timelineData[key]) {
+                                  if (pub.status === "published") {
+                                    timelineData[key].publicadas++;
+                                  } else if (pub.status === "scheduled") {
+                                    timelineData[key].programadas++;
+                                  }
+                                  timelineData[key].total++;
+                                }
+                              }
+                            });
+                            
+                            return Object.values(timelineData);
+                          })()}
+                          margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                        >
+                          <defs>
+                            <linearGradient id="colorPublicadas" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0}/>
+                            </linearGradient>
+                            <linearGradient id="colorProgramadas" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis 
+                            dataKey="month" 
+                            tick={{ fontSize: 12 }}
+                            angle={-45}
+                            textAnchor="end"
+                            height={60}
+                          />
+                          <YAxis />
+                          <Tooltip 
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                return (
+                                  <div className="bg-card border rounded-md p-3 shadow-lg">
+                                    <p className="font-medium mb-2">{payload[0].payload.month}</p>
+                                    <p className="text-sm text-green-600">
+                                      Publicadas: {payload[0].payload.publicadas}
+                                    </p>
+                                    <p className="text-sm text-blue-600">
+                                      Programadas: {payload[0].payload.programadas}
+                                    </p>
+                                    <p className="text-sm font-medium mt-1">
+                                      Total: {payload[0].payload.total}
+                                    </p>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                          <Legend />
+                          <Area 
+                            type="monotone" 
+                            dataKey="publicadas" 
+                            stroke="hsl(var(--chart-1))" 
+                            fillOpacity={1} 
+                            fill="url(#colorPublicadas)"
+                            name="Publicadas"
+                          />
+                          <Area 
+                            type="monotone" 
+                            dataKey="programadas" 
+                            stroke="hsl(var(--chart-2))" 
+                            fillOpacity={1} 
+                            fill="url(#colorProgramadas)"
+                            name="Programadas"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Top Markets */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Mercados Principales</CardTitle>
+                    <CardDescription>
+                      Ranking de mercados por número de publicaciones
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {Object.entries(amazonMarkets)
+                        .map(([key, market]) => ({
+                          key,
+                          market,
+                          count: allPublications.filter(p => p.market === key).length,
+                        }))
+                        .sort((a, b) => b.count - a.count)
+                        .slice(0, 5)
+                        .map((item, index) => (
+                          <div key={item.key} className="flex items-center gap-3">
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-sm font-medium">
+                              {index + 1}
+                            </div>
+                            <div className="flex items-center gap-2 flex-1">
+                              <span className="text-xl">{item.market.flag}</span>
+                              <span className="font-medium">{item.market.name.split(' (')[0]}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-primary"
+                                  style={{ 
+                                    width: `${(item.count / Math.max(...Object.keys(amazonMarkets).map(k => 
+                                      allPublications.filter(p => p.market === k).length
+                                    ))) * 100}%` 
+                                  }}
+                                />
+                              </div>
+                              <span className="text-sm font-semibold min-w-[2rem] text-right">
+                                {item.count}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </TabsContent>
         </Tabs>
       </main>
