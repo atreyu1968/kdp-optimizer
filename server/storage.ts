@@ -7,15 +7,27 @@ import {
   publications,
   tasks,
   blockedDates,
+  penNames,
+  bookSeries,
+  auraBooks,
+  kdpSales,
   type Manuscript, 
   type Optimization,
   type Publication,
   type Task,
   type BlockedDate,
+  type PenName,
+  type BookSeries,
+  type AuraBook,
+  type KdpSale,
   type InsertManuscript,
   type InsertPublication,
   type InsertTask,
   type InsertBlockedDate,
+  type InsertPenName,
+  type InsertBookSeries,
+  type InsertAuraBook,
+  type InsertKdpSale,
   type OptimizationResult,
   type MarketMetadata,
   amazonMarkets,
@@ -67,6 +79,44 @@ export interface IStorage {
   createBlockedDate(data: InsertBlockedDate): Promise<BlockedDate>;
   deleteBlockedDate(id: number): Promise<void>;
   reschedulePublicationsFromBlockedDate(blockedDate: Date): Promise<Publication[]>;
+  
+  // ============================================================================
+  // AURA SYSTEM - Pen Names, Books, Series, and KDP Sales
+  // ============================================================================
+  
+  // Pen Names (Seudónimos)
+  getAllPenNames(): Promise<PenName[]>;
+  getPenName(id: number): Promise<PenName | undefined>;
+  createPenName(data: InsertPenName): Promise<PenName>;
+  updatePenName(id: number, data: Partial<InsertPenName>): Promise<PenName>;
+  deletePenName(id: number): Promise<void>;
+  
+  // Book Series
+  getAllBookSeries(): Promise<BookSeries[]>;
+  getBookSeriesByPenName(penNameId: number): Promise<BookSeries[]>;
+  getBookSeries(id: number): Promise<BookSeries | undefined>;
+  createBookSeries(data: InsertBookSeries): Promise<BookSeries>;
+  updateBookSeries(id: number, data: Partial<InsertBookSeries>): Promise<BookSeries>;
+  deleteBookSeries(id: number): Promise<void>;
+  
+  // Aura Books
+  getAllAuraBooks(): Promise<AuraBook[]>;
+  getAuraBooksByPenName(penNameId: number): Promise<AuraBook[]>;
+  getAuraBooksBySeries(seriesId: number): Promise<AuraBook[]>;
+  getAuraBook(id: number): Promise<AuraBook | undefined>;
+  getAuraBookByAsin(asin: string): Promise<AuraBook | undefined>;
+  createAuraBook(data: InsertAuraBook): Promise<AuraBook>;
+  updateAuraBook(id: number, data: Partial<InsertAuraBook>): Promise<AuraBook>;
+  deleteAuraBook(id: number): Promise<void>;
+  
+  // KDP Sales
+  getAllKdpSales(): Promise<KdpSale[]>;
+  getKdpSalesByPenName(penNameId: number): Promise<KdpSale[]>;
+  getKdpSalesByBook(bookId: number): Promise<KdpSale[]>;
+  getKdpSalesByDateRange(start: Date, end: Date): Promise<KdpSale[]>;
+  createKdpSale(data: InsertKdpSale): Promise<KdpSale>;
+  bulkCreateKdpSales(data: InsertKdpSale[]): Promise<KdpSale[]>;
+  deleteKdpSalesByBatchId(batchId: string): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -425,6 +475,166 @@ export class DbStorage implements IStorage {
 
     return { manuscript, optimization };
   }
+
+  // ============================================================================
+  // AURA SYSTEM - Implementation
+  // ============================================================================
+
+  // Pen Names (Seudónimos)
+  async getAllPenNames(): Promise<PenName[]> {
+    return await this.db.select().from(penNames).orderBy(desc(penNames.createdAt));
+  }
+
+  async getPenName(id: number): Promise<PenName | undefined> {
+    const [penName] = await this.db.select().from(penNames).where(eq(penNames.id, id));
+    return penName;
+  }
+
+  async createPenName(data: InsertPenName): Promise<PenName> {
+    const [penName] = await this.db.insert(penNames).values(data).returning();
+    return penName;
+  }
+
+  async updatePenName(id: number, data: Partial<InsertPenName>): Promise<PenName> {
+    const [penName] = await this.db
+      .update(penNames)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(penNames.id, id))
+      .returning();
+    return penName;
+  }
+
+  async deletePenName(id: number): Promise<void> {
+    await this.db.delete(penNames).where(eq(penNames.id, id));
+  }
+
+  // Book Series
+  async getAllBookSeries(): Promise<BookSeries[]> {
+    return await this.db.select().from(bookSeries).orderBy(desc(bookSeries.createdAt));
+  }
+
+  async getBookSeriesByPenName(penNameId: number): Promise<BookSeries[]> {
+    return await this.db
+      .select()
+      .from(bookSeries)
+      .where(eq(bookSeries.penNameId, penNameId))
+      .orderBy(desc(bookSeries.createdAt));
+  }
+
+  async getBookSeries(id: number): Promise<BookSeries | undefined> {
+    const [series] = await this.db.select().from(bookSeries).where(eq(bookSeries.id, id));
+    return series;
+  }
+
+  async createBookSeries(data: InsertBookSeries): Promise<BookSeries> {
+    const [series] = await this.db.insert(bookSeries).values(data).returning();
+    return series;
+  }
+
+  async updateBookSeries(id: number, data: Partial<InsertBookSeries>): Promise<BookSeries> {
+    const [series] = await this.db
+      .update(bookSeries)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(bookSeries.id, id))
+      .returning();
+    return series;
+  }
+
+  async deleteBookSeries(id: number): Promise<void> {
+    await this.db.delete(bookSeries).where(eq(bookSeries.id, id));
+  }
+
+  // Aura Books
+  async getAllAuraBooks(): Promise<AuraBook[]> {
+    return await this.db.select().from(auraBooks).orderBy(desc(auraBooks.createdAt));
+  }
+
+  async getAuraBooksByPenName(penNameId: number): Promise<AuraBook[]> {
+    return await this.db
+      .select()
+      .from(auraBooks)
+      .where(eq(auraBooks.penNameId, penNameId))
+      .orderBy(desc(auraBooks.createdAt));
+  }
+
+  async getAuraBooksBySeries(seriesId: number): Promise<AuraBook[]> {
+    return await this.db
+      .select()
+      .from(auraBooks)
+      .where(eq(auraBooks.seriesId, seriesId))
+      .orderBy(desc(auraBooks.createdAt));
+  }
+
+  async getAuraBook(id: number): Promise<AuraBook | undefined> {
+    const [book] = await this.db.select().from(auraBooks).where(eq(auraBooks.id, id));
+    return book;
+  }
+
+  async getAuraBookByAsin(asin: string): Promise<AuraBook | undefined> {
+    const [book] = await this.db.select().from(auraBooks).where(eq(auraBooks.asin, asin));
+    return book;
+  }
+
+  async createAuraBook(data: InsertAuraBook): Promise<AuraBook> {
+    const [book] = await this.db.insert(auraBooks).values(data).returning();
+    return book;
+  }
+
+  async updateAuraBook(id: number, data: Partial<InsertAuraBook>): Promise<AuraBook> {
+    const [book] = await this.db
+      .update(auraBooks)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(auraBooks.id, id))
+      .returning();
+    return book;
+  }
+
+  async deleteAuraBook(id: number): Promise<void> {
+    await this.db.delete(auraBooks).where(eq(auraBooks.id, id));
+  }
+
+  // KDP Sales
+  async getAllKdpSales(): Promise<KdpSale[]> {
+    return await this.db.select().from(kdpSales).orderBy(desc(kdpSales.saleDate));
+  }
+
+  async getKdpSalesByPenName(penNameId: number): Promise<KdpSale[]> {
+    return await this.db
+      .select()
+      .from(kdpSales)
+      .where(eq(kdpSales.penNameId, penNameId))
+      .orderBy(desc(kdpSales.saleDate));
+  }
+
+  async getKdpSalesByBook(bookId: number): Promise<KdpSale[]> {
+    return await this.db
+      .select()
+      .from(kdpSales)
+      .where(eq(kdpSales.bookId, bookId))
+      .orderBy(desc(kdpSales.saleDate));
+  }
+
+  async getKdpSalesByDateRange(start: Date, end: Date): Promise<KdpSale[]> {
+    return await this.db
+      .select()
+      .from(kdpSales)
+      .where(and(gte(kdpSales.saleDate, start), lte(kdpSales.saleDate, end)))
+      .orderBy(kdpSales.saleDate);
+  }
+
+  async createKdpSale(data: InsertKdpSale): Promise<KdpSale> {
+    const [sale] = await this.db.insert(kdpSales).values(data).returning();
+    return sale;
+  }
+
+  async bulkCreateKdpSales(data: InsertKdpSale[]): Promise<KdpSale[]> {
+    const sales = await this.db.insert(kdpSales).values(data).returning();
+    return sales;
+  }
+
+  async deleteKdpSalesByBatchId(batchId: string): Promise<void> {
+    await this.db.delete(kdpSales).where(eq(kdpSales.importBatchId, batchId));
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -540,6 +750,111 @@ export class MemStorage implements IStorage {
 
   async reschedulePublicationsFromBlockedDate(blockedDate: Date): Promise<Publication[]> {
     throw new Error("MemStorage does not support blocked dates operations");
+  }
+
+  // Aura System - Stubs (MemStorage no soporta estas operaciones)
+  async getAllPenNames(): Promise<PenName[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getPenName(id: number): Promise<PenName | undefined> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async createPenName(data: InsertPenName): Promise<PenName> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async updatePenName(id: number, data: Partial<InsertPenName>): Promise<PenName> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async deletePenName(id: number): Promise<void> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getAllBookSeries(): Promise<BookSeries[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getBookSeriesByPenName(penNameId: number): Promise<BookSeries[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getBookSeries(id: number): Promise<BookSeries | undefined> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async createBookSeries(data: InsertBookSeries): Promise<BookSeries> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async updateBookSeries(id: number, data: Partial<InsertBookSeries>): Promise<BookSeries> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async deleteBookSeries(id: number): Promise<void> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getAllAuraBooks(): Promise<AuraBook[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getAuraBooksByPenName(penNameId: number): Promise<AuraBook[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getAuraBooksBySeries(seriesId: number): Promise<AuraBook[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getAuraBook(id: number): Promise<AuraBook | undefined> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getAuraBookByAsin(asin: string): Promise<AuraBook | undefined> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async createAuraBook(data: InsertAuraBook): Promise<AuraBook> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async updateAuraBook(id: number, data: Partial<InsertAuraBook>): Promise<AuraBook> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async deleteAuraBook(id: number): Promise<void> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getAllKdpSales(): Promise<KdpSale[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getKdpSalesByPenName(penNameId: number): Promise<KdpSale[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getKdpSalesByBook(bookId: number): Promise<KdpSale[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getKdpSalesByDateRange(start: Date, end: Date): Promise<KdpSale[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async createKdpSale(data: InsertKdpSale): Promise<KdpSale> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async bulkCreateKdpSales(data: InsertKdpSale[]): Promise<KdpSale[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async deleteKdpSalesByBatchId(batchId: string): Promise<void> {
+    throw new Error("MemStorage does not support Aura operations");
   }
 }
 

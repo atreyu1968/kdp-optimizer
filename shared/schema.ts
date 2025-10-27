@@ -251,3 +251,96 @@ export const insertBlockedDateSchema = createInsertSchema(blockedDates).omit({
 });
 export type InsertBlockedDate = z.infer<typeof insertBlockedDateSchema>;
 export type BlockedDate = typeof blockedDates.$inferSelect;
+
+// ============================================================================
+// AURA SYSTEM - Gestión multi-seudónimo y análisis de regalías KDP
+// ============================================================================
+
+// Tabla de seudónimos (pen names)
+export const penNames = pgTable("pen_names", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Tabla de series de libros
+export const bookSeries = pgTable("book_series", {
+  id: serial("id").primaryKey(),
+  penNameId: integer("pen_name_id").notNull().references(() => penNames.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Tabla de libros (asociados a seudónimos)
+export const auraBooks = pgTable("aura_books", {
+  id: serial("id").primaryKey(),
+  penNameId: integer("pen_name_id").notNull().references(() => penNames.id),
+  seriesId: integer("series_id").references(() => bookSeries.id), // nullable
+  asin: text("asin").notNull(), // Amazon Standard Identification Number
+  title: text("title").notNull(),
+  subtitle: text("subtitle"),
+  publishDate: timestamp("publish_date"),
+  price: text("price"), // Guardamos como texto para manejar múltiples monedas como JSON
+  marketplaces: text("marketplaces").array().notNull(), // array de marketplaces
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Tipos de transacción KDP
+export const kdpTransactionTypes = ["Sale", "Refund", "Free", "KENP Read", "Borrow"] as const;
+export type KdpTransactionType = typeof kdpTransactionTypes[number];
+
+// Tabla de ventas/regalías de KDP
+export const kdpSales = pgTable("kdp_sales", {
+  id: serial("id").primaryKey(),
+  bookId: integer("book_id").references(() => auraBooks.id), // nullable para ventas sin libro asociado
+  penNameId: integer("pen_name_id").notNull().references(() => penNames.id),
+  saleDate: timestamp("sale_date").notNull(),
+  marketplace: text("marketplace").notNull(), // ej: "amazon.com", "amazon.es"
+  transactionType: text("transaction_type").notNull(), // "Sale", "Refund", "Free", "KENP Read", "Borrow"
+  royalty: text("royalty").notNull(), // Guardamos como texto decimal
+  currency: text("currency").notNull(), // USD, EUR, GBP, BRL, etc.
+  unitsOrPages: integer("units_or_pages"), // unidades vendidas o páginas leídas
+  asin: text("asin"), // ASIN del libro
+  title: text("title"), // título del libro (de CSV)
+  importBatchId: text("import_batch_id"), // ID del lote de importación
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Tipos de inserción y selección para Aura
+export const insertPenNameSchema = createInsertSchema(penNames).omit({ 
+  id: true, 
+  createdAt: true,
+  updatedAt: true 
+});
+export type InsertPenName = z.infer<typeof insertPenNameSchema>;
+export type PenName = typeof penNames.$inferSelect;
+
+export const insertBookSeriesSchema = createInsertSchema(bookSeries).omit({ 
+  id: true, 
+  createdAt: true,
+  updatedAt: true 
+});
+export type InsertBookSeries = z.infer<typeof insertBookSeriesSchema>;
+export type BookSeries = typeof bookSeries.$inferSelect;
+
+export const insertAuraBookSchema = createInsertSchema(auraBooks).omit({ 
+  id: true, 
+  createdAt: true,
+  updatedAt: true 
+});
+export type InsertAuraBook = z.infer<typeof insertAuraBookSchema>;
+export type AuraBook = typeof auraBooks.$inferSelect;
+
+export const insertKdpSaleSchema = createInsertSchema(kdpSales).omit({ 
+  id: true, 
+  createdAt: true 
+}).extend({
+  transactionType: z.enum(kdpTransactionTypes),
+});
+export type InsertKdpSale = z.infer<typeof insertKdpSaleSchema>;
+export type KdpSale = typeof kdpSales.$inferSelect;
