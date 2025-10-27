@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { AppHeader } from "@/components/app-header";
 import { AppFooter } from "@/components/app-footer";
@@ -14,6 +14,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,11 +50,14 @@ import {
   MapPin,
   BarChart3,
   ListTodo,
+  Ban,
 } from "lucide-react";
-import { amazonMarkets, type Manuscript, type Publication, type AmazonMarket } from "@shared/schema";
+import { amazonMarkets, type Manuscript, type Publication, type AmazonMarket, type BlockedDate } from "@shared/schema";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, parseISO, startOfWeek, endOfWeek, isSameMonth } from "date-fns";
 import { es } from "date-fns/locale";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from "recharts";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface PublicationStats {
   total: number;
@@ -85,9 +97,21 @@ interface DeleteDialogState {
   manuscriptTitle: string;
 }
 
+interface BlockDateDialogState {
+  open: boolean;
+  date: Date | null;
+  reason: string;
+}
+
+interface UnblockDateDialogState {
+  open: boolean;
+  blockedDate: BlockedDate | null;
+}
+
 type StatusFilter = "all" | "published" | "scheduled" | "unpublished";
 
 export default function Publications() {
+  const { toast } = useToast();
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -121,6 +145,17 @@ export default function Publications() {
     manuscriptTitle: "",
   });
 
+  const [blockDateDialog, setBlockDateDialog] = useState<BlockDateDialogState>({
+    open: false,
+    date: null,
+    reason: "",
+  });
+
+  const [unblockDateDialog, setUnblockDateDialog] = useState<UnblockDateDialogState>({
+    open: false,
+    blockedDate: null,
+  });
+
   // Fetch manuscripts
   const { data: manuscripts = [], isLoading: manuscriptsLoading } = useQuery<Manuscript[]>({
     queryKey: ["/api/manuscripts"],
@@ -134,6 +169,64 @@ export default function Publications() {
   // Fetch stats
   const { data: stats } = useQuery<PublicationStats>({
     queryKey: ["/api/publications/stats"],
+  });
+
+  // Fetch blocked dates
+  const { data: blockedDates = [] } = useQuery<BlockedDate[]>({
+    queryKey: ["/api/blocked-dates"],
+  });
+
+  // Create blocked date mutation
+  const createBlockedDateMutation = useMutation({
+    mutationFn: async (data: { date: Date; reason: string | null }) => {
+      return await apiRequest("/api/blocked-dates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: (response: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/blocked-dates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/publications"] });
+      toast({
+        title: "Día bloqueado",
+        description: response.rescheduledCount > 0 
+          ? `${response.rescheduledCount} publicación(es) reprogramada(s) automáticamente`
+          : "No hay publicaciones para reprogramar",
+      });
+      setBlockDateDialog({ open: false, date: null, reason: "" });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo bloquear el día",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete blocked date mutation
+  const deleteBlockedDateMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest(`/api/blocked-dates/${id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/blocked-dates"] });
+      toast({
+        title: "Día desbloqueado",
+        description: "El día ya está disponible para publicaciones",
+      });
+      setUnblockDateDialog({ open: false, blockedDate: null });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo desbloquear el día",
+        variant: "destructive",
+      });
+    },
   });
 
   const getPublicationsForManuscript = (manuscriptId: number) => {
@@ -753,23 +846,83 @@ export default function Publications() {
                           const hasPublications = dayPublications.length > 0;
                           const isAtLimit = dayPublications.length >= 3;
                           
+                          // Verificar si el día está bloqueado
+                          const isBlocked = blockedDates.some(bd => {
+                            const blockedDate = new Date(bd.date);
+                            return isSameDay(blockedDate, day);
+                          });
+                          const blockedDateObj = blockedDates.find(bd => {
+                            const blockedDate = new Date(bd.date);
+                            return isSameDay(blockedDate, day);
+                          });
+                          
                           return (
                             <div
                               key={day.toString()}
-                              className={`min-h-[100px] border rounded-md p-2 ${
+                              className={`min-h-[100px] border rounded-md p-2 relative ${
                                 !isCurrentMonth ? "bg-muted/30 text-muted-foreground" : "bg-card"
-                              } ${isToday ? "border-primary border-2" : ""}`}
+                              } ${isToday ? "border-primary border-2" : ""} ${
+                                isBlocked ? "bg-destructive/10 border-destructive/30" : ""
+                              }`}
                               data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
                             >
                               <div className="flex items-center justify-between mb-1">
                                 <span className={`text-xs font-medium ${isToday ? "text-primary" : ""}`}>
                                   {format(day, "d")}
                                 </span>
-                                {isAtLimit && (
-                                  <Badge variant="destructive" className="h-4 text-[10px] px-1">
-                                    Límite
-                                  </Badge>
-                                )}
+                                <div className="flex items-center gap-1">
+                                  {isBlocked && (
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-4 w-4 p-0"
+                                          data-testid={`button-blocked-${format(day, "yyyy-MM-dd")}`}
+                                        >
+                                          <Ban className="h-3 w-3 text-destructive" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                          onClick={() => setUnblockDateDialog({ open: true, blockedDate: blockedDateObj! })}
+                                          data-testid={`button-unblock-${format(day, "yyyy-MM-dd")}`}
+                                        >
+                                          <X className="h-4 w-4 mr-2" />
+                                          Desbloquear día
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  )}
+                                  {!isBlocked && (
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-4 w-4 p-0 opacity-0 hover:opacity-100 transition-opacity"
+                                          data-testid={`button-block-${format(day, "yyyy-MM-dd")}`}
+                                        >
+                                          <Ban className="h-3 w-3" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                          onClick={() => setBlockDateDialog({ open: true, date: day, reason: "" })}
+                                          data-testid={`button-confirm-block-${format(day, "yyyy-MM-dd")}`}
+                                        >
+                                          <Ban className="h-4 w-4 mr-2" />
+                                          Bloquear día
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  )}
+                                  {isAtLimit && (
+                                    <Badge variant="destructive" className="h-4 text-[10px] px-1">
+                                      Límite
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
                               
                               {hasPublications && (
@@ -779,15 +932,61 @@ export default function Publications() {
                                     const market = amazonMarkets[pub.market as AmazonMarket];
                                     
                                     return (
-                                      <div
-                                        key={pub.id}
-                                        className="text-[10px] bg-secondary/50 rounded px-1 py-0.5 truncate"
-                                        title={`${manuscript?.originalTitle} - ${market?.name}`}
-                                        data-testid={`calendar-publication-${pub.id}`}
-                                      >
-                                        <span className="mr-1">{market?.flag}</span>
-                                        <span className="truncate">{manuscript?.originalTitle}</span>
-                                      </div>
+                                      <DropdownMenu key={pub.id}>
+                                        <DropdownMenuTrigger asChild>
+                                          <div
+                                            className="text-[10px] bg-secondary/50 rounded px-1 py-0.5 truncate cursor-pointer hover-elevate active-elevate-2"
+                                            title={`${manuscript?.originalTitle} - ${market?.name}`}
+                                            data-testid={`calendar-publication-${pub.id}`}
+                                          >
+                                            <span className="mr-1">{market?.flag}</span>
+                                            <span className="truncate">{manuscript?.originalTitle}</span>
+                                          </div>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="start">
+                                          <DropdownMenuItem
+                                            onClick={() => {
+                                              setRescheduleDialog({
+                                                open: true,
+                                                publication: pub,
+                                                manuscriptTitle: manuscript?.originalTitle || "",
+                                              });
+                                            }}
+                                            data-testid={`button-reschedule-pub-${pub.id}`}
+                                          >
+                                            <CalendarIcon className="h-4 w-4 mr-2" />
+                                            Reprogramar
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onClick={() => {
+                                              setMarkPublishedDialog({
+                                                open: true,
+                                                publication: pub,
+                                                manuscriptTitle: manuscript?.originalTitle || "",
+                                              });
+                                            }}
+                                            data-testid={`button-mark-published-pub-${pub.id}`}
+                                          >
+                                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                                            Marcar publicada
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem
+                                            onClick={() => {
+                                              setDeleteDialog({
+                                                open: true,
+                                                publication: pub,
+                                                manuscriptTitle: manuscript?.originalTitle || "",
+                                              });
+                                            }}
+                                            className="text-destructive"
+                                            data-testid={`button-delete-pub-${pub.id}`}
+                                          >
+                                            <Trash2 className="h-4 w-4 mr-2" />
+                                            Eliminar
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
                                     );
                                   })}
                                   {dayPublications.length > 3 && (
@@ -804,7 +1003,7 @@ export default function Publications() {
                     </div>
                     
                     {/* Legend */}
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground pt-4 border-t">
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground pt-4 border-t flex-wrap">
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 border-2 border-primary rounded"></div>
                         <span>Hoy</span>
@@ -812,6 +1011,14 @@ export default function Publications() {
                       <div className="flex items-center gap-2">
                         <Badge variant="destructive" className="h-4 text-[10px] px-1">Límite</Badge>
                         <span>3/3 publicaciones (límite diario)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-destructive/10 border border-destructive/30 rounded"></div>
+                        <span>Día bloqueado</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Ban className="h-4 w-4" />
+                        <span>Bloquear/desbloquear día (hover sobre el día)</span>
                       </div>
                     </div>
                   </div>
@@ -1244,6 +1451,135 @@ export default function Publications() {
         publication={deleteDialog.publication}
         manuscriptTitle={deleteDialog.manuscriptTitle}
       />
+
+      {/* Block Date Dialog */}
+      <Dialog
+        open={blockDateDialog.open}
+        onOpenChange={(open) => setBlockDateDialog({ ...blockDateDialog, open })}
+      >
+        <DialogContent data-testid="dialog-block-date">
+          <DialogHeader>
+            <DialogTitle>Bloquear Día</DialogTitle>
+            <DialogDescription>
+              {blockDateDialog.date && (
+                <>
+                  Bloquear el día {format(blockDateDialog.date, "d 'de' MMMM 'de' yyyy", { locale: es })}.
+                  {allPublications.filter(pub => {
+                    const pubDate = pub.scheduledDate ? new Date(pub.scheduledDate) : null;
+                    return pubDate && blockDateDialog.date && isSameDay(pubDate, blockDateDialog.date);
+                  }).length > 0 && (
+                    <span className="block mt-2 text-sm font-semibold text-destructive">
+                      Atención: Hay {allPublications.filter(pub => {
+                        const pubDate = pub.scheduledDate ? new Date(pub.scheduledDate) : null;
+                        return pubDate && blockDateDialog.date && isSameDay(pubDate, blockDateDialog.date);
+                      }).length} publicación(es) programada(s) para este día que serán reprogramadas automáticamente.
+                    </span>
+                  )}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Motivo (opcional)</label>
+              <Textarea
+                placeholder="Ej: Vacaciones, evento especial, etc."
+                value={blockDateDialog.reason}
+                onChange={(e) => setBlockDateDialog({ ...blockDateDialog, reason: e.target.value })}
+                data-testid="input-block-reason"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBlockDateDialog({ open: false, date: null, reason: "" })}
+              data-testid="button-cancel-block"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (blockDateDialog.date) {
+                  createBlockedDateMutation.mutate({
+                    date: blockDateDialog.date,
+                    reason: blockDateDialog.reason || null,
+                  });
+                }
+              }}
+              disabled={createBlockedDateMutation.isPending}
+              data-testid="button-confirm-block-date"
+            >
+              {createBlockedDateMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Bloqueando...
+                </>
+              ) : (
+                <>
+                  <Ban className="h-4 w-4 mr-2" />
+                  Bloquear día
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unblock Date Dialog */}
+      <Dialog
+        open={unblockDateDialog.open}
+        onOpenChange={(open) => setUnblockDateDialog({ ...unblockDateDialog, open })}
+      >
+        <DialogContent data-testid="dialog-unblock-date">
+          <DialogHeader>
+            <DialogTitle>Desbloquear Día</DialogTitle>
+            <DialogDescription>
+              {unblockDateDialog.blockedDate && (
+                <>
+                  ¿Desbloquear el día {format(new Date(unblockDateDialog.blockedDate.date), "d 'de' MMMM 'de' yyyy", { locale: es })}?
+                  {unblockDateDialog.blockedDate.reason && (
+                    <span className="block mt-2 text-sm">
+                      Motivo: {unblockDateDialog.blockedDate.reason}
+                    </span>
+                  )}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setUnblockDateDialog({ open: false, blockedDate: null })}
+              data-testid="button-cancel-unblock"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (unblockDateDialog.blockedDate) {
+                  deleteBlockedDateMutation.mutate(unblockDateDialog.blockedDate.id);
+                }
+              }}
+              disabled={deleteBlockedDateMutation.isPending}
+              data-testid="button-confirm-unblock-date"
+            >
+              {deleteBlockedDateMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Desbloqueando...
+                </>
+              ) : (
+                <>
+                  <X className="h-4 w-4 mr-2" />
+                  Desbloquear día
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
