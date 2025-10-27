@@ -179,11 +179,8 @@ export default function Publications() {
   // Create blocked date mutation
   const createBlockedDateMutation = useMutation({
     mutationFn: async (data: { date: Date; reason: string | null }) => {
-      return await apiRequest("/api/blocked-dates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      const response = await apiRequest("POST", "/api/blocked-dates", data);
+      return await response.json();
     },
     onSuccess: (response: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/blocked-dates"] });
@@ -208,9 +205,8 @@ export default function Publications() {
   // Delete blocked date mutation
   const deleteBlockedDateMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await apiRequest(`/api/blocked-dates/${id}`, {
-        method: "DELETE",
-      });
+      const response = await apiRequest("DELETE", `/api/blocked-dates/${id}`);
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/blocked-dates"] });
