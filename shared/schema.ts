@@ -199,6 +199,7 @@ export const tasks = pgTable("tasks", {
   description: text("description").notNull(),
   priority: integer("priority").notNull().default(0),
   completed: integer("completed").notNull().default(0), // 0 = false, 1 = true (SQLite compatibility)
+  dueDate: timestamp("due_date"), // Fecha límite opcional
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
