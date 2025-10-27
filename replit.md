@@ -40,3 +40,31 @@ The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessibl
     *   **jspdf**: PDF generation for results export.
 *   **Font Services**:
     *   **Google Fonts**: Inter, JetBrains Mono.
+## Recent Changes (October 27, 2025)
+
+### Vista de Calendario y Estadísticas (Latest)
+**Nueva Funcionalidad**: Vistas completas de Calendario mensual y Estadísticas detalladas con gráficos interactivos
+
+#### Vista de Calendario Mensual
+- **Navegación**: Botones anterior/siguiente + botón "Hoy" para navegar entre meses
+- **Grid**: 7 columnas (Lun-Dom), muestra días del mes + adyacentes, min-height 100px por celda
+- **Publicaciones por día**: Muestra hasta 3 publicaciones (flag + título truncado), indicador "+X más"
+- **Indicadores visuales**: Día actual (border azul), límite 3/día (badge rojo), días fuera del mes (atenuado)
+- **Lógica**: Usa `isSameDay()` para agrupar publicaciones por fecha
+- **Estado**: `currentMonth` (Date), data-testids completos
+
+#### Vista de Estadísticas (5 secciones con Recharts)
+1. **Distribución por Mercado** (BarChart): 8 mercados, barras apiladas (publicadas/programadas), tooltip customizado, 400px
+2. **Distribución por Estado** (PieChart): 3 segmentos con porcentajes, filtra valores 0, tooltip, 300px
+3. **Timeline de Publicaciones** (AreaChart): 19 meses (12 atrás + 6 adelante), gradientes verde/azul, curva suavizada, 350px
+4. **Métricas Adicionales**: 7 métricas calculadas (cobertura, publicación, próximas 7 días)
+5. **Mercados Principales**: Top 5 ranking con barras de progreso
+
+#### Implementación Técnica
+- **Imports**: Recharts (BarChart, PieChart, AreaChart, Line), date-fns (startOfMonth, isSameDay, addMonths), lucide-react (ChevronLeft/Right, MapPin, BarChart3)
+- **Variables CSS**: `--chart-1/2/3` (verde/azul/gris) en index.css light/dark mode
+- **Fix crítico**: Cambio de `parseISO()` a `new Date()` para manejo robusto de fechas (evita Invalid Date)
+- **Testing E2E**: ✅ Completado - Navegación, visualización, gráficos, tooltips, responsive
+
+**Archivos**: `client/src/pages/publications.tsx`
+**Mejoras futuras**: Memoización, click en días del calendario, exportar gráficos, filtros adicionales, vista anual
