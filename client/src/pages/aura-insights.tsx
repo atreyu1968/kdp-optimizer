@@ -346,26 +346,71 @@ function InsightCard({ insight }: { insight: EnrichedInsight }) {
         </Tooltip>
 
         {/* Razonamiento */}
-        <div>
-          <p className="text-sm text-foreground/90 line-clamp-3">
-            {insight.rationale}
-          </p>
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="cursor-help">
+              <div className="flex items-center gap-1 mb-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase">
+                  Razonamiento
+                </p>
+                <Info className="h-3 w-3 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-foreground/90 line-clamp-3">
+                {insight.rationale}
+              </p>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="w-80 max-w-[90vw]">
+            <div className="space-y-2">
+              <p className="font-semibold text-sm">Razonamiento Completo</p>
+              <p className="text-xs leading-relaxed">
+                {insight.rationale}
+              </p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Acciones */}
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
-            Acciones recomendadas:
-          </p>
-          <ul className="space-y-1">
-            {insight.actions.slice(0, 3).map((action, idx) => (
-              <li key={idx} className="text-xs flex items-start gap-1.5">
-                <span className="text-primary mt-0.5">•</span>
-                <span className="flex-1">{action}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="cursor-help">
+              <div className="flex items-center gap-1 mb-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase">
+                  Acciones recomendadas
+                </p>
+                {insight.actions.length > 3 && (
+                  <Info className="h-3 w-3 text-muted-foreground" />
+                )}
+              </div>
+              <ul className="space-y-1">
+                {insight.actions.slice(0, 3).map((action, idx) => (
+                  <li key={idx} className="text-xs flex items-start gap-1.5">
+                    <span className="text-primary mt-0.5">•</span>
+                    <span className="flex-1">{action}</span>
+                  </li>
+                ))}
+                {insight.actions.length > 3 && (
+                  <li className="text-xs text-muted-foreground italic mt-1">
+                    +{insight.actions.length - 3} acciones más (pasa el cursor para ver todas)
+                  </li>
+                )}
+              </ul>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="w-80 max-w-[90vw]">
+            <div className="space-y-2">
+              <p className="font-semibold text-sm">Todas las Acciones Recomendadas</p>
+              <ul className="space-y-1.5">
+                {insight.actions.map((action, idx) => (
+                  <li key={idx} className="text-xs flex items-start gap-1.5">
+                    <span className="text-primary mt-0.5">{idx + 1}.</span>
+                    <span className="flex-1 leading-relaxed">{action}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Sugerencia de precio */}
         {insight.priceSuggestion && (
