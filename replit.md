@@ -14,7 +14,7 @@ The frontend is built with React (TypeScript), Vite, Shadcn/ui (Radix UI + Tailw
 The backend utilizes Node.js with Express.js (TypeScript, ES modules), implementing RESTful APIs with SSE for progress streaming. Core services include a Metadata Generator, Progress Emitter, Storage Service, and Publication Scheduler. Architectural decisions emphasize asynchronous processing, session management, centralized error handling, a 15MB file upload limit, and robust OpenAI API rate limiting with retry logic. A comprehensive Publication Management Module handles scheduling with a limit of 3 publications per day, prioritizing Spanish markets, and provides an intuitive UI for tracking status.
 
 ### Data Storage
-PostgreSQL is used as the database, accessed via Drizzle ORM. The schema includes `Manuscripts`, `Optimizations`, and `Publications` tables. Pricing rules implement specific KDP royalty calculations and psychological pricing strategies for supported currencies.
+PostgreSQL is used as the database, accessed via Drizzle ORM. The schema includes `Manuscripts`, `Optimizations`, `Publications`, and `Tasks` tables. The Tasks table enables per-manuscript task management for tracking file preparation workflows. Pricing rules implement specific KDP royalty calculations and psychological pricing strategies for supported currencies.
 
 ### UI/UX Decisions
 The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessible interface. It features a multi-step wizard (Upload → Configure → Analyze → Results) with a progress indicator, supporting light/dark modes and responsive design. A library page allows for saved manuscript management with search and filtering capabilities.
@@ -42,7 +42,43 @@ The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessibl
     *   **Google Fonts**: Inter, JetBrains Mono.
 ## Recent Changes (October 27, 2025)
 
-### Vista de Calendario y Estadísticas (Latest)
+### Sistema de Checklist de Tareas (Latest)
+**Nueva Funcionalidad**: Sistema completo de gestión de tareas pendientes por manuscrito para trackear preparación de archivos multi-idioma
+
+#### Tabla Tasks en Base de Datos
+- **Schema**: id (serial), manuscriptId (FK), description (text), priority (1=Alta, 2=Media, 3=Baja), completed (0/1), createdAt, updatedAt
+- **Migración**: Ejecutada exitosamente con `npm run db:push`
+- **Storage Interface**: 6 métodos CRUD (getAllTasks, getTasksByManuscript, createTask, updateTask, toggleTaskCompleted, deleteTask)
+
+#### Endpoints API REST
+- **GET** `/api/tasks/manuscript/:id` - Obtener tareas de un manuscrito (ordenadas por prioridad)
+- **POST** `/api/tasks` - Crear nueva tarea (validación con Zod schema)
+- **PUT** `/api/tasks/:id` - Actualizar tarea
+- **POST** `/api/tasks/:id/toggle` - Toggle estado completado (automático)
+- **DELETE** `/api/tasks/:id` - Eliminar tarea
+
+#### Componente TaskChecklist UI
+- **Props**: manuscriptId, manuscriptTitle
+- **Funcionalidades**:
+  - Añadir tareas con descripción y prioridad (Alta/Media/Baja)
+  - Marcar/desmarcar como completadas con checkbox (sin disabled para UX fluida)
+  - Eliminar tareas mediante menú desplegable
+  - Ordenamiento: tareas incompletas primero, luego por prioridad
+  - Estilo tachado para tareas completadas
+  - Contador "X de Y completadas"
+- **React Query**: Invalidación automática de cache tras mutaciones (create/toggle/delete)
+- **Data-testids**: Completos para todos los elementos interactivos (17+ testids)
+
+#### Integración en Publicaciones
+- **Ubicación**: Pestaña "Por Manuscrito" en `/publications`, debajo del grid de mercados
+- **Scope**: Un checklist independiente por cada manuscrito
+- **UX**: Card integrada con título, descripción, botón "Añadir"
+- **Testing E2E**: ✅ Completado - Crear, toggle, eliminar tareas funcionando correctamente
+
+**Archivos**: `shared/schema.ts`, `server/storage.ts`, `server/routes.ts`, `client/src/components/task-checklist.tsx`, `client/src/pages/publications.tsx`
+**Mejoras futuras**: Drag & drop para reordenar prioridades, edición inline de descripción, filtros por prioridad, exportar checklist a PDF
+
+### Vista de Calendario y Estadísticas
 **Nueva Funcionalidad**: Vistas completas de Calendario mensual y Estadísticas detalladas con gráficos interactivos
 
 #### Vista de Calendario Mensual
