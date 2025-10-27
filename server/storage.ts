@@ -5,11 +5,14 @@ import {
   manuscripts, 
   optimizations,
   publications,
+  tasks,
   type Manuscript, 
   type Optimization,
   type Publication,
+  type Task,
   type InsertManuscript,
   type InsertPublication,
+  type InsertTask,
   type OptimizationResult,
   type MarketMetadata,
   amazonMarkets,
@@ -39,6 +42,14 @@ export interface IStorage {
   markAsPublished(id: number, publishedDate: Date, kdpUrl?: string): Promise<Publication>;
   getPublicationsByDateRange(start: Date, end: Date): Promise<Publication[]>;
   deletePublication(id: number): Promise<void>;
+  
+  // Task management
+  getAllTasks(): Promise<Task[]>;
+  getTasksByManuscript(manuscriptId: number): Promise<Task[]>;
+  createTask(data: InsertTask): Promise<Task>;
+  updateTask(id: number, data: Partial<InsertTask>): Promise<Task>;
+  toggleTaskCompleted(id: number): Promise<Task>;
+  deleteTask(id: number): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -178,6 +189,51 @@ export class DbStorage implements IStorage {
     await this.db.delete(publications).where(eq(publications.id, id));
   }
 
+  // Task methods
+  async getAllTasks(): Promise<Task[]> {
+    return await this.db.select().from(tasks).orderBy(tasks.priority, desc(tasks.createdAt));
+  }
+
+  async getTasksByManuscript(manuscriptId: number): Promise<Task[]> {
+    return await this.db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.manuscriptId, manuscriptId))
+      .orderBy(tasks.priority, desc(tasks.createdAt));
+  }
+
+  async createTask(data: InsertTask): Promise<Task> {
+    const [task] = await this.db.insert(tasks).values(data).returning();
+    return task;
+  }
+
+  async updateTask(id: number, data: Partial<InsertTask>): Promise<Task> {
+    const [task] = await this.db
+      .update(tasks)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(tasks.id, id))
+      .returning();
+    return task;
+  }
+
+  async toggleTaskCompleted(id: number): Promise<Task> {
+    const [currentTask] = await this.db.select().from(tasks).where(eq(tasks.id, id));
+    if (!currentTask) {
+      throw new Error(`Task with ID ${id} not found`);
+    }
+    const newCompleted = currentTask.completed === 1 ? 0 : 1;
+    const [task] = await this.db
+      .update(tasks)
+      .set({ completed: newCompleted, updatedAt: new Date() })
+      .where(eq(tasks.id, id))
+      .returning();
+    return task;
+  }
+
+  async deleteTask(id: number): Promise<void> {
+    await this.db.delete(tasks).where(eq(tasks.id, id));
+  }
+
   async saveOptimizationWithManuscript(
     manuscriptData: InsertManuscript,
     optimizationId: string,
@@ -272,6 +328,30 @@ export class MemStorage implements IStorage {
 
   async deletePublication(id: number): Promise<void> {
     throw new Error("MemStorage does not support publication operations");
+  }
+
+  async getAllTasks(): Promise<Task[]> {
+    throw new Error("MemStorage does not support task operations");
+  }
+
+  async getTasksByManuscript(manuscriptId: number): Promise<Task[]> {
+    throw new Error("MemStorage does not support task operations");
+  }
+
+  async createTask(data: InsertTask): Promise<Task> {
+    throw new Error("MemStorage does not support task operations");
+  }
+
+  async updateTask(id: number, data: Partial<InsertTask>): Promise<Task> {
+    throw new Error("MemStorage does not support task operations");
+  }
+
+  async toggleTaskCompleted(id: number): Promise<Task> {
+    throw new Error("MemStorage does not support task operations");
+  }
+
+  async deleteTask(id: number): Promise<void> {
+    throw new Error("MemStorage does not support task operations");
   }
 }
 
