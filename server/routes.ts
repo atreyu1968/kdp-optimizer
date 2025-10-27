@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { optimizationRequestSchema, insertPublicationSchema } from "@shared/schema";
+import { optimizationRequestSchema, insertPublicationSchema, insertTaskSchema } from "@shared/schema";
 import { generateOptimizationResult } from "./services/metadata-generator";
 import { ProgressEmitter } from "./services/progress-emitter";
 import {
@@ -418,6 +418,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching publication stats:", error);
       res.status(500).json({ error: "Failed to fetch publication stats" });
+    }
+  });
+
+  // ============ TASK ENDPOINTS ============
+
+  // Obtener todas las tareas
+  app.get("/api/tasks", async (req, res) => {
+    try {
+      const tasks = await storage.getAllTasks();
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      res.status(500).json({ error: "Failed to fetch tasks" });
+    }
+  });
+
+  // Obtener tareas de un manuscrito específico
+  app.get("/api/tasks/manuscript/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid manuscript ID" });
+        return;
+      }
+
+      const tasks = await storage.getTasksByManuscript(id);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching tasks for manuscript:", error);
+      res.status(500).json({ error: "Failed to fetch tasks for manuscript" });
+    }
+  });
+
+  // Crear una tarea
+  app.post("/api/tasks", async (req, res) => {
+    try {
+      const validation = insertTaskSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        res.status(400).json({ error: "Invalid task data", details: validation.error.errors });
+        return;
+      }
+
+      const task = await storage.createTask(validation.data);
+      res.json(task);
+    } catch (error) {
+      console.error("Error creating task:", error);
+      res.status(500).json({ error: "Failed to create task" });
+    }
+  });
+
+  // Actualizar una tarea
+  app.put("/api/tasks/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid task ID" });
+        return;
+      }
+
+      const task = await storage.updateTask(id, req.body);
+      res.json(task);
+    } catch (error) {
+      console.error("Error updating task:", error);
+      res.status(500).json({ error: "Failed to update task" });
+    }
+  });
+
+  // Marcar/desmarcar tarea como completada
+  app.post("/api/tasks/:id/toggle", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid task ID" });
+        return;
+      }
+
+      const task = await storage.toggleTaskCompleted(id);
+      res.json(task);
+    } catch (error) {
+      console.error("Error toggling task:", error);
+      res.status(500).json({ error: "Failed to toggle task" });
+    }
+  });
+
+  // Eliminar una tarea
+  app.delete("/api/tasks/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid task ID" });
+        return;
+      }
+
+      await storage.deleteTask(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      res.status(500).json({ error: "Failed to delete task" });
     }
   });
 
