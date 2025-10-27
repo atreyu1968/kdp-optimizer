@@ -18,8 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MoreHorizontal, Trash2, ListTodo, Filter } from "lucide-react";
+import { MoreHorizontal, Trash2, ListTodo, Filter, AlertCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { format, differenceInDays } from "date-fns";
+import { es } from "date-fns/locale";
 
 interface TaskWithManuscript {
   id: number;
@@ -27,6 +29,7 @@ interface TaskWithManuscript {
   description: string;
   priority: number;
   completed: number;
+  dueDate: Date | null;
   createdAt: Date;
   updatedAt: Date;
   manuscriptTitle: string;
@@ -47,6 +50,23 @@ export function AllTasksView() {
   const { data: allTasks = [], isLoading } = useQuery<TaskWithManuscript[]>({
     queryKey: ["/api/tasks"],
   });
+
+  // Función para determinar el estado de urgencia de una tarea
+  const getTaskUrgency = (task: TaskWithManuscript) => {
+    if (!task.dueDate || task.completed === 1) return null;
+    
+    const dueDate = new Date(task.dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    dueDate.setHours(0, 0, 0, 0);
+    
+    const daysUntilDue = differenceInDays(dueDate, today);
+    
+    if (daysUntilDue < 0) return "overdue"; // Vencida
+    if (daysUntilDue === 0) return "today"; // Vence hoy
+    if (daysUntilDue <= 3) return "soon"; // Vence pronto
+    return "upcoming"; // Próxima
+  };
 
   const toggleTaskMutation = useMutation({
     mutationFn: async (taskId: number) => {
@@ -188,74 +208,104 @@ export function AllTasksView() {
             </div>
           ) : (
             <div className="space-y-2">
-              {sortedTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-start gap-3 p-3 rounded-md border hover-elevate"
-                  data-testid={`task-item-${task.id}`}
-                >
-                  <Checkbox
-                    checked={task.completed === 1}
-                    onCheckedChange={() => toggleTaskMutation.mutate(task.id)}
-                    className="mt-0.5"
-                    data-testid={`checkbox-task-${task.id}`}
-                  />
-                  
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <p
-                      className={`text-sm ${
-                        task.completed === 1
-                          ? "line-through text-muted-foreground"
-                          : ""
-                      }`}
-                      data-testid={`text-task-description-${task.id}`}
-                    >
-                      {task.description}
-                    </p>
-                    
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span data-testid={`text-manuscript-title-${task.id}`}>
-                        📖 {task.manuscriptTitle}
-                      </span>
-                      <span className="text-muted-foreground/50">•</span>
-                      <span data-testid={`text-manuscript-author-${task.id}`}>
-                        ✍️ {task.manuscriptAuthor}
-                      </span>
-                    </div>
-                  </div>
-
-                  <Badge
-                    variant={priorityLabels[task.priority as 1 | 2 | 3].variant}
-                    className="shrink-0"
-                    data-testid={`badge-priority-${task.id}`}
+              {sortedTasks.map((task) => {
+                const urgency = getTaskUrgency(task);
+                
+                return (
+                  <div
+                    key={task.id}
+                    className="flex items-start gap-3 p-3 rounded-md border hover-elevate"
+                    data-testid={`task-item-${task.id}`}
                   >
-                    {priorityLabels[task.priority as 1 | 2 | 3].label}
-                  </Badge>
+                    <Checkbox
+                      checked={task.completed === 1}
+                      onCheckedChange={() => toggleTaskMutation.mutate(task.id)}
+                      className="mt-0.5"
+                      data-testid={`checkbox-task-${task.id}`}
+                    />
+                    
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <p
+                        className={`text-sm ${
+                          task.completed === 1
+                            ? "line-through text-muted-foreground"
+                            : ""
+                        }`}
+                        data-testid={`text-task-description-${task.id}`}
+                      >
+                        {task.description}
+                      </p>
+                      
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span data-testid={`text-manuscript-title-${task.id}`}>
+                          📖 {task.manuscriptTitle}
+                        </span>
+                        <span className="text-muted-foreground/50">•</span>
+                        <span data-testid={`text-manuscript-author-${task.id}`}>
+                          ✍️ {task.manuscriptAuthor}
+                        </span>
+                      </div>
+                    </div>
 
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="shrink-0"
-                        data-testid={`button-task-menu-${task.id}`}
+                    <div className="flex flex-col gap-2 shrink-0">
+                      <Badge
+                        variant={priorityLabels[task.priority as 1 | 2 | 3].variant}
+                        data-testid={`badge-priority-${task.id}`}
                       >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => deleteTaskMutation.mutate(task.id)}
-                        className="text-destructive"
-                        data-testid={`button-delete-task-${task.id}`}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Eliminar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))}
+                        {priorityLabels[task.priority as 1 | 2 | 3].label}
+                      </Badge>
+                      
+                      {task.dueDate && (
+                        <Badge
+                          variant={
+                            urgency === "overdue"
+                              ? "destructive"
+                              : urgency === "today"
+                              ? "destructive"
+                              : urgency === "soon"
+                              ? "default"
+                              : "outline"
+                          }
+                          className="text-xs flex items-center gap-1"
+                          data-testid={`badge-due-date-${task.id}`}
+                        >
+                          {urgency === "overdue" ? (
+                            <AlertCircle className="h-3 w-3" />
+                          ) : (
+                            <Clock className="h-3 w-3" />
+                          )}
+                          {format(new Date(task.dueDate), "dd/MM/yy")}
+                          {urgency === "overdue" && " (vencida)"}
+                          {urgency === "today" && " (hoy)"}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0"
+                          data-testid={`button-task-menu-${task.id}`}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => deleteTaskMutation.mutate(task.id)}
+                          className="text-destructive"
+                          data-testid={`button-delete-task-${task.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -19,9 +21,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreVertical, Trash2, Loader2, CheckCircle2, Circle } from "lucide-react";
+import { Plus, MoreVertical, Trash2, Loader2, CheckCircle2, Circle, CalendarIcon, AlertCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Task } from "@shared/schema";
+import { format, isBefore, isToday, differenceInDays } from "date-fns";
+import { es } from "date-fns/locale";
+import type { Task, Publication } from "@shared/schema";
 
 interface TaskChecklistProps {
   manuscriptId: number;
@@ -38,6 +42,7 @@ export function TaskChecklist({ manuscriptId, manuscriptTitle }: TaskChecklistPr
   const { toast } = useToast();
   const [newTaskDescription, setNewTaskDescription] = useState("");
   const [newTaskPriority, setNewTaskPriority] = useState<number>(2);
+  const [newTaskDueDate, setNewTaskDueDate] = useState<Date | undefined>();
   const [isAddingTask, setIsAddingTask] = useState(false);
 
   const { data: tasks = [], isLoading } = useQuery<Task[]>({
@@ -49,19 +54,31 @@ export function TaskChecklist({ manuscriptId, manuscriptTitle }: TaskChecklistPr
     },
   });
 
+  const { data: publications = [] } = useQuery<Publication[]>({
+    queryKey: ["/api/publications", "manuscript", manuscriptId],
+    queryFn: async () => {
+      const response = await fetch(`/api/publications/manuscript/${manuscriptId}`);
+      if (!response.ok) throw new Error("Failed to fetch publications");
+      return response.json();
+    },
+  });
+
   const createTaskMutation = useMutation({
-    mutationFn: async (data: { description: string; priority: number }) => {
+    mutationFn: async (data: { description: string; priority: number; dueDate?: Date }) => {
       return await apiRequest("POST", "/api/tasks", {
         manuscriptId,
         description: data.description,
         priority: data.priority,
         completed: 0,
+        dueDate: data.dueDate || null,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks", "manuscript", manuscriptId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       setNewTaskDescription("");
       setNewTaskPriority(2);
+      setNewTaskDueDate(undefined);
       setIsAddingTask(false);
       toast({
         title: "Tarea creada",
@@ -126,7 +143,31 @@ export function TaskChecklist({ manuscriptId, manuscriptTitle }: TaskChecklistPr
     createTaskMutation.mutate({
       description: newTaskDescription.trim(),
       priority: newTaskPriority,
+      dueDate: newTaskDueDate,
     });
+  };
+
+  // Obtener la fecha de publicación más próxima
+  const nextPublicationDate = publications
+    .filter((p) => p.scheduledDate && p.status === "scheduled")
+    .map((p) => new Date(p.scheduledDate!))
+    .sort((a, b) => a.getTime() - b.getTime())[0];
+
+  // Función para determinar el estado de urgencia de una tarea
+  const getTaskUrgency = (task: Task) => {
+    if (!task.dueDate || task.completed === 1) return null;
+    
+    const dueDate = new Date(task.dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    dueDate.setHours(0, 0, 0, 0);
+    
+    const daysUntilDue = differenceInDays(dueDate, today);
+    
+    if (daysUntilDue < 0) return "overdue"; // Vencida
+    if (daysUntilDue === 0) return "today"; // Vence hoy
+    if (daysUntilDue <= 3) return "soon"; // Vence pronto
+    return "upcoming"; // Próxima
   };
 
   const sortedTasks = [...tasks].sort((a, b) => {
@@ -174,7 +215,7 @@ export function TaskChecklist({ manuscriptId, manuscriptTitle }: TaskChecklistPr
               }}
               data-testid="input-task-description"
             />
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Select
                 value={newTaskPriority.toString()}
                 onValueChange={(val) => setNewTaskPriority(parseInt(val))}
@@ -188,6 +229,58 @@ export function TaskChecklist({ manuscriptId, manuscriptTitle }: TaskChecklistPr
                   <SelectItem value="3" data-testid="option-priority-low">Baja</SelectItem>
                 </SelectContent>
               </Select>
+              
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={!newTaskDueDate ? "text-muted-foreground" : ""}
+                    data-testid="button-select-due-date"
+                  >
+                    <CalendarIcon className="h-4 w-4 mr-2" />
+                    {newTaskDueDate ? format(newTaskDueDate, "PP", { locale: es }) : "Fecha límite"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={newTaskDueDate}
+                    onSelect={setNewTaskDueDate}
+                    initialFocus
+                    locale={es}
+                    data-testid="calendar-due-date"
+                  />
+                  {nextPublicationDate && (
+                    <div className="p-3 border-t">
+                      <p className="text-xs text-muted-foreground mb-2">Sugerencia:</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-xs"
+                        onClick={() => setNewTaskDueDate(nextPublicationDate)}
+                        data-testid="button-suggest-publication-date"
+                      >
+                        Próxima publicación: {format(nextPublicationDate, "PP", { locale: es })}
+                      </Button>
+                    </div>
+                  )}
+                  {newTaskDueDate && (
+                    <div className="p-3 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-xs"
+                        onClick={() => setNewTaskDueDate(undefined)}
+                        data-testid="button-clear-due-date"
+                      >
+                        Limpiar fecha
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+
               <Button
                 size="sm"
                 onClick={handleCreateTask}
@@ -207,6 +300,7 @@ export function TaskChecklist({ manuscriptId, manuscriptTitle }: TaskChecklistPr
                   setIsAddingTask(false);
                   setNewTaskDescription("");
                   setNewTaskPriority(2);
+                  setNewTaskDueDate(undefined);
                 }}
                 data-testid="button-cancel-task"
               >
@@ -228,6 +322,8 @@ export function TaskChecklist({ manuscriptId, manuscriptTitle }: TaskChecklistPr
           <div className="space-y-2">
             {sortedTasks.map((task) => {
               const priorityInfo = PRIORITY_LABELS[task.priority as keyof typeof PRIORITY_LABELS] || PRIORITY_LABELS[2];
+              const urgency = getTaskUrgency(task);
+              
               return (
                 <div
                   key={task.id}
@@ -251,10 +347,35 @@ export function TaskChecklist({ manuscriptId, manuscriptTitle }: TaskChecklistPr
                     >
                       {task.description}
                     </p>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
                       <Badge variant={priorityInfo.variant} className="text-xs">
                         {priorityInfo.label}
                       </Badge>
+                      
+                      {task.dueDate && (
+                        <Badge
+                          variant={
+                            urgency === "overdue"
+                              ? "destructive"
+                              : urgency === "today"
+                              ? "destructive"
+                              : urgency === "soon"
+                              ? "default"
+                              : "outline"
+                          }
+                          className="text-xs flex items-center gap-1"
+                          data-testid={`badge-due-date-${task.id}`}
+                        >
+                          {urgency === "overdue" ? (
+                            <AlertCircle className="h-3 w-3" />
+                          ) : (
+                            <Clock className="h-3 w-3" />
+                          )}
+                          {format(new Date(task.dueDate), "dd/MM/yy")}
+                          {urgency === "overdue" && " (vencida)"}
+                          {urgency === "today" && " (hoy)"}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   <DropdownMenu>
