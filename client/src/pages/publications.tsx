@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { AppHeader } from "@/components/app-header";
 import { AppFooter } from "@/components/app-footer";
 import { SchedulePublicationsDialog } from "@/components/schedule-publications-dialog";
@@ -656,9 +657,12 @@ export default function Publications() {
                             Programar {pendingCount} mercado{pendingCount !== 1 ? 's' : ''}
                           </Button>
                         )}
-                        <Button size="sm" variant="ghost" data-testid={`button-view-details-${manuscript.id}`}>
-                          Ver detalles
-                        </Button>
+                        <Link href="/library">
+                          <Button size="sm" variant="ghost" data-testid={`button-view-details-${manuscript.id}`}>
+                            <BookOpen className="h-4 w-4 mr-2" />
+                            Ver detalles
+                          </Button>
+                        </Link>
                       </div>
                     </CardContent>
                   </Card>
