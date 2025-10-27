@@ -40,7 +40,6 @@ export default function Aura() {
               <Route path="/aura/series" component={AuraSeries} />
               <Route path="/aura/books" component={AuraBooks} />
               <Route path="/aura/sales" component={AuraSales} />
-              <Route path="/aura/*" component={AuraDashboard} />
             </Switch>
           </main>
 
