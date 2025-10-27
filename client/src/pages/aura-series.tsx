@@ -48,20 +48,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 
-const bookFormSchema = z.object({
+const seriesFormSchema = z.object({
   penNameId: z.number({ required_error: "Selecciona un seudónimo" }),
-  seriesId: z.number().optional().nullable(),
-  asin: z.string().min(1, "El ASIN es requerido"),
-  title: z.string().min(1, "El título es requerido"),
-  marketplaces: z.array(z.string()).default([]),
+  name: z.string().min(1, "El nombre es requerido"),
+  description: z.string().optional(),
 });
 
-type BookForm = z.infer<typeof bookFormSchema>;
+type SeriesForm = z.infer<typeof seriesFormSchema>;
 
 interface PenName {
   id: number;
@@ -87,34 +85,30 @@ interface AuraBook {
 
 const ITEMS_PER_PAGE = 10;
 
-export default function AuraBooks() {
+export default function AuraSeries() {
   const { toast } = useToast();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedBook, setSelectedBook] = useState<AuraBook | null>(null);
+  const [selectedSeries, setSelectedSeries] = useState<BookSeries | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const createForm = useForm<BookForm>({
-    resolver: zodResolver(bookFormSchema),
+  const createForm = useForm<SeriesForm>({
+    resolver: zodResolver(seriesFormSchema),
     defaultValues: {
       penNameId: undefined,
-      seriesId: null,
-      asin: "",
-      title: "",
-      marketplaces: [],
+      name: "",
+      description: "",
     },
   });
 
-  const editForm = useForm<BookForm>({
-    resolver: zodResolver(bookFormSchema),
+  const editForm = useForm<SeriesForm>({
+    resolver: zodResolver(seriesFormSchema),
     defaultValues: {
       penNameId: undefined,
-      seriesId: null,
-      asin: "",
-      title: "",
-      marketplaces: [],
+      name: "",
+      description: "",
     },
   });
 
@@ -122,17 +116,17 @@ export default function AuraBooks() {
     queryKey: ['/api/aura/pen-names'],
   });
 
-  const { data: series } = useQuery<BookSeries[]>({
+  const { data: series, isLoading } = useQuery<BookSeries[]>({
     queryKey: ['/api/aura/series'],
   });
 
-  const { data: books, isLoading } = useQuery<AuraBook[]>({
+  const { data: books } = useQuery<AuraBook[]>({
     queryKey: ['/api/aura/books'],
   });
 
   // Pagination logic
-  const totalPages = Math.ceil((books?.length || 0) / ITEMS_PER_PAGE);
-  const paginatedBooks = books?.slice(
+  const totalPages = Math.ceil((series?.length || 0) / ITEMS_PER_PAGE);
+  const paginatedSeries = series?.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
@@ -144,19 +138,20 @@ export default function AuraBooks() {
     }
   }, [totalPages, currentPage]);
 
-  const handleCreate = async (data: BookForm) => {
+  const handleCreate = async (data: SeriesForm) => {
     setIsSubmitting(true);
     try {
-      await apiRequest('POST', '/api/aura/books', {
-        ...data,
-        seriesId: data.seriesId || null,
+      await apiRequest('POST', '/api/aura/series', {
+        penNameId: data.penNameId,
+        name: data.name,
+        description: data.description || null,
       });
 
-      await queryClient.invalidateQueries({ queryKey: ['/api/aura/books'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/aura/series'] });
       
       toast({
         title: "Éxito",
-        description: "Libro creado correctamente",
+        description: "Serie creada correctamente",
       });
 
       setIsCreateDialogOpen(false);
@@ -165,7 +160,7 @@ export default function AuraBooks() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "No se pudo crear el libro",
+        description: error.message || "No se pudo crear la serie",
         variant: "destructive",
       });
     } finally {
@@ -173,30 +168,31 @@ export default function AuraBooks() {
     }
   };
 
-  const handleEdit = async (data: BookForm) => {
-    if (!selectedBook) return;
+  const handleEdit = async (data: SeriesForm) => {
+    if (!selectedSeries) return;
 
     setIsSubmitting(true);
     try {
-      await apiRequest('PUT', `/api/aura/books/${selectedBook.id}`, {
-        ...data,
-        seriesId: data.seriesId || null,
+      await apiRequest('PUT', `/api/aura/series/${selectedSeries.id}`, {
+        penNameId: data.penNameId,
+        name: data.name,
+        description: data.description || null,
       });
 
-      await queryClient.invalidateQueries({ queryKey: ['/api/aura/books'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/aura/series'] });
       
       toast({
         title: "Éxito",
-        description: "Libro actualizado correctamente",
+        description: "Serie actualizada correctamente",
       });
 
       setIsEditDialogOpen(false);
-      setSelectedBook(null);
+      setSelectedSeries(null);
       editForm.reset();
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "No se pudo actualizar el libro",
+        description: error.message || "No se pudo actualizar la serie",
         variant: "destructive",
       });
     } finally {
@@ -205,25 +201,26 @@ export default function AuraBooks() {
   };
 
   const handleDelete = async () => {
-    if (!selectedBook) return;
+    if (!selectedSeries) return;
 
     setIsSubmitting(true);
     try {
-      await apiRequest('DELETE', `/api/aura/books/${selectedBook.id}`);
+      await apiRequest('DELETE', `/api/aura/series/${selectedSeries.id}`);
 
+      await queryClient.invalidateQueries({ queryKey: ['/api/aura/series'] });
       await queryClient.invalidateQueries({ queryKey: ['/api/aura/books'] });
       
       toast({
         title: "Éxito",
-        description: "Libro eliminado correctamente",
+        description: "Serie eliminada correctamente",
       });
 
       setIsDeleteDialogOpen(false);
-      setSelectedBook(null);
+      setSelectedSeries(null);
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "No se pudo eliminar el libro",
+        description: error.message || "No se pudo eliminar la serie",
         variant: "destructive",
       });
     } finally {
@@ -231,20 +228,18 @@ export default function AuraBooks() {
     }
   };
 
-  const openEditDialog = (book: AuraBook) => {
-    setSelectedBook(book);
+  const openEditDialog = (series: BookSeries) => {
+    setSelectedSeries(series);
     editForm.reset({
-      penNameId: book.penNameId,
-      seriesId: book.seriesId,
-      asin: book.asin,
-      title: book.title,
-      marketplaces: book.marketplaces,
+      penNameId: series.penNameId,
+      name: series.name,
+      description: series.description || "",
     });
     setIsEditDialogOpen(true);
   };
 
-  const openDeleteDialog = (book: AuraBook) => {
-    setSelectedBook(book);
+  const openDeleteDialog = (series: BookSeries) => {
+    setSelectedSeries(series);
     setIsDeleteDialogOpen(true);
   };
 
@@ -252,36 +247,30 @@ export default function AuraBooks() {
     return penNames?.find(p => p.id === penNameId)?.name || "Desconocido";
   };
 
-  const getSeriesName = (seriesId: number | null) => {
-    if (!seriesId) return "—";
-    return series?.find(s => s.id === seriesId)?.name || "—";
-  };
-
-  const getSeriesByPenName = (penNameId: number | undefined) => {
-    if (!penNameId) return [];
-    return series?.filter(s => s.penNameId === penNameId) || [];
+  const getBookCount = (seriesId: number) => {
+    return books?.filter(b => b.seriesId === seriesId).length || 0;
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Libros</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Series</h2>
           <p className="text-muted-foreground">
-            Catálogo de tus libros publicados
+            Organiza tus libros en series
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-book">
+        <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-series">
           <Plus className="w-4 h-4 mr-2" />
-          Nuevo Libro
+          Nueva Serie
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Todos los Libros</CardTitle>
+          <CardTitle>Todas las Series</CardTitle>
           <CardDescription>
-            Catálogo completo de libros registrados
+            Gestiona las series de libros por seudónimo
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -291,62 +280,49 @@ export default function AuraBooks() {
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
-          ) : !books || books.length === 0 ? (
+          ) : !series || series.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">
-                No hay libros registrados. Crea uno para empezar.
+                No hay series registradas. Crea una para empezar.
               </p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Título</TableHead>
-                  <TableHead>ASIN</TableHead>
+                  <TableHead>Nombre</TableHead>
                   <TableHead>Autor</TableHead>
-                  <TableHead>Serie</TableHead>
-                  <TableHead>Marketplaces</TableHead>
+                  <TableHead>Descripción</TableHead>
+                  <TableHead className="text-center">Libros</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedBooks?.map((book) => (
-                  <TableRow key={book.id} data-testid={`row-book-${book.id}`}>
-                    <TableCell className="font-medium">{book.title}</TableCell>
-                    <TableCell className="font-mono text-sm">{book.asin}</TableCell>
-                    <TableCell>{getPenNameName(book.penNameId)}</TableCell>
+                {paginatedSeries?.map((series) => (
+                  <TableRow key={series.id} data-testid={`row-series-${series.id}`}>
+                    <TableCell className="font-medium">{series.name}</TableCell>
+                    <TableCell>{getPenNameName(series.penNameId)}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {getSeriesName(book.seriesId)}
+                      {series.description || "—"}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {book.marketplaces.slice(0, 3).map((mp, i) => (
-                          <Badge key={i} variant="outline" className="text-xs">
-                            {mp}
-                          </Badge>
-                        ))}
-                        {book.marketplaces.length > 3 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{book.marketplaces.length - 3}
-                          </Badge>
-                        )}
-                      </div>
+                    <TableCell className="text-center">
+                      {getBookCount(series.id)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => openEditDialog(book)}
-                          data-testid={`button-edit-${book.id}`}
+                          onClick={() => openEditDialog(series)}
+                          data-testid={`button-edit-${series.id}`}
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => openDeleteDialog(book)}
-                          data-testid={`button-delete-${book.id}`}
+                          onClick={() => openDeleteDialog(series)}
+                          data-testid={`button-delete-${series.id}`}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -358,10 +334,10 @@ export default function AuraBooks() {
             </Table>
           )}
 
-          {books && books.length > ITEMS_PER_PAGE && (
+          {series && series.length > ITEMS_PER_PAGE && (
             <div className="flex items-center justify-between pt-4">
               <p className="text-sm text-muted-foreground">
-                Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, books.length)} de {books.length}
+                Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, series.length)} de {series.length}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -395,87 +371,53 @@ export default function AuraBooks() {
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Crear Libro</DialogTitle>
+            <DialogTitle>Crear Serie</DialogTitle>
             <DialogDescription>
-              Agrega un nuevo libro a tu catálogo
+              Agrega una nueva serie de libros
             </DialogDescription>
           </DialogHeader>
           <Form {...createForm}>
             <form onSubmit={createForm.handleSubmit(handleCreate)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={createForm.control}
-                  name="penNameId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Seudónimo *</FormLabel>
-                      <Select
-                        onValueChange={(value) => {
-                          field.onChange(parseInt(value));
-                          createForm.setValue('seriesId', null);
-                        }}
-                        value={field.value?.toString()}
-                      >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-pen-name">
-                            <SelectValue placeholder="Selecciona autor" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {penNames?.map((penName) => (
-                            <SelectItem key={penName.id} value={penName.id.toString()}>
-                              {penName.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={createForm.control}
-                  name="seriesId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Serie (opcional)</FormLabel>
-                      <Select
-                        onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
-                        value={field.value?.toString() || ""}
-                        disabled={!createForm.watch('penNameId')}
-                      >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-series">
-                            <SelectValue placeholder="Sin serie" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="">Sin serie</SelectItem>
-                          {getSeriesByPenName(createForm.watch('penNameId')).map((series) => (
-                            <SelectItem key={series.id} value={series.id.toString()}>
-                              {series.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
               <FormField
                 control={createForm.control}
-                name="title"
+                name="penNameId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Título *</FormLabel>
+                    <FormLabel>Seudónimo *</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(parseInt(value))}
+                      value={field.value?.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-pen-name">
+                          <SelectValue placeholder="Selecciona autor" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {penNames?.map((penName) => (
+                          <SelectItem key={penName.id} value={penName.id.toString()}>
+                            {penName.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre *</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Título del libro"
+                        placeholder="Ej: Saga de los Inmortales"
                         {...field}
-                        data-testid="input-book-title"
+                        data-testid="input-series-name"
                       />
                     </FormControl>
                     <FormMessage />
@@ -484,15 +426,15 @@ export default function AuraBooks() {
               />
               <FormField
                 control={createForm.control}
-                name="asin"
+                name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>ASIN *</FormLabel>
+                    <FormLabel>Descripción</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="B08XXXXXX"
+                      <Textarea
+                        placeholder="Información adicional sobre esta serie (opcional)"
                         {...field}
-                        data-testid="input-book-asin"
+                        data-testid="input-series-description"
                       />
                     </FormControl>
                     <FormMessage />
@@ -511,7 +453,7 @@ export default function AuraBooks() {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  data-testid="button-submit-book"
+                  data-testid="button-submit-series"
                 >
                   {isSubmitting ? "Creando..." : "Crear"}
                 </Button>
@@ -523,87 +465,53 @@ export default function AuraBooks() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar Libro</DialogTitle>
+            <DialogTitle>Editar Serie</DialogTitle>
             <DialogDescription>
-              Modifica la información del libro
+              Modifica la información de la serie
             </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(handleEdit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={editForm.control}
-                  name="penNameId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Seudónimo *</FormLabel>
-                      <Select
-                        onValueChange={(value) => {
-                          field.onChange(parseInt(value));
-                          editForm.setValue('seriesId', null);
-                        }}
-                        value={field.value?.toString()}
-                      >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-edit-pen-name">
-                            <SelectValue placeholder="Selecciona autor" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {penNames?.map((penName) => (
-                            <SelectItem key={penName.id} value={penName.id.toString()}>
-                              {penName.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="seriesId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Serie (opcional)</FormLabel>
-                      <Select
-                        onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
-                        value={field.value?.toString() || ""}
-                        disabled={!editForm.watch('penNameId')}
-                      >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-edit-series">
-                            <SelectValue placeholder="Sin serie" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="">Sin serie</SelectItem>
-                          {getSeriesByPenName(editForm.watch('penNameId')).map((series) => (
-                            <SelectItem key={series.id} value={series.id.toString()}>
-                              {series.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
               <FormField
                 control={editForm.control}
-                name="title"
+                name="penNameId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Título *</FormLabel>
+                    <FormLabel>Seudónimo *</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(parseInt(value))}
+                      value={field.value?.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-edit-pen-name">
+                          <SelectValue placeholder="Selecciona autor" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {penNames?.map((penName) => (
+                          <SelectItem key={penName.id} value={penName.id.toString()}>
+                            {penName.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre *</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Título del libro"
+                        placeholder="Ej: Saga de los Inmortales"
                         {...field}
-                        data-testid="input-edit-title"
+                        data-testid="input-edit-name"
                       />
                     </FormControl>
                     <FormMessage />
@@ -612,15 +520,15 @@ export default function AuraBooks() {
               />
               <FormField
                 control={editForm.control}
-                name="asin"
+                name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>ASIN *</FormLabel>
+                    <FormLabel>Descripción</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="B08XXXXXX"
+                      <Textarea
+                        placeholder="Información adicional sobre esta serie (opcional)"
                         {...field}
-                        data-testid="input-edit-asin"
+                        data-testid="input-edit-description"
                       />
                     </FormControl>
                     <FormMessage />
@@ -655,7 +563,9 @@ export default function AuraBooks() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción eliminará permanentemente el libro "{selectedBook?.title}".
+              Esta acción eliminará permanentemente la serie "{selectedSeries?.name}"
+              {getBookCount(selectedSeries?.id || 0) > 0 && 
+                ` y afectará ${getBookCount(selectedSeries?.id || 0)} libro(s) asociado(s)`}.
               Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>

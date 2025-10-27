@@ -9,7 +9,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { BarChart3, Upload, Users, BookOpen, TrendingUp } from "lucide-react";
+import { BarChart3, Upload, Users, BookOpen, TrendingUp, Library } from "lucide-react";
 
 const menuItems = [
   {
@@ -26,6 +26,11 @@ const menuItems = [
     title: "Seudónimos",
     url: "/aura/pen-names",
     icon: Users,
+  },
+  {
+    title: "Series",
+    url: "/aura/series",
+    icon: Library,
   },
   {
     title: "Libros",
