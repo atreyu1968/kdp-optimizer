@@ -520,6 +520,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== BLOCKED DATES ENDPOINTS ==========
+
+  // Obtener todos los días bloqueados
+  app.get("/api/blocked-dates", async (req, res) => {
+    try {
+      const blockedDates = await storage.getAllBlockedDates();
+      res.json(blockedDates);
+    } catch (error) {
+      console.error("Error fetching blocked dates:", error);
+      res.status(500).json({ error: "Failed to fetch blocked dates" });
+    }
+  });
+
+  // Obtener días bloqueados en un rango de fechas
+  app.get("/api/blocked-dates/range", async (req, res) => {
+    try {
+      const { start, end } = req.query;
+      if (!start || !end) {
+        res.status(400).json({ error: "Start and end dates are required" });
+        return;
+      }
+
+      const startDate = new Date(start as string);
+      const endDate = new Date(end as string);
+
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        res.status(400).json({ error: "Invalid date format" });
+        return;
+      }
+
+      const blockedDates = await storage.getBlockedDatesByRange(startDate, endDate);
+      res.json(blockedDates);
+    } catch (error) {
+      console.error("Error fetching blocked dates by range:", error);
+      res.status(500).json({ error: "Failed to fetch blocked dates" });
+    }
+  });
+
+  // Crear un día bloqueado (y reasignar publicaciones automáticamente)
+  app.post("/api/blocked-dates", async (req, res) => {
+    try {
+      const { date, reason } = req.body;
+      if (!date) {
+        res.status(400).json({ error: "Date is required" });
+        return;
+      }
+
+      const blockedDate = new Date(date);
+      if (isNaN(blockedDate.getTime())) {
+        res.status(400).json({ error: "Invalid date format" });
+        return;
+      }
+
+      // Crear el día bloqueado
+      const created = await storage.createBlockedDate({ 
+        date: blockedDate, 
+        reason: reason || null 
+      });
+
+      // Reasignar publicaciones automáticamente
+      const rescheduled = await storage.reschedulePublicationsFromBlockedDate(blockedDate);
+
+      res.json({ 
+        blockedDate: created, 
+        rescheduledPublications: rescheduled,
+        rescheduledCount: rescheduled.length
+      });
+    } catch (error) {
+      console.error("Error creating blocked date:", error);
+      res.status(500).json({ error: "Failed to create blocked date" });
+    }
+  });
+
+  // Eliminar un día bloqueado
+  app.delete("/api/blocked-dates/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid blocked date ID" });
+        return;
+      }
+
+      await storage.deleteBlockedDate(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting blocked date:", error);
+      res.status(500).json({ error: "Failed to delete blocked date" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
