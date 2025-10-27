@@ -18,9 +18,9 @@ The backend utilizes Node.js with Express.js (TypeScript, ES modules), implement
 ### Data Storage
 PostgreSQL is used as the database, accessed via Drizzle ORM. The schema includes:
 - **KDP Optimizer**: `Manuscripts`, `Optimizations`, `Publications`, `Tasks`, `BlockedDates`
-- **Aura System**: `PenNames`, `BookSeries`, `AuraBooks`, `KdpSales`
+- **Aura System**: `PenNames`, `BookSeries`, `AuraBooks`, `KdpSales`, `AuraBookInsights`
 
-The Tasks table enables per-manuscript task management for tracking file preparation workflows. Pricing rules implement specific KDP royalty calculations and psychological pricing strategies for supported currencies.
+The Tasks table enables per-manuscript task management for tracking file preparation workflows. The AuraBookInsights table caches AI-generated recommendations to avoid repeated OpenAI API calls. Pricing rules implement specific KDP royalty calculations and psychological pricing strategies for supported currencies.
 
 ### UI/UX Decisions
 The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessible interface. It features a multi-step wizard (Upload → Configure → Analyze → Results) with a progress indicator, supporting light/dark modes and responsive design. A library page allows for saved manuscript management with search and filtering capabilities. The calendar view provides visual indicators for blocked days, daily publication limits, and today's date.
@@ -47,11 +47,19 @@ The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessibl
         *   Registers books by ASIN with marketplace tracking
         *   Performance-optimized with in-memory caching (prevents O(n²) database queries)
         *   Accurate import statistics (only counts newly created entities)
+    *   **AI Book Insights** (`book-analyzer.ts`): Intelligent book performance analysis and recommendations
+        *   **Automated Metrics Calculation**: Aggregates 30/90-day sales, KENP pages, royalties, and trend deltas
+        *   **OpenAI Integration**: Uses GPT-4o-mini with structured JSON prompts for intelligent categorization
+        *   **Smart Recommendations**: Categorizes books into OPTIMIZE (needs metadata/cover work), RAISE_PRICE (high performers), or HOLD (stable performers)
+        *   **Actionable Insights**: Provides rationale, action plans, pricing suggestions, and confidence scores
+        *   **Performance Optimized**: Caches results in `aura_book_insights` table to prevent redundant API calls
+        *   **Robust Fallback**: Implements deterministic fallback logic when OpenAI is unavailable
+        *   **UI Integration**: Categorized card view at `/aura/insights` with visual indicators and metrics display
     *   **Pseudonym Management**: Track multiple author identities with separate analytics
     *   **Book Series Tracking**: Organize books into series for better insights
     *   **Sales Analytics**: Transaction-level data with support for Sales, Free promos, Refunds, Borrows, and KENP reads
     *   **Multi-marketplace Support**: Tracks performance across all Amazon marketplaces
-    *   **Future Features**: Amazon Ads and Meta Ads API integration, AI marketing content generator
+    *   **Future Features**: Amazon Ads and Meta Ads API integration, background job status tracking, AI failure observability
 
 ## External Dependencies
 *   **AI Services**:
