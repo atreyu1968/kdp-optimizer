@@ -859,7 +859,7 @@ export default function Publications() {
                           return (
                             <div
                               key={day.toString()}
-                              className={`min-h-[100px] border rounded-md p-2 relative ${
+                              className={`min-h-[100px] border rounded-md p-2 relative group ${
                                 !isCurrentMonth ? "bg-muted/30 text-muted-foreground" : "bg-card"
                               } ${isToday ? "border-primary border-2" : ""} ${
                                 isBlocked ? "bg-destructive/10 border-destructive/30" : ""
@@ -877,10 +877,10 @@ export default function Publications() {
                                         <Button
                                           size="icon"
                                           variant="ghost"
-                                          className="h-4 w-4 p-0"
+                                          className="h-5 w-5 p-0"
                                           data-testid={`button-blocked-${format(day, "yyyy-MM-dd")}`}
                                         >
-                                          <Ban className="h-3 w-3 text-destructive" />
+                                          <Ban className="h-4 w-4 text-destructive" />
                                         </Button>
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent align="end">
@@ -900,10 +900,10 @@ export default function Publications() {
                                         <Button
                                           size="icon"
                                           variant="ghost"
-                                          className="h-4 w-4 p-0 opacity-0 hover:opacity-100 transition-opacity"
+                                          className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                           data-testid={`button-block-${format(day, "yyyy-MM-dd")}`}
                                         >
-                                          <Ban className="h-3 w-3" />
+                                          <Ban className="h-4 w-4" />
                                         </Button>
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent align="end">
