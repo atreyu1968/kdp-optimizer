@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Library, PlusCircle, Calendar } from "lucide-react";
+import { Library, PlusCircle, Calendar, BarChart3 } from "lucide-react";
 import logoImage from "@/assets/logo.png";
 
 export function AppHeader() {
@@ -60,6 +60,18 @@ export function AppHeader() {
                 <Calendar className="h-4 w-4" />
                 <span className="hidden sm:inline">Publicaciones</span>
                 <span className="sm:hidden">KDP</span>
+              </Link>
+            </Button>
+            <Button
+              variant={location === "/aura" ? "default" : "ghost"}
+              size="sm"
+              className="gap-2"
+              asChild
+            >
+              <Link href="/aura" data-testid="link-aura">
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Aura</span>
+                <span className="sm:hidden">Aura</span>
               </Link>
             </Button>
           </nav>

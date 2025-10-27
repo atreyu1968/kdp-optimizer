@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/lib/theme-provider";
 import Home from "@/pages/home";
 import Library from "@/pages/library";
 import Publications from "@/pages/publications";
+import Aura from "@/pages/aura";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -15,6 +16,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/library" component={Library} />
       <Route path="/publications" component={Publications} />
+      <Route path="/aura/:rest*" component={Aura} />
       <Route component={NotFound} />
     </Switch>
   );
