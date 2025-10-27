@@ -29,7 +29,7 @@ function getPublicationsCountForDate(publications: Publication[], date: Date): n
 
 /**
  * Encuentra la próxima fecha disponible para programar una publicación
- * Respeta el límite de 3 publicaciones por día
+ * Respeta el límite de 3 publicaciones por día y evita días bloqueados
  */
 async function getNextAvailableDate(startDate: Date = new Date()): Promise<Date> {
   // Normalizar a medianoche
@@ -47,15 +47,21 @@ async function getNextAvailableDate(startDate: Date = new Date()): Promise<Date>
   // Obtener todas las publicaciones programadas
   const allPublications = await storage.getAllPublications();
   
-  // Buscar la primera fecha con menos de 3 publicaciones
+  // Buscar la primera fecha con menos de 3 publicaciones y que no esté bloqueada
   let currentDate = new Date(date);
   let attempts = 0;
   const MAX_ATTEMPTS = 365; // Buscar hasta 1 año en el futuro
   
   while (attempts < MAX_ATTEMPTS) {
-    const count = getPublicationsCountForDate(allPublications, currentDate);
-    if (count < MAX_PUBLICATIONS_PER_DAY) {
-      return currentDate;
+    // Verificar si el día está bloqueado
+    const isBlocked = await storage.isDateBlocked(currentDate);
+    
+    if (!isBlocked) {
+      // Verificar si el día tiene menos de 3 publicaciones
+      const count = getPublicationsCountForDate(allPublications, currentDate);
+      if (count < MAX_PUBLICATIONS_PER_DAY) {
+        return currentDate;
+      }
     }
     
     // Avanzar al día siguiente
@@ -145,7 +151,7 @@ export async function generatePublicationSchedule(
 
 /**
  * Reprograma una publicación a una nueva fecha
- * Valida que la nueva fecha no exceda el límite diario
+ * Valida que la nueva fecha no exceda el límite diario y que no esté bloqueada
  */
 export async function reschedulePublication(
   publicationId: number,
@@ -160,6 +166,14 @@ export async function reschedulePublication(
   today.setHours(0, 0, 0, 0);
   if (normalizedDate < today) {
     throw new Error("No puedes programar publicaciones en el pasado");
+  }
+  
+  // Verificar que el día no esté bloqueado
+  const isBlocked = await storage.isDateBlocked(normalizedDate);
+  if (isBlocked) {
+    throw new Error(
+      `La fecha ${normalizedDate.toISOString().split('T')[0]} está bloqueada y no está disponible para publicaciones`
+    );
   }
   
   // Obtener todas las publicaciones para esa fecha
