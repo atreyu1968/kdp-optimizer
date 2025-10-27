@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { readFileSync } from 'fs';
 import { storage } from '../storage';
 import type { InsertKdpSale, InsertAuraBook, PenName } from '@shared/schema';
 import { nanoid } from 'nanoid';
@@ -87,41 +88,55 @@ function normalizeTransactionType(kdpType: string): string {
 
 /**
  * Obtiene o crea un seudónimo por nombre de autor
+ * Retorna el seudónimo y una flag indicando si fue creado
  */
-async function getOrCreatePenName(authorName: string): Promise<PenName> {
-  const allPenNames = await storage.getAllPenNames();
-  const existing = allPenNames.find(p => p.name.toLowerCase() === authorName.toLowerCase());
+async function getOrCreatePenName(
+  authorName: string,
+  penNamesCache: Map<string, PenName>
+): Promise<{ penName: PenName; wasCreated: boolean }> {
+  const normalizedName = authorName.toLowerCase();
   
+  // Buscar en cache
+  const existing = penNamesCache.get(normalizedName);
   if (existing) {
-    return existing;
+    return { penName: existing, wasCreated: false };
   }
   
   // Crear nuevo seudónimo
-  return await storage.createPenName({
+  const newPenName = await storage.createPenName({
     name: authorName,
     description: `Creado automáticamente al importar datos de KDP`,
   });
+  
+  // Agregar al cache
+  penNamesCache.set(normalizedName, newPenName);
+  
+  return { penName: newPenName, wasCreated: true };
 }
 
 /**
  * Obtiene o crea un libro por ASIN
+ * Retorna el ID del libro y una flag indicando si fue creado
  */
 async function getOrCreateBook(
   asin: string,
   title: string,
   penNameId: number,
-  marketplace: string
-): Promise<number> {
-  const existing = await storage.getAuraBookByAsin(asin);
+  marketplace: string,
+  booksCache: Map<string, { id: number; marketplaces: string[] }>
+): Promise<{ bookId: number; wasCreated: boolean }> {
+  // Buscar en cache
+  const existing = booksCache.get(asin);
   
   if (existing) {
     // Actualizar marketplaces si no está incluido
     if (!existing.marketplaces.includes(marketplace)) {
+      existing.marketplaces.push(marketplace);
       await storage.updateAuraBook(existing.id, {
-        marketplaces: [...existing.marketplaces, marketplace],
+        marketplaces: existing.marketplaces,
       });
     }
-    return existing.id;
+    return { bookId: existing.id, wasCreated: false };
   }
   
   // Crear nuevo libro
@@ -136,7 +151,13 @@ async function getOrCreateBook(
     marketplaces: [marketplace],
   });
   
-  return book.id;
+  // Agregar al cache
+  booksCache.set(asin, {
+    id: book.id,
+    marketplaces: [marketplace],
+  });
+  
+  return { bookId: book.id, wasCreated: true };
 }
 
 /**
@@ -158,7 +179,8 @@ export async function importKdpXlsx(
 
   try {
     // Leer el archivo
-    const workbook = XLSX.readFile(filePath);
+    const fileBuffer = readFileSync(filePath);
+    const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
     
     // Generar ID único para este batch de importación
     const batchId = `kdp-import-${nanoid()}`;
@@ -167,6 +189,25 @@ export async function importKdpXlsx(
     if (options.deleteExisting) {
       await storage.deleteKdpSalesByBatchId(batchId);
     }
+
+    // Inicializar caches para optimizar rendimiento
+    const penNamesCache = new Map<string, PenName>();
+    const booksCache = new Map<string, { id: number; marketplaces: string[] }>();
+    
+    // Cargar pen names existentes en cache
+    const existingPenNames = await storage.getAllPenNames();
+    existingPenNames.forEach(pn => {
+      penNamesCache.set(pn.name.toLowerCase(), pn);
+    });
+    
+    // Cargar libros existentes en cache
+    const existingBooks = await storage.getAllAuraBooks();
+    existingBooks.forEach(book => {
+      booksCache.set(book.asin, {
+        id: book.id,
+        marketplaces: [...book.marketplaces],
+      });
+    });
 
     // Procesar hoja "Ventas combinadas"
     if (workbook.SheetNames.includes('Ventas combinadas')) {
@@ -178,23 +219,28 @@ export async function importKdpXlsx(
       for (const row of data) {
         try {
           // Obtener o crear seudónimo
-          const penName = await getOrCreatePenName(row['Nombre del autor']);
-          if (!stats.penNamesCreated && penName) {
-            // Solo contar si fue creado nuevo (aproximación)
-            const allPenNames = await storage.getAllPenNames();
-            stats.penNamesCreated = allPenNames.length;
+          const { penName, wasCreated: penNameCreated } = await getOrCreatePenName(
+            row['Nombre del autor'],
+            penNamesCache
+          );
+          if (penNameCreated) {
+            stats.penNamesCreated++;
           }
           
           // Normalizar marketplace
           const marketplace = normalizeMarketplace(row['Tienda']);
           
           // Obtener o crear libro
-          const bookId = await getOrCreateBook(
+          const { bookId, wasCreated: bookCreated } = await getOrCreateBook(
             row['ASIN/ISBN'],
             row['Título'],
             penName.id,
-            marketplace
+            marketplace,
+            booksCache
           );
+          if (bookCreated) {
+            stats.booksCreated++;
+          }
           
           // Normalizar tipo de transacción
           const transactionType = normalizeTransactionType(row['Tipo de transacción']);
@@ -231,18 +277,28 @@ export async function importKdpXlsx(
       for (const row of data) {
         try {
           // Obtener o crear seudónimo
-          const penName = await getOrCreatePenName(row['Nombre del autor']);
+          const { penName, wasCreated: penNameCreated } = await getOrCreatePenName(
+            row['Nombre del autor'],
+            penNamesCache
+          );
+          if (penNameCreated) {
+            stats.penNamesCreated++;
+          }
           
           // Normalizar marketplace
           const marketplace = normalizeMarketplace(row['Tienda']);
           
           // Obtener o crear libro
-          const bookId = await getOrCreateBook(
+          const { bookId, wasCreated: bookCreated } = await getOrCreateBook(
             row['ASIN'],
             row['Título'],
             penName.id,
-            marketplace
+            marketplace,
+            booksCache
           );
+          if (bookCreated) {
+            stats.booksCreated++;
+          }
           
           // Crear registro KENP (regalías por página se calculan después)
           await storage.createKdpSale({
@@ -277,18 +333,28 @@ export async function importKdpXlsx(
         try {
           if (row['Unidades gratuitas'] > 0) {
             // Obtener o crear seudónimo
-            const penName = await getOrCreatePenName(row['Nombre del autor']);
+            const { penName, wasCreated: penNameCreated } = await getOrCreatePenName(
+              row['Nombre del autor'],
+              penNamesCache
+            );
+            if (penNameCreated) {
+              stats.penNamesCreated++;
+            }
             
             // Normalizar marketplace
             const marketplace = normalizeMarketplace(row['Tienda']);
             
             // Obtener o crear libro
-            const bookId = await getOrCreateBook(
+            const { bookId, wasCreated: bookCreated } = await getOrCreateBook(
               row['ASIN'],
               row['Título'],
               penName.id,
-              marketplace
+              marketplace,
+              booksCache
             );
+            if (bookCreated) {
+              stats.booksCreated++;
+            }
             
             // Crear registro de promoción gratuita
             await storage.createKdpSale({
@@ -312,10 +378,6 @@ export async function importKdpXlsx(
         }
       }
     }
-
-    // Contar libros creados
-    const allBooks = await storage.getAllAuraBooks();
-    stats.booksCreated = allBooks.length;
 
     console.log(`[KDP Import] Importación completada:`);
     console.log(`  - Seudónimos: ${stats.penNamesCreated}`);

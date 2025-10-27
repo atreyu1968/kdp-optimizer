@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { optimizationRequestSchema, insertPublicationSchema, insertTaskSchema } from "@shared/schema";
+import { optimizationRequestSchema, insertPublicationSchema, insertTaskSchema, insertPenNameSchema, insertBookSeriesSchema, insertAuraBookSchema } from "@shared/schema";
 import { generateOptimizationResult } from "./services/metadata-generator";
 import { ProgressEmitter } from "./services/progress-emitter";
 import {
@@ -11,9 +11,40 @@ import {
   markPublicationAsPublished,
 } from "./services/publication-scheduler";
 import { createDefaultTasks, updateTaskDueDates } from "./services/default-tasks";
+import { importKdpXlsx } from "./services/kdp-importer";
+import multer from "multer";
+import { join } from "path";
+import { existsSync, mkdirSync } from "fs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const progressEmitters = new Map<string, ProgressEmitter>();
+  
+  // Configurar multer para upload de archivos XLSX
+  const uploadsDir = join(process.cwd(), 'uploads');
+  if (!existsSync(uploadsDir)) {
+    mkdirSync(uploadsDir, { recursive: true });
+  }
+  
+  const upload = multer({
+    storage: multer.diskStorage({
+      destination: uploadsDir,
+      filename: (req, file, cb) => {
+        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+        cb(null, `kdp-${uniqueSuffix}.xlsx`);
+      }
+    }),
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+          file.mimetype === 'application/vnd.ms-excel') {
+        cb(null, true);
+      } else {
+        cb(new Error('Solo se permiten archivos Excel (.xlsx)'));
+      }
+    },
+    limits: {
+      fileSize: 15 * 1024 * 1024 // 15MB límite
+    }
+  });
 
   app.get("/api/optimize/progress/:sessionId", (req, res) => {
     const { sessionId } = req.params;
@@ -641,6 +672,329 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting blocked date:", error);
       res.status(500).json({ error: "Failed to delete blocked date" });
+    }
+  });
+
+  // ============ AURA ENDPOINTS ============
+
+  // ========== PEN NAMES (SEUDÓNIMOS) ==========
+
+  // Obtener todos los seudónimos
+  app.get("/api/aura/pen-names", async (req, res) => {
+    try {
+      const penNames = await storage.getAllPenNames();
+      res.json(penNames);
+    } catch (error) {
+      console.error("Error fetching pen names:", error);
+      res.status(500).json({ error: "Failed to fetch pen names" });
+    }
+  });
+
+  // Obtener un seudónimo por ID
+  app.get("/api/aura/pen-names/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid pen name ID" });
+        return;
+      }
+
+      const penName = await storage.getPenName(id);
+      if (!penName) {
+        res.status(404).json({ error: "Pen name not found" });
+        return;
+      }
+
+      res.json(penName);
+    } catch (error) {
+      console.error("Error fetching pen name:", error);
+      res.status(500).json({ error: "Failed to fetch pen name" });
+    }
+  });
+
+  // Crear un nuevo seudónimo
+  app.post("/api/aura/pen-names", async (req, res) => {
+    try {
+      const validation = insertPenNameSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        res.status(400).json({ 
+          error: "Invalid pen name data",
+          details: validation.error.errors
+        });
+        return;
+      }
+
+      const penName = await storage.createPenName(validation.data);
+      res.json(penName);
+    } catch (error) {
+      console.error("Error creating pen name:", error);
+      res.status(500).json({ error: "Failed to create pen name" });
+    }
+  });
+
+  // Actualizar un seudónimo
+  app.put("/api/aura/pen-names/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid pen name ID" });
+        return;
+      }
+
+      const penName = await storage.updatePenName(id, req.body);
+      res.json(penName);
+    } catch (error) {
+      console.error("Error updating pen name:", error);
+      res.status(500).json({ error: "Failed to update pen name" });
+    }
+  });
+
+  // Eliminar un seudónimo
+  app.delete("/api/aura/pen-names/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid pen name ID" });
+        return;
+      }
+
+      await storage.deletePenName(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting pen name:", error);
+      res.status(500).json({ error: "Failed to delete pen name" });
+    }
+  });
+
+  // ========== SERIES ==========
+
+  // Obtener todas las series
+  app.get("/api/aura/series", async (req, res) => {
+    try {
+      const series = await storage.getAllBookSeries();
+      res.json(series);
+    } catch (error) {
+      console.error("Error fetching series:", error);
+      res.status(500).json({ error: "Failed to fetch series" });
+    }
+  });
+
+  // Crear una nueva serie
+  app.post("/api/aura/series", async (req, res) => {
+    try {
+      const validation = insertBookSeriesSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        res.status(400).json({ 
+          error: "Invalid series data",
+          details: validation.error.errors
+        });
+        return;
+      }
+
+      const series = await storage.createBookSeries(validation.data);
+      res.json(series);
+    } catch (error) {
+      console.error("Error creating series:", error);
+      res.status(500).json({ error: "Failed to create series" });
+    }
+  });
+
+  // Actualizar una serie
+  app.put("/api/aura/series/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid series ID" });
+        return;
+      }
+
+      const series = await storage.updateBookSeries(id, req.body);
+      res.json(series);
+    } catch (error) {
+      console.error("Error updating series:", error);
+      res.status(500).json({ error: "Failed to update series" });
+    }
+  });
+
+  // Eliminar una serie
+  app.delete("/api/aura/series/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid series ID" });
+        return;
+      }
+
+      await storage.deleteBookSeries(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting series:", error);
+      res.status(500).json({ error: "Failed to delete series" });
+    }
+  });
+
+  // ========== AURA BOOKS ==========
+
+  // Obtener todos los libros
+  app.get("/api/aura/books", async (req, res) => {
+    try {
+      const books = await storage.getAllAuraBooks();
+      res.json(books);
+    } catch (error) {
+      console.error("Error fetching aura books:", error);
+      res.status(500).json({ error: "Failed to fetch aura books" });
+    }
+  });
+
+  // Obtener un libro por ID
+  app.get("/api/aura/books/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid book ID" });
+        return;
+      }
+
+      const book = await storage.getAuraBook(id);
+      if (!book) {
+        res.status(404).json({ error: "Book not found" });
+        return;
+      }
+
+      res.json(book);
+    } catch (error) {
+      console.error("Error fetching aura book:", error);
+      res.status(500).json({ error: "Failed to fetch aura book" });
+    }
+  });
+
+  // Crear un nuevo libro
+  app.post("/api/aura/books", async (req, res) => {
+    try {
+      const validation = insertAuraBookSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        res.status(400).json({ 
+          error: "Invalid book data",
+          details: validation.error.errors
+        });
+        return;
+      }
+
+      const book = await storage.createAuraBook(validation.data);
+      res.json(book);
+    } catch (error) {
+      console.error("Error creating aura book:", error);
+      res.status(500).json({ error: "Failed to create aura book" });
+    }
+  });
+
+  // Actualizar un libro
+  app.put("/api/aura/books/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid book ID" });
+        return;
+      }
+
+      const book = await storage.updateAuraBook(id, req.body);
+      res.json(book);
+    } catch (error) {
+      console.error("Error updating aura book:", error);
+      res.status(500).json({ error: "Failed to update aura book" });
+    }
+  });
+
+  // Eliminar un libro
+  app.delete("/api/aura/books/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid book ID" });
+        return;
+      }
+
+      await storage.deleteAuraBook(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting aura book:", error);
+      res.status(500).json({ error: "Failed to delete aura book" });
+    }
+  });
+
+  // ========== KDP SALES & IMPORT ==========
+
+  // Importar archivo XLSX de KDP
+  app.post("/api/aura/import/kdp", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: "No file uploaded" });
+        return;
+      }
+
+      console.log(`[KDP Import] Procesando archivo: ${req.file.filename}`);
+      
+      const stats = await importKdpXlsx(req.file.path);
+      
+      res.json({
+        success: true,
+        message: "Importación completada exitosamente",
+        stats
+      });
+    } catch (error) {
+      console.error("Error importing KDP file:", error);
+      res.status(500).json({ 
+        error: "Failed to import KDP file",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Obtener todas las ventas KDP
+  app.get("/api/aura/sales", async (req, res) => {
+    try {
+      const sales = await storage.getAllKdpSales();
+      res.json(sales);
+    } catch (error) {
+      console.error("Error fetching KDP sales:", error);
+      res.status(500).json({ error: "Failed to fetch KDP sales" });
+    }
+  });
+
+  // Obtener ventas por libro
+  app.get("/api/aura/sales/book/:bookId", async (req, res) => {
+    try {
+      const bookId = parseInt(req.params.bookId);
+      if (isNaN(bookId)) {
+        res.status(400).json({ error: "Invalid book ID" });
+        return;
+      }
+
+      const sales = await storage.getKdpSalesByBook(bookId);
+      res.json(sales);
+    } catch (error) {
+      console.error("Error fetching sales by book:", error);
+      res.status(500).json({ error: "Failed to fetch sales by book" });
+    }
+  });
+
+  // Obtener ventas por seudónimo
+  app.get("/api/aura/sales/pen-name/:penNameId", async (req, res) => {
+    try {
+      const penNameId = parseInt(req.params.penNameId);
+      if (isNaN(penNameId)) {
+        res.status(400).json({ error: "Invalid pen name ID" });
+        return;
+      }
+
+      const sales = await storage.getKdpSalesByPenName(penNameId);
+      res.json(sales);
+    } catch (error) {
+      console.error("Error fetching sales by pen name:", error);
+      res.status(500).json({ error: "Failed to fetch sales by pen name" });
     }
   });
 
