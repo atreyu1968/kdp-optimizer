@@ -10,6 +10,7 @@ import {
   getPublicationStats,
   markPublicationAsPublished,
 } from "./services/publication-scheduler";
+import { createDefaultTasks, updateTaskDueDates } from "./services/default-tasks";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const progressEmitters = new Map<string, ProgressEmitter>();
@@ -85,13 +86,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           seriesNumber: validation.data.seriesNumber,
         };
 
-        await storage.saveOptimizationWithManuscript(
+        const { manuscript } = await storage.saveOptimizationWithManuscript(
           manuscriptData,
           result.id,
           validation.data.targetMarkets,
           result.seedKeywords,
           result.marketResults
         );
+
+        // Crear tareas predeterminadas para el nuevo manuscrito
+        const defaultTasks = createDefaultTasks(manuscript.id);
+        for (const taskData of defaultTasks) {
+          await storage.createTask(taskData);
+        }
 
         setTimeout(() => {
           emitter.complete(result);
@@ -244,6 +251,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id
         );
 
+        // Si el manuscrito no tiene tareas, crear las predeterminadas
+        const existingTasks = await storage.getTasksByManuscript(id);
+        if (existingTasks.length === 0) {
+          const defaultTasks = createDefaultTasks(id);
+          for (const taskData of defaultTasks) {
+            await storage.createTask(taskData);
+          }
+        }
+
         setTimeout(() => {
           emitter.complete(result);
           progressEmitters.delete(sessionId);
@@ -302,6 +318,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const start = startDate ? new Date(startDate) : undefined;
       const publications = await generatePublicationSchedule(manuscriptId, markets, start);
+
+      // Actualizar las fechas límite de las tareas basándose en la primera publicación
+      if (publications.length > 0) {
+        const firstPublication = publications[0];
+        if (firstPublication.scheduledDate) {
+          await updateTaskDueDates(manuscriptId, new Date(firstPublication.scheduledDate));
+        }
+      }
 
       res.json({ 
         success: true, 
