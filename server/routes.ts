@@ -1,9 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { optimizationRequestSchema } from "@shared/schema";
+import { optimizationRequestSchema, insertPublicationSchema } from "@shared/schema";
 import { generateOptimizationResult } from "./services/metadata-generator";
 import { ProgressEmitter } from "./services/progress-emitter";
+import {
+  generatePublicationSchedule,
+  reschedulePublication,
+  getPublicationStats,
+  markPublicationAsPublished,
+} from "./services/publication-scheduler";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const progressEmitters = new Map<string, ProgressEmitter>();
@@ -252,6 +258,167 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
     });
+  });
+
+  // ============ PUBLICATION ENDPOINTS ============
+  
+  // Obtener todas las publicaciones
+  app.get("/api/publications", async (req, res) => {
+    try {
+      const publications = await storage.getAllPublications();
+      res.json(publications);
+    } catch (error) {
+      console.error("Error fetching publications:", error);
+      res.status(500).json({ error: "Failed to fetch publications" });
+    }
+  });
+
+  // Obtener publicaciones de un manuscrito específico
+  app.get("/api/publications/manuscript/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid manuscript ID" });
+        return;
+      }
+
+      const publications = await storage.getPublicationsByManuscript(id);
+      res.json(publications);
+    } catch (error) {
+      console.error("Error fetching manuscript publications:", error);
+      res.status(500).json({ error: "Failed to fetch manuscript publications" });
+    }
+  });
+
+  // Generar programación automática para un manuscrito
+  app.post("/api/publications/schedule", async (req, res) => {
+    try {
+      const { manuscriptId, markets, startDate } = req.body;
+
+      if (!manuscriptId || !markets || !Array.isArray(markets)) {
+        res.status(400).json({ error: "manuscriptId and markets are required" });
+        return;
+      }
+
+      const start = startDate ? new Date(startDate) : undefined;
+      const publications = await generatePublicationSchedule(manuscriptId, markets, start);
+
+      res.json({ 
+        success: true, 
+        count: publications.length,
+        publications 
+      });
+    } catch (error) {
+      console.error("Error generating schedule:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to generate schedule" });
+    }
+  });
+
+  // Crear una publicación manualmente
+  app.post("/api/publications", async (req, res) => {
+    try {
+      const validation = insertPublicationSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        res.status(400).json({ 
+          error: "Invalid publication data",
+          details: validation.error.errors
+        });
+        return;
+      }
+
+      const publication = await storage.createPublication(validation.data);
+      res.json(publication);
+    } catch (error) {
+      console.error("Error creating publication:", error);
+      res.status(500).json({ error: "Failed to create publication" });
+    }
+  });
+
+  // Actualizar una publicación
+  app.put("/api/publications/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid publication ID" });
+        return;
+      }
+
+      const publication = await storage.updatePublication(id, req.body);
+      res.json(publication);
+    } catch (error) {
+      console.error("Error updating publication:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to update publication" });
+    }
+  });
+
+  // Reprogramar una publicación
+  app.post("/api/publications/:id/reschedule", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid publication ID" });
+        return;
+      }
+
+      const { newDate } = req.body;
+      if (!newDate) {
+        res.status(400).json({ error: "newDate is required" });
+        return;
+      }
+
+      const publication = await reschedulePublication(id, new Date(newDate));
+      res.json(publication);
+    } catch (error) {
+      console.error("Error rescheduling publication:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to reschedule publication" });
+    }
+  });
+
+  // Marcar como publicada
+  app.post("/api/publications/:id/publish", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid publication ID" });
+        return;
+      }
+
+      const { kdpUrl } = req.body;
+      const publication = await markPublicationAsPublished(id, kdpUrl);
+      res.json(publication);
+    } catch (error) {
+      console.error("Error marking publication as published:", error);
+      res.status(500).json({ error: "Failed to mark publication as published" });
+    }
+  });
+
+  // Eliminar una publicación
+  app.delete("/api/publications/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid publication ID" });
+        return;
+      }
+
+      await storage.deletePublication(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting publication:", error);
+      res.status(500).json({ error: "Failed to delete publication" });
+    }
+  });
+
+  // Obtener estadísticas de publicaciones
+  app.get("/api/publications/stats", async (req, res) => {
+    try {
+      const stats = await getPublicationStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching publication stats:", error);
+      res.status(500).json({ error: "Failed to fetch publication stats" });
+    }
   });
 
   const httpServer = createServer(app);

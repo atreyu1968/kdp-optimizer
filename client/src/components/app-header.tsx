@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Library, PlusCircle } from "lucide-react";
+import { Library, PlusCircle, Calendar } from "lucide-react";
 import logoImage from "@/assets/logo.png";
 
 export function AppHeader() {
@@ -34,7 +34,8 @@ export function AppHeader() {
             >
               <Link href="/" data-testid="link-new-optimization">
                 <PlusCircle className="h-4 w-4" />
-                Nueva Optimización
+                <span className="hidden sm:inline">Nueva Optimización</span>
+                <span className="sm:hidden">Nueva</span>
               </Link>
             </Button>
             <Button
@@ -45,7 +46,20 @@ export function AppHeader() {
             >
               <Link href="/library" data-testid="link-library">
                 <Library className="h-4 w-4" />
-                Mi Biblioteca
+                <span className="hidden sm:inline">Mi Biblioteca</span>
+                <span className="sm:hidden">Biblioteca</span>
+              </Link>
+            </Button>
+            <Button
+              variant={location === "/publications" ? "default" : "ghost"}
+              size="sm"
+              className="gap-2"
+              asChild
+            >
+              <Link href="/publications" data-testid="link-publications">
+                <Calendar className="h-4 w-4" />
+                <span className="hidden sm:inline">Publicaciones</span>
+                <span className="sm:hidden">KDP</span>
               </Link>
             </Button>
           </nav>
