@@ -5,8 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   AlertCircle,
   TrendingUp,
+  TrendingDown,
   Pause,
   Sparkles,
   RefreshCw,
@@ -14,6 +20,8 @@ import {
   Calendar,
   ShoppingCart,
   BookOpen,
+  Info,
+  Minus,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -269,9 +277,23 @@ function InsightCard({ insight }: { insight: EnrichedInsight }) {
           <Badge variant={config.badgeVariant} className="font-semibold">
             {config.label}
           </Badge>
-          <Badge variant="outline" className="text-xs">
-            {insight.confidence}% confianza
-          </Badge>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge 
+                variant={getConfidenceBadgeVariant(insight.confidence)} 
+                className="text-xs cursor-help gap-1"
+              >
+                {insight.confidence}% confianza
+                <Info className="h-3 w-3" />
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <div className="space-y-1">
+                <p className="font-semibold">{getConfidenceLabel(insight.confidence)}</p>
+                <p className="text-xs">{getConfidenceExplanation(insight.confidence)}</p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
         </div>
       </CardHeader>
       
@@ -301,14 +323,27 @@ function InsightCard({ insight }: { insight: EnrichedInsight }) {
         </div>
 
         {/* Tendencia */}
-        <div className="flex items-center gap-2 p-2 rounded-md bg-background/50">
-          <TrendingUp className={`h-4 w-4 ${insight.metrics.royaltiesTrend >= 0 ? 'text-green-600' : 'text-red-600'}`} />
-          <span className="text-sm">
-            Tendencia: <span className={`font-semibold ${insight.metrics.royaltiesTrend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {insight.metrics.royaltiesTrend.toFixed(1)}%
-            </span>
-          </span>
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-2 p-2 rounded-md bg-background/50 cursor-help">
+              {getTrendIcon(insight.metrics.royaltiesTrend)}
+              <span className="text-sm flex items-center gap-1">
+                Tendencia: <span className={`font-semibold ${getTrendColor(insight.metrics.royaltiesTrend)}`}>
+                  {insight.metrics.royaltiesTrend > 0 ? '+' : ''}{insight.metrics.royaltiesTrend.toFixed(1)}%
+                </span>
+                <Info className="h-3 w-3 text-muted-foreground" />
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <div className="space-y-1">
+              <p className="font-semibold">Comparación últimos 30 vs 60 días</p>
+              <p className="text-xs">
+                {getTrendExplanation(insight.metrics.royaltiesTrend, insight.metrics.totalRoyalties30d)}
+              </p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Razonamiento */}
         <div>
@@ -385,4 +420,57 @@ function getCategoryConfig(category: string) {
         textColor: "text-foreground",
       };
   }
+}
+
+function getConfidenceBadgeVariant(confidence: number): "default" | "secondary" | "destructive" | "outline" {
+  if (confidence >= 80) return "default"; // Verde - Alta confianza
+  if (confidence >= 60) return "secondary"; // Gris - Confianza media
+  if (confidence >= 40) return "outline"; // Outline - Confianza baja
+  return "destructive"; // Rojo - Muy baja confianza
+}
+
+function getConfidenceLabel(confidence: number): string {
+  if (confidence >= 80) return "Confianza Alta";
+  if (confidence >= 60) return "Confianza Media";
+  if (confidence >= 40) return "Confianza Baja";
+  return "Confianza Muy Baja";
+}
+
+function getConfidenceExplanation(confidence: number): string {
+  if (confidence >= 80) {
+    return "La IA está muy segura de esta recomendación. Los datos son abundantes y muestran un patrón claro.";
+  }
+  if (confidence >= 60) {
+    return "La IA tiene confianza moderada. Hay suficientes datos, pero algunos patrones no son del todo claros.";
+  }
+  if (confidence >= 40) {
+    return "Confianza limitada. Los datos son escasos o contradictorios. Considera esperar más tiempo para obtener mejores insights.";
+  }
+  return "Muy baja confianza. Datos insuficientes para hacer una recomendación sólida. Es mejor esperar a tener más historial de ventas.";
+}
+
+function getTrendIcon(trend: number) {
+  if (trend > 5) return <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />;
+  if (trend < -5) return <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />;
+  return <Minus className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />;
+}
+
+function getTrendColor(trend: number): string {
+  if (trend > 5) return "text-green-600 dark:text-green-400";
+  if (trend < -5) return "text-red-600 dark:text-red-400";
+  return "text-yellow-600 dark:text-yellow-400";
+}
+
+function getTrendExplanation(trend: number, royalties30d: number): string {
+  const absChange = Math.abs(trend);
+  
+  if (trend > 5) {
+    return `Tu libro está en ascenso: las regalías aumentaron ${absChange.toFixed(1)}% comparado con el período anterior. Esto indica que el libro está ganando tracción en el mercado.`;
+  }
+  
+  if (trend < -5) {
+    return `Tu libro está en descenso: las regalías bajaron ${absChange.toFixed(1)}% comparado con el período anterior. Puede ser momento de optimizar la portada, descripción o keywords.`;
+  }
+  
+  return `Tu libro tiene un rendimiento estable: el cambio es menor al 5%. Esto es normal para libros establecidos o con ventas consistentes.`;
 }
