@@ -44,6 +44,10 @@ export function TaskChecklist({ manuscriptId, manuscriptTitle }: TaskChecklistPr
   const [newTaskPriority, setNewTaskPriority] = useState<number>(2);
   const [newTaskDueDate, setNewTaskDueDate] = useState<Date | undefined>();
   const [isAddingTask, setIsAddingTask] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [editTaskDescription, setEditTaskDescription] = useState("");
+  const [editTaskPriority, setEditTaskPriority] = useState<number>(2);
+  const [editTaskDueDate, setEditTaskDueDate] = useState<Date | undefined>();
 
   const { data: tasks = [], isLoading } = useQuery<Task[]>({
     queryKey: ["/api/tasks", "manuscript", manuscriptId],
@@ -110,6 +114,29 @@ export function TaskChecklist({ manuscriptId, manuscriptTitle }: TaskChecklistPr
     },
   });
 
+  const updateTaskMutation = useMutation({
+    mutationFn: async (data: { id: number; description?: string; priority?: number; dueDate?: Date | null }) => {
+      const { id, ...updates } = data;
+      return await apiRequest("PUT", `/api/tasks/${id}`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", "manuscript", manuscriptId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      setEditingTaskId(null);
+      toast({
+        title: "Tarea actualizada",
+        description: "Los cambios se han guardado correctamente",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar la tarea",
+        variant: "destructive",
+      });
+    },
+  });
+
   const deleteTaskMutation = useMutation({
     mutationFn: async (taskId: number) => {
       return await apiRequest("DELETE", `/api/tasks/${taskId}`);
@@ -145,6 +172,40 @@ export function TaskChecklist({ manuscriptId, manuscriptTitle }: TaskChecklistPr
       priority: newTaskPriority,
       dueDate: newTaskDueDate,
     });
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTaskId(task.id);
+    setEditTaskDescription(task.description);
+    setEditTaskPriority(task.priority);
+    setEditTaskDueDate(task.dueDate ? new Date(task.dueDate) : undefined);
+  };
+
+  const handleUpdateTask = () => {
+    if (!editTaskDescription.trim()) {
+      toast({
+        title: "Error",
+        description: "La descripción de la tarea no puede estar vacía",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (editingTaskId !== null) {
+      updateTaskMutation.mutate({
+        id: editingTaskId,
+        description: editTaskDescription.trim(),
+        priority: editTaskPriority,
+        dueDate: editTaskDueDate || null,
+      });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTaskId(null);
+    setEditTaskDescription("");
+    setEditTaskPriority(2);
+    setEditTaskDueDate(undefined);
   };
 
   // Obtener la fecha de publicación más próxima
@@ -324,6 +385,96 @@ export function TaskChecklist({ manuscriptId, manuscriptTitle }: TaskChecklistPr
               const priorityInfo = PRIORITY_LABELS[task.priority as keyof typeof PRIORITY_LABELS] || PRIORITY_LABELS[2];
               const urgency = getTaskUrgency(task);
               
+              if (editingTaskId === task.id) {
+                return (
+                  <div
+                    key={task.id}
+                    className="space-y-2 p-3 rounded-md border"
+                    data-testid={`task-edit-${task.id}`}
+                  >
+                    <Input
+                      placeholder="Descripción de la tarea..."
+                      value={editTaskDescription}
+                      onChange={(e) => setEditTaskDescription(e.target.value)}
+                      data-testid={`input-edit-task-description-${task.id}`}
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Select
+                        value={editTaskPriority.toString()}
+                        onValueChange={(val) => setEditTaskPriority(parseInt(val))}
+                      >
+                        <SelectTrigger className="w-32" data-testid={`select-edit-priority-${task.id}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1" data-testid="option-edit-priority-high">Alta</SelectItem>
+                          <SelectItem value="2" data-testid="option-edit-priority-medium">Media</SelectItem>
+                          <SelectItem value="3" data-testid="option-edit-priority-low">Baja</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={!editTaskDueDate ? "text-muted-foreground" : ""}
+                            data-testid={`button-edit-due-date-${task.id}`}
+                          >
+                            <CalendarIcon className="h-4 w-4 mr-2" />
+                            {editTaskDueDate ? format(editTaskDueDate, "PP", { locale: es }) : "Fecha límite"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={editTaskDueDate}
+                            onSelect={setEditTaskDueDate}
+                            initialFocus
+                            locale={es}
+                            data-testid={`calendar-edit-due-date-${task.id}`}
+                          />
+                          {editTaskDueDate && (
+                            <div className="p-3 border-t">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full text-xs"
+                                onClick={() => setEditTaskDueDate(undefined)}
+                                data-testid={`button-clear-edit-due-date-${task.id}`}
+                              >
+                                Limpiar fecha
+                              </Button>
+                            </div>
+                          )}
+                        </PopoverContent>
+                      </Popover>
+
+                      <Button
+                        size="sm"
+                        onClick={handleUpdateTask}
+                        disabled={updateTaskMutation.isPending}
+                        data-testid={`button-save-edit-task-${task.id}`}
+                      >
+                        {updateTaskMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Guardar"
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleCancelEdit}
+                        data-testid={`button-cancel-edit-task-${task.id}`}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={task.id}
@@ -390,6 +541,13 @@ export function TaskChecklist({ manuscriptId, manuscriptTitle }: TaskChecklistPr
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => handleEditTask(task)}
+                        data-testid={`button-edit-task-${task.id}`}
+                      >
+                        <CalendarIcon className="h-4 w-4 mr-2" />
+                        Editar
+                      </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => deleteTaskMutation.mutate(task.id)}
                         className="text-destructive"

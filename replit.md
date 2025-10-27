@@ -24,7 +24,13 @@ The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessibl
 *   **Real-time Progress**: Achieved using Server-Sent Events (SSE).
 *   **KDP Validation System**: Automatically validates generated metadata against Amazon's rules.
 *   **Publication Scheduling**: A sophisticated module manages daily publication limits (3 per day) and market priorities (Spanish markets first). Includes functionality for blocking specific dates and automatically rescheduling publications from blocked days.
-*   **Task Checklist System**: Manages per-manuscript tasks with descriptions, priorities, optional due dates, and visual urgency indicators.
+*   **Task Checklist System**: Automated per-manuscript task management with 6 standard KDP preparation tasks created automatically upon manuscript optimization. Features include:
+    *   **Auto-creation**: Tasks created automatically with template (portada, EPUB, revisión, metadatos, precios, vista previa KDP)
+    *   **Smart Due Dates**: Automatically calculated based on first publication date (-10 to -2 days before)
+    *   **Manual Override Protection**: Flag `isManualDueDate` distinguishes user-edited dates from auto-generated ones
+    *   **Dynamic Recalculation**: Auto-dates update when publications are rescheduled, manual dates are preserved
+    *   **Inline Editing**: Full CRUD with inline editor for description, priority, and due date
+    *   **Visual Urgency Indicators**: Color-coded badges for overdue, today, soon, and upcoming tasks
 *   **Calendar View**: Displays scheduled publications, blocked dates, and allows for interaction with publication entries.
 *   **Statistics View**: Provides detailed analytics with interactive charts (market distribution, status distribution, publication timeline).
 *   **Search & Filtering**: Advanced multi-criteria search and filtering for publications and tasks.

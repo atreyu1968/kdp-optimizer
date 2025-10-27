@@ -502,9 +502,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      // Si se actualiza la fecha límite, marcarla como manual
+      // Si se actualiza la fecha límite, marcarla como manual y convertir a Date
       const updates = { ...req.body };
       if (updates.dueDate !== undefined) {
+        // Convertir string ISO a objeto Date si es necesario
+        if (typeof updates.dueDate === 'string') {
+          updates.dueDate = new Date(updates.dueDate);
+        }
         updates.isManualDueDate = 1;
       }
 

@@ -3,6 +3,13 @@ import { amazonMarkets, type AmazonMarket, type Publication } from "@shared/sche
 
 const MAX_PUBLICATIONS_PER_DAY = 3;
 
+/**
+ * Helper function to get market name safely
+ */
+function getMarketName(market: string): string {
+  return (amazonMarkets as Record<string, { name: string }>)[market]?.name || market;
+}
+
 // Orden de prioridad de mercados (español primero)
 const MARKET_PRIORITY: AmazonMarket[] = [
   "amazon.es",       // España (prioridad 1)
@@ -113,7 +120,7 @@ export async function generatePublicationSchedule(
   
   console.log(
     `[Scheduler] Programando ${sortedMarkets.length} mercados para manuscript ${manuscriptId}:\n` +
-    sortedMarkets.map((m, i) => `  ${i + 1}. ${amazonMarkets[m].name}`).join('\n')
+    sortedMarkets.map((m, i) => `  ${i + 1}. ${getMarketName(m)}`).join('\n')
   );
   
   // Generar publicaciones
@@ -138,7 +145,7 @@ export async function generatePublicationSchedule(
     newPublications.push(publication);
     
     console.log(
-      `[Scheduler] ✓ ${amazonMarkets[market].name} programado para ${schedDate.toISOString().split('T')[0]}`
+      `[Scheduler] ✓ ${getMarketName(market)} programado para ${schedDate.toISOString().split('T')[0]}`
     );
     
     // Avanzar al día siguiente para la próxima iteración
