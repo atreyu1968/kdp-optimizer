@@ -10,18 +10,13 @@ import { nanoid } from 'nanoid';
  * Retorna null si la fecha no es válida para que pueda ser manejada apropiadamente
  */
 function parseExcelDate(value: any): Date | null {
-  // Log detallado para diagnóstico
-  console.log(`[KDP Import DEBUG] parseExcelDate recibió: tipo=${typeof value}, valor="${value}"`);
-  
   // Valores vacíos, undefined, null, 0, o string vacío
   if (!value || value === 0 || (typeof value === 'string' && value.trim() === '')) {
-    console.warn('[KDP Import] Valor de fecha inválido o vacío, retornando null');
     return null;
   }
 
   // Si ya es una Date, retornarla
   if (value instanceof Date && !isNaN(value.getTime())) {
-    console.log(`[KDP Import] Fecha ya era Date object: ${value.toISOString()}`);
     return value;
   }
 
@@ -34,7 +29,6 @@ function parseExcelDate(value: any): Date | null {
     const date = new Date(excelEpoch.getTime() + value * msPerDay);
     
     if (!isNaN(date.getTime())) {
-      console.log(`[KDP Import] Fecha Excel serial ${value} → ${date.toISOString()}`);
       return date;
     }
   }
@@ -43,14 +37,10 @@ function parseExcelDate(value: any): Date | null {
   if (typeof value === 'string' && value.trim()) {
     const parsed = new Date(value);
     if (!isNaN(parsed.getTime())) {
-      console.log(`[KDP Import] Fecha parseada de string "${value}" → ${parsed.toISOString()}`);
       return parsed;
     }
-    console.warn(`[KDP Import] No se pudo parsear fecha string: "${value}", retornando null`);
-    return null;
   }
 
-  console.warn(`[KDP Import] Tipo de fecha desconocido: ${typeof value}, valor: ${value}, retornando null`);
   return null;
 }
 
@@ -126,11 +116,24 @@ function normalizeMarketplace(kdpStore: string): string {
  */
 function normalizeTransactionType(kdpType: string): string {
   const mapping: Record<string, string> = {
+    // Español
     'Venta': 'Sale',
     'Promoción gratuita': 'Free',
     'Devolución': 'Refund',
     'Préstamo': 'Borrow',
     'KENP leídas': 'KENP Read',
+    // Tipos de regalía (todas son ventas)
+    'Estándar': 'Sale',
+    'Estándar - Tapa blanda': 'Sale',
+    'Kindle Countdown Deals': 'Sale',
+    'Promociones de Kindle': 'Sale',
+    'Extendida': 'Sale',
+    // Inglés
+    'Standard': 'Sale',
+    'Standard - Paperback': 'Sale',
+    'Free Promotion': 'Free',
+    'Refund': 'Refund',
+    'Borrow': 'Borrow',
   };
   
   return mapping[kdpType] || kdpType;
