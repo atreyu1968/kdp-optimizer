@@ -50,6 +50,51 @@ interface AIRecommendation {
 }
 
 /**
+ * Clasifica un libro basándose en umbrales deterministas
+ * ANTES de llamar a la IA
+ */
+function classifyBookByMetrics(metrics: BookMetrics): "OPTIMIZE" | "HOLD" | "RAISE_PRICE" {
+  const {
+    totalRoyalties30d,
+    totalRoyalties90d,
+    royaltiesTrend,
+    totalKenpPages30d,
+    totalSales30d,
+    daysPublished,
+  } = metrics;
+
+  // RAISE_PRICE: Alto rendimiento
+  // - Regalías significativas Y tendencia positiva
+  // - O regalías muy altas independientemente de tendencia
+  if (
+    (totalRoyalties30d > 50 && royaltiesTrend > 10) ||
+    totalRoyalties30d > 100 ||
+    (totalKenpPages30d > 15000 && royaltiesTrend > 10)
+  ) {
+    return "RAISE_PRICE";
+  }
+
+  // HOLD: Rendimiento estable/moderado
+  // - Regalías moderadas con tendencia estable
+  // - O KENP significativo
+  // - O libro muy nuevo (menos de 60 días)
+  if (
+    (totalRoyalties30d >= 10 && totalRoyalties30d <= 50 && Math.abs(royaltiesTrend) <= 15) ||
+    (totalKenpPages30d >= 3000 && totalKenpPages30d <= 15000) ||
+    (daysPublished < 60 && totalRoyalties30d > 5) ||
+    (totalSales30d >= 5 && totalRoyalties30d >= 15)
+  ) {
+    return "HOLD";
+  }
+
+  // OPTIMIZE: Bajo rendimiento que necesita trabajo
+  // - Regalías bajas
+  // - KENP bajo
+  // - Libro con suficiente antigüedad (más de 60 días)
+  return "OPTIMIZE";
+}
+
+/**
  * Calcula métricas agregadas para un libro específico
  */
 async function calculateBookMetrics(
@@ -140,29 +185,46 @@ async function calculateBookMetrics(
 
 /**
  * Llama a OpenAI para analizar un libro y generar recomendación
+ * NOTA: La categoría ya está determinada por umbrales. La IA solo justifica.
  */
 async function analyzeBookWithAI(metrics: BookMetrics): Promise<AIRecommendation> {
+  // PASO 1: Clasificar usando umbrales deterministas
+  const preassignedCategory = classifyBookByMetrics(metrics);
+  
   const systemPrompt = `Eres un experto estratega en KDP (Kindle Direct Publishing) de Amazon. 
-Analizas datos de ventas de libros y proporcionas recomendaciones estratégicas basadas en métricas reales.
+Tu tarea es JUSTIFICAR por qué un libro ha sido categorizado de cierta manera, basándote en métricas objetivas.
 
-Tu tarea es categorizar cada libro en una de estas 3 categorías y proporcionar acciones específicas:
+CRITERIOS DE CLASIFICACIÓN (ya aplicados):
 
-1. OPTIMIZE: Libros con bajo rendimiento que necesitan optimización de metadata (título, descripción, keywords, portada)
-2. HOLD: Libros que están funcionando bien y no necesitan cambios significativos
-3. RAISE_PRICE: Libros con buen rendimiento que pueden soportar un precio más alto
+RAISE_PRICE - Alto rendimiento:
+- Regalías 30d > $50 con tendencia positiva (>10%)
+- O regalías 30d > $100
+- O KENP 30d > 15,000 páginas con tendencia positiva
 
-IMPORTANTE: Debes responder SIEMPRE con un JSON válido siguiendo este esquema exacto:
+HOLD - Rendimiento estable/moderado:
+- Regalías 30d entre $10-$50 con tendencia estable (-15% a +15%)
+- O KENP 30d entre 3,000-15,000 páginas
+- O libro nuevo (<60 días) con regalías > $5
+- O al menos 5 ventas 30d con regalías > $15
+
+OPTIMIZE - Bajo rendimiento:
+- Regalías 30d < $10
+- KENP 30d < 3,000 páginas
+- Libro con suficiente antigüedad (>60 días)
+
+IMPORTANTE: Debes responder SIEMPRE con un JSON válido con este esquema exacto:
 {
-  "category": "OPTIMIZE" | "HOLD" | "RAISE_PRICE",
-  "confidence": <número 0-100>,
+  "category": "${preassignedCategory}",
+  "confidence": <número 70-95>,
   "summary": "<resumen breve en 1 línea>",
-  "rationale": "<explicación detallada de por qué esta categoría>",
+  "rationale": "<explicación de por qué las métricas indican esta categoría>",
   "actions": ["<acción 1>", "<acción 2>", "..."],
   "priceSuggestion": "<precio sugerido si aplica>",
-  "metricsUsed": ["<métrica 1>", "<métrica 2>", "..."]
+  "metricsUsed": ["<métricas clave que justifican la clasificación>"]
 }`;
 
-  const userPrompt = `Analiza este libro y proporciona tu recomendación:
+  const userPrompt = `Este libro ha sido clasificado como "${preassignedCategory}" basándose en métricas objetivas.
+Proporciona una justificación detallada de POR QUÉ esta categoría es correcta según los datos:
 
 DATOS DEL LIBRO:
 - Título: ${metrics.title}
@@ -174,12 +236,12 @@ DATOS DEL LIBRO:
 MÉTRICAS (ÚLTIMOS 30 DÍAS):
 - Ventas: ${metrics.totalSales30d}
 - Devoluciones: ${metrics.totalRefunds30d}
-- Páginas KENP leídas: ${metrics.totalKenpPages30d}
+- Páginas KENP leídas: ${metrics.totalKenpPages30d.toLocaleString()}
 - Regalías: $${metrics.totalRoyalties30d.toFixed(2)}
 
 MÉTRICAS (ÚLTIMOS 90 DÍAS):
 - Ventas: ${metrics.totalSales90d}
-- Páginas KENP: ${metrics.totalKenpPages90d}
+- Páginas KENP: ${metrics.totalKenpPages90d.toLocaleString()}
 - Regalías: $${metrics.totalRoyalties90d.toFixed(2)}
 
 TENDENCIAS:
@@ -190,7 +252,7 @@ DISTRIBUCIÓN:
 - Marketplaces activos: ${metrics.marketplaceCount}
 - Top marketplaces: ${metrics.topMarketplaces.join(", ")}
 
-Proporciona tu análisis y recomendación en formato JSON.`;
+Explica por qué esta clasificación "${preassignedCategory}" es correcta y proporciona acciones específicas en formato JSON.`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -214,64 +276,75 @@ Proporciona tu análisis y recomendación en formato JSON.`;
     if (!recommendation.category || !recommendation.actions || !recommendation.rationale) {
       throw new Error("Invalid recommendation structure from AI");
     }
+    
+    // FORZAR la categoría pre-asignada (por si la IA se confunde)
+    recommendation.category = preassignedCategory;
 
     return recommendation;
   } catch (error) {
     console.error("Error calling OpenAI:", error);
     
-    // Fallback: generar recomendación básica basada en reglas
-    return generateFallbackRecommendation(metrics);
+    // Fallback: generar recomendación básica basada en la categoría pre-asignada
+    return generateFallbackRecommendation(metrics, preassignedCategory);
   }
 }
 
 /**
  * Genera una recomendación básica si OpenAI falla
+ * Usa la categoría pre-asignada por classifyBookByMetrics()
  */
-function generateFallbackRecommendation(metrics: BookMetrics): AIRecommendation {
-  // Lógica simple basada en reglas
-  if (metrics.totalRoyalties30d < 10 && metrics.totalSales30d < 5) {
+function generateFallbackRecommendation(
+  metrics: BookMetrics,
+  category: "OPTIMIZE" | "HOLD" | "RAISE_PRICE"
+): AIRecommendation {
+  if (category === "OPTIMIZE") {
     return {
       category: "OPTIMIZE",
       confidence: 75,
       summary: "Bajo rendimiento - necesita optimización",
-      rationale: "El libro tiene muy pocas ventas y regalías bajas. Se recomienda optimizar la metadata para mejorar visibilidad.",
+      rationale: `El libro muestra regalías de $${metrics.totalRoyalties30d.toFixed(2)} en los últimos 30 días, con ${metrics.totalSales30d} ventas y ${metrics.totalKenpPages30d.toLocaleString()} páginas KENP leídas. Necesita optimización de metadata para mejorar visibilidad.`,
       actions: [
         "Revisar y mejorar título y subtítulo con keywords relevantes",
         "Actualizar descripción del libro con copy más atractivo",
         "Considerar rediseño de portada para mejor CTR",
         "Investigar keywords de alto volumen y baja competencia",
+        "Analizar competencia directa en el nicho",
       ],
-      metricsUsed: ["totalRoyalties30d", "totalSales30d"],
+      metricsUsed: ["totalRoyalties30d", "totalSales30d", "totalKenpPages30d"],
     };
   }
   
-  if (metrics.royaltiesTrend > 20 && metrics.totalRoyalties30d > 50) {
+  if (category === "RAISE_PRICE") {
+    const suggestedPrice = metrics.avgPrice > 0 ? (metrics.avgPrice * 1.15).toFixed(2) : "N/A";
     return {
       category: "RAISE_PRICE",
       confidence: 80,
       summary: "Buen rendimiento - puede soportar precio más alto",
-      rationale: "El libro muestra tendencia positiva de regalías y buen volumen de ventas. Puede soportar un incremento de precio.",
+      rationale: `El libro genera $${metrics.totalRoyalties30d.toFixed(2)} en regalías mensuales con una tendencia de ${metrics.royaltiesTrend.toFixed(1)}%. El rendimiento sólido sugiere que puede soportar un incremento de precio.`,
       actions: [
         "Incrementar precio gradualmente (10-15%)",
         "Monitorear impacto en ventas durante 2 semanas",
         "Mantener precio premium con buen posicionamiento",
+        "Considerar promociones flash para mantener visibilidad",
       ],
-      priceSuggestion: `$${(metrics.avgPrice * 1.15).toFixed(2)}`,
+      priceSuggestion: `$${suggestedPrice}`,
       metricsUsed: ["royaltiesTrend", "totalRoyalties30d", "avgPrice"],
     };
   }
   
+  // HOLD
   return {
     category: "HOLD",
     confidence: 70,
     summary: "Rendimiento estable - mantener estrategia actual",
-    rationale: "El libro tiene un rendimiento aceptable y estable. No se recomiendan cambios significativos en este momento.",
+    rationale: `El libro muestra un rendimiento estable con $${metrics.totalRoyalties30d.toFixed(2)} en regalías y ${metrics.totalKenpPages30d.toLocaleString()} páginas KENP. No se recomiendan cambios significativos en este momento.`,
     actions: [
       "Mantener estrategia actual",
       "Monitorear métricas mensualmente",
       "Considerar promociones estacionales",
+      "Evaluar expansión a nuevos marketplaces si aplica",
     ],
-    metricsUsed: ["totalRoyalties30d", "salesTrend"],
+    metricsUsed: ["totalRoyalties30d", "totalKenpPages30d", "salesTrend"],
   };
 }
 
