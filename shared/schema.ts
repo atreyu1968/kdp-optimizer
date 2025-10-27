@@ -192,6 +192,17 @@ export const publications = pgTable("publications", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Tabla de tareas pendientes por manuscrito
+export const tasks = pgTable("tasks", {
+  id: serial("id").primaryKey(),
+  manuscriptId: integer("manuscript_id").notNull().references(() => manuscripts.id),
+  description: text("description").notNull(),
+  priority: integer("priority").notNull().default(0),
+  completed: integer("completed").notNull().default(0), // 0 = false, 1 = true (SQLite compatibility)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Estados de publicación
 export const publicationStatuses = ["pending", "scheduled", "published"] as const;
 export type PublicationStatus = typeof publicationStatuses[number];
@@ -215,3 +226,11 @@ export const insertPublicationSchema = createInsertSchema(publications).omit({
 });
 export type InsertPublication = z.infer<typeof insertPublicationSchema>;
 export type Publication = typeof publications.$inferSelect;
+
+export const insertTaskSchema = createInsertSchema(tasks).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type Task = typeof tasks.$inferSelect;
