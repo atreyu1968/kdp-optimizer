@@ -7,6 +7,30 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
+/**
+ * Tasas de conversión a EUR (moneda base)
+ * Tasas aproximadas para octubre 2025
+ */
+const EXCHANGE_RATES: Record<string, number> = {
+  EUR: 1.0,
+  USD: 0.92,
+  GBP: 1.17,
+  CAD: 0.67,
+  AUD: 0.60,
+  BRL: 0.17,
+  MXN: 0.052,
+  JPY: 0.0062,
+  INR: 0.011,
+};
+
+/**
+ * Convierte una cantidad en cualquier moneda a EUR
+ */
+function convertToEUR(amount: number, currency: string): number {
+  const rate = EXCHANGE_RATES[currency] || 1.0;
+  return amount * rate;
+}
+
 interface BookMetrics {
   bookId: number;
   asin: string;
@@ -117,7 +141,11 @@ async function calculateBookMetrics(
   const totalKenpPages30d = sales30d
     .filter(s => s.transactionType === "KENP Read")
     .reduce((sum, s) => sum + (s.unitsOrPages || 0), 0);
-  const totalRoyalties30d = sales30d.reduce((sum, s) => sum + parseFloat(s.royalty || "0"), 0);
+  // Convertir todas las regalías a EUR antes de sumar
+  const totalRoyalties30d = sales30d.reduce((sum, s) => {
+    const amount = parseFloat(s.royalty || "0");
+    return sum + convertToEUR(amount, s.currency);
+  }, 0);
   
   // 30-60 días atrás (para tendencia)
   const sales30to60 = bookSales.filter(s => {
@@ -125,7 +153,11 @@ async function calculateBookMetrics(
     return date >= sixtyDaysAgo && date < thirtyDaysAgo;
   });
   const totalSales30to60 = sales30to60.filter(s => s.transactionType === "Sale").length;
-  const totalRoyalties30to60 = sales30to60.reduce((sum, s) => sum + parseFloat(s.royalty || "0"), 0);
+  // Convertir todas las regalías a EUR antes de sumar
+  const totalRoyalties30to60 = sales30to60.reduce((sum, s) => {
+    const amount = parseFloat(s.royalty || "0");
+    return sum + convertToEUR(amount, s.currency);
+  }, 0);
   
   // Últimos 90 días
   const sales90d = bookSales.filter(s => new Date(s.saleDate) >= ninetyDaysAgo);
@@ -133,7 +165,11 @@ async function calculateBookMetrics(
   const totalKenpPages90d = sales90d
     .filter(s => s.transactionType === "KENP Read")
     .reduce((sum, s) => sum + (s.unitsOrPages || 0), 0);
-  const totalRoyalties90d = sales90d.reduce((sum, s) => sum + parseFloat(s.royalty || "0"), 0);
+  // Convertir todas las regalías a EUR antes de sumar
+  const totalRoyalties90d = sales90d.reduce((sum, s) => {
+    const amount = parseFloat(s.royalty || "0");
+    return sum + convertToEUR(amount, s.currency);
+  }, 0);
   
   // Calcular tendencias (% cambio)
   const salesTrend = totalSales30to60 > 0 
@@ -197,20 +233,22 @@ Tu tarea es JUSTIFICAR por qué un libro ha sido categorizado de cierta manera, 
 CRITERIOS DE CLASIFICACIÓN (ya aplicados):
 
 RAISE_PRICE - Alto rendimiento:
-- Regalías 30d > $50 con tendencia positiva (>10%)
-- O regalías 30d > $100
+- Regalías 30d > 50€ con tendencia positiva (>10%)
+- O regalías 30d > 100€
 - O KENP 30d > 15,000 páginas con tendencia positiva
 
 HOLD - Rendimiento estable/moderado:
-- Regalías 30d entre $10-$50 con tendencia estable (-15% a +15%)
+- Regalías 30d entre 10€-50€ con tendencia estable (-15% a +15%)
 - O KENP 30d entre 3,000-15,000 páginas
-- O libro nuevo (<60 días) con regalías > $5
-- O al menos 5 ventas 30d con regalías > $15
+- O libro nuevo (<60 días) con regalías > 5€
+- O al menos 5 ventas 30d con regalías > 15€
 
 OPTIMIZE - Bajo rendimiento:
-- Regalías 30d < $10
+- Regalías 30d < 10€
 - KENP 30d < 3,000 páginas
 - Libro con suficiente antigüedad (>60 días)
+
+NOTA: Todas las regalías están convertidas a EUR para comparabilidad.
 
 IMPORTANTE: Debes responder SIEMPRE con un JSON válido con este esquema exacto:
 {
@@ -237,12 +275,12 @@ MÉTRICAS (ÚLTIMOS 30 DÍAS):
 - Ventas: ${metrics.totalSales30d}
 - Devoluciones: ${metrics.totalRefunds30d}
 - Páginas KENP leídas: ${metrics.totalKenpPages30d.toLocaleString()}
-- Regalías: $${metrics.totalRoyalties30d.toFixed(2)}
+- Regalías: ${metrics.totalRoyalties30d.toFixed(2)}€
 
 MÉTRICAS (ÚLTIMOS 90 DÍAS):
 - Ventas: ${metrics.totalSales90d}
 - Páginas KENP: ${metrics.totalKenpPages90d.toLocaleString()}
-- Regalías: $${metrics.totalRoyalties90d.toFixed(2)}
+- Regalías: ${metrics.totalRoyalties90d.toFixed(2)}€
 
 TENDENCIAS:
 - Tendencia de ventas: ${metrics.salesTrend.toFixed(1)}%
@@ -302,7 +340,7 @@ function generateFallbackRecommendation(
       category: "OPTIMIZE",
       confidence: 75,
       summary: "Bajo rendimiento - necesita optimización",
-      rationale: `El libro muestra regalías de $${metrics.totalRoyalties30d.toFixed(2)} en los últimos 30 días, con ${metrics.totalSales30d} ventas y ${metrics.totalKenpPages30d.toLocaleString()} páginas KENP leídas. Necesita optimización de metadata para mejorar visibilidad.`,
+      rationale: `El libro muestra regalías de ${metrics.totalRoyalties30d.toFixed(2)}€ en los últimos 30 días, con ${metrics.totalSales30d} ventas y ${metrics.totalKenpPages30d.toLocaleString()} páginas KENP leídas. Necesita optimización de metadata para mejorar visibilidad.`,
       actions: [
         "Revisar y mejorar título y subtítulo con keywords relevantes",
         "Actualizar descripción del libro con copy más atractivo",
@@ -320,14 +358,14 @@ function generateFallbackRecommendation(
       category: "RAISE_PRICE",
       confidence: 80,
       summary: "Buen rendimiento - puede soportar precio más alto",
-      rationale: `El libro genera $${metrics.totalRoyalties30d.toFixed(2)} en regalías mensuales con una tendencia de ${metrics.royaltiesTrend.toFixed(1)}%. El rendimiento sólido sugiere que puede soportar un incremento de precio.`,
+      rationale: `El libro genera ${metrics.totalRoyalties30d.toFixed(2)}€ en regalías mensuales con una tendencia de ${metrics.royaltiesTrend.toFixed(1)}%. El rendimiento sólido sugiere que puede soportar un incremento de precio.`,
       actions: [
         "Incrementar precio gradualmente (10-15%)",
         "Monitorear impacto en ventas durante 2 semanas",
         "Mantener precio premium con buen posicionamiento",
         "Considerar promociones flash para mantener visibilidad",
       ],
-      priceSuggestion: `$${suggestedPrice}`,
+      priceSuggestion: `${suggestedPrice}€`,
       metricsUsed: ["royaltiesTrend", "totalRoyalties30d", "avgPrice"],
     };
   }
@@ -337,7 +375,7 @@ function generateFallbackRecommendation(
     category: "HOLD",
     confidence: 70,
     summary: "Rendimiento estable - mantener estrategia actual",
-    rationale: `El libro muestra un rendimiento estable con $${metrics.totalRoyalties30d.toFixed(2)} en regalías y ${metrics.totalKenpPages30d.toLocaleString()} páginas KENP. No se recomiendan cambios significativos en este momento.`,
+    rationale: `El libro muestra un rendimiento estable con ${metrics.totalRoyalties30d.toFixed(2)}€ en regalías y ${metrics.totalKenpPages30d.toLocaleString()} páginas KENP. No se recomiendan cambios significativos en este momento.`,
     actions: [
       "Mantener estrategia actual",
       "Monitorear métricas mensualmente",
