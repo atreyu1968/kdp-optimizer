@@ -47,10 +47,12 @@ interface EnrichedInsight {
   penName: string;
   metrics: {
     totalSales30d: number;
+    totalFreeDownloads30d: number;
     totalRoyalties30d: number;
     totalKenpPages30d: number;
     salesTrend: number;
     royaltiesTrend: number;
+    freeDownloadsTrend: number;
     daysPublished: number;
     avgPrice: number;
   };
@@ -307,8 +309,13 @@ function InsightCard({ insight }: { insight: EnrichedInsight }) {
           </div>
           <div className="flex items-center gap-1.5">
             <DollarSign className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">${insight.metrics.totalRoyalties30d.toFixed(0)}</span>
+            <span className="font-medium">{insight.metrics.totalRoyalties30d.toFixed(0)}€</span>
             <span className="text-muted-foreground text-xs">regalías</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">{insight.metrics.totalFreeDownloads30d}</span>
+            <span className="text-muted-foreground text-xs">gratis</span>
           </div>
           <div className="flex items-center gap-1.5">
             <BookOpen className="h-4 w-4 text-muted-foreground" />

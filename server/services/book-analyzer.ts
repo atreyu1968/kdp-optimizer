@@ -40,17 +40,20 @@ interface BookMetrics {
   // Métricas de ventas (últimos 30 días)
   totalSales30d: number;
   totalRefunds30d: number;
+  totalFreeDownloads30d: number; // Descargas gratuitas (campañas)
   totalKenpPages30d: number;
   totalRoyalties30d: number;
   
   // Métricas de ventas (últimos 90 días)
   totalSales90d: number;
+  totalFreeDownloads90d: number; // Descargas gratuitas (campañas)
   totalKenpPages90d: number;
   totalRoyalties90d: number;
   
   // Tendencias (comparando últimos 30 vs 30 anteriores)
   salesTrend: number; // % cambio
   royaltiesTrend: number; // % cambio
+  freeDownloadsTrend: number; // % cambio
   
   // Marketplaces
   topMarketplaces: string[];
@@ -138,6 +141,7 @@ async function calculateBookMetrics(
   const sales30d = bookSales.filter(s => new Date(s.saleDate) >= thirtyDaysAgo);
   const totalSales30d = sales30d.filter(s => s.transactionType === "Sale").length;
   const totalRefunds30d = sales30d.filter(s => s.transactionType === "Refund").length;
+  const totalFreeDownloads30d = sales30d.filter(s => s.transactionType === "Free").length;
   const totalKenpPages30d = sales30d
     .filter(s => s.transactionType === "KENP Read")
     .reduce((sum, s) => sum + (s.unitsOrPages || 0), 0);
@@ -153,6 +157,7 @@ async function calculateBookMetrics(
     return date >= sixtyDaysAgo && date < thirtyDaysAgo;
   });
   const totalSales30to60 = sales30to60.filter(s => s.transactionType === "Sale").length;
+  const totalFreeDownloads30to60 = sales30to60.filter(s => s.transactionType === "Free").length;
   // Convertir todas las regalías a EUR antes de sumar
   const totalRoyalties30to60 = sales30to60.reduce((sum, s) => {
     const amount = parseFloat(s.royalty || "0");
@@ -162,6 +167,7 @@ async function calculateBookMetrics(
   // Últimos 90 días
   const sales90d = bookSales.filter(s => new Date(s.saleDate) >= ninetyDaysAgo);
   const totalSales90d = sales90d.filter(s => s.transactionType === "Sale").length;
+  const totalFreeDownloads90d = sales90d.filter(s => s.transactionType === "Free").length;
   const totalKenpPages90d = sales90d
     .filter(s => s.transactionType === "KENP Read")
     .reduce((sum, s) => sum + (s.unitsOrPages || 0), 0);
@@ -179,6 +185,10 @@ async function calculateBookMetrics(
   const royaltiesTrend = totalRoyalties30to60 > 0 
     ? ((totalRoyalties30d - totalRoyalties30to60) / totalRoyalties30to60) * 100 
     : totalRoyalties30d > 0 ? 100 : 0;
+  
+  const freeDownloadsTrend = totalFreeDownloads30to60 > 0
+    ? ((totalFreeDownloads30d - totalFreeDownloads30to60) / totalFreeDownloads30to60) * 100
+    : totalFreeDownloads30d > 0 ? 100 : 0;
   
   // Marketplaces
   const marketplaces = new Set(bookSales.map(s => s.marketplace));
@@ -205,13 +215,16 @@ async function calculateBookMetrics(
     penName: penNameMap.get(book.penNameId) || "Unknown",
     totalSales30d,
     totalRefunds30d,
+    totalFreeDownloads30d,
     totalKenpPages30d,
     totalRoyalties30d,
     totalSales90d,
+    totalFreeDownloads90d,
     totalKenpPages90d,
     totalRoyalties90d,
     salesTrend,
     royaltiesTrend,
+    freeDownloadsTrend,
     topMarketplaces,
     marketplaceCount: marketplaces.size,
     daysPublished,
@@ -274,16 +287,19 @@ DATOS DEL LIBRO:
 MÉTRICAS (ÚLTIMOS 30 DÍAS):
 - Ventas: ${metrics.totalSales30d}
 - Devoluciones: ${metrics.totalRefunds30d}
+- Descargas gratuitas: ${metrics.totalFreeDownloads30d} (campañas)
 - Páginas KENP leídas: ${metrics.totalKenpPages30d.toLocaleString()}
 - Regalías: ${metrics.totalRoyalties30d.toFixed(2)}€
 
 MÉTRICAS (ÚLTIMOS 90 DÍAS):
 - Ventas: ${metrics.totalSales90d}
+- Descargas gratuitas: ${metrics.totalFreeDownloads90d} (campañas)
 - Páginas KENP: ${metrics.totalKenpPages90d.toLocaleString()}
 - Regalías: ${metrics.totalRoyalties90d.toFixed(2)}€
 
-TENDENCIAS:
+TENDENCIAS (últimos 30 vs anteriores 30 días):
 - Tendencia de ventas: ${metrics.salesTrend.toFixed(1)}%
+- Tendencia de descargas gratuitas: ${metrics.freeDownloadsTrend.toFixed(1)}%
 - Tendencia de regalías: ${metrics.royaltiesTrend.toFixed(1)}%
 
 DISTRIBUCIÓN:
