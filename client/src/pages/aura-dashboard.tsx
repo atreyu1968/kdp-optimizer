@@ -18,6 +18,29 @@ import {
 } from "recharts";
 import { useMemo } from "react";
 
+/**
+ * Tasas de conversión a EUR (moneda base)
+ */
+const EXCHANGE_RATES: Record<string, number> = {
+  EUR: 1.0,
+  USD: 0.92,
+  GBP: 1.17,
+  CAD: 0.67,
+  AUD: 0.60,
+  BRL: 0.17,
+  MXN: 0.052,
+  JPY: 0.0062,
+  INR: 0.011,
+};
+
+/**
+ * Convierte una cantidad en cualquier moneda a EUR
+ */
+function convertToEUR(amount: number, currency: string): number {
+  const rate = EXCHANGE_RATES[currency] || 1.0;
+  return amount * rate;
+}
+
 interface PenName {
   id: number;
   name: string;
@@ -61,7 +84,8 @@ export default function AuraDashboard() {
   // Calculate stats
   const totalPenNames = penNames?.length || 0;
   const totalBooks = books?.length || 0;
-  const totalSales = sales?.length || 0;
+  // Contar solo ventas reales, no KENP ni Free
+  const totalSales = sales?.filter(s => s.transactionType === 'Sale').length || 0;
   const totalKenpPages = sales
     ?.filter(s => s.transactionType === 'KENP Read')
     .reduce((sum, s) => sum + s.unitsOrPages, 0) || 0;
@@ -82,7 +106,9 @@ export default function AuraDashboard() {
       .forEach(sale => {
         const dateKey = new Date(sale.saleDate).toISOString().split('T')[0]; // YYYY-MM-DD
         const royalty = parseFloat(sale.royalty);
-        dateMap.set(dateKey, (dateMap.get(dateKey) || 0) + royalty);
+        // Convertir a EUR antes de sumar
+        const royaltyEUR = convertToEUR(royalty, sale.currency);
+        dateMap.set(dateKey, (dateMap.get(dateKey) || 0) + royaltyEUR);
       });
 
     // Sort by date ascending
@@ -90,7 +116,7 @@ export default function AuraDashboard() {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([dateKey, royalty]) => ({ 
         date: new Date(dateKey).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
-        royalty 
+        royalty: Math.round(royalty * 100) / 100 // Redondear a 2 decimales
       }));
   }, [sales]);
 
@@ -100,13 +126,15 @@ export default function AuraDashboard() {
     const marketMap = new Map<string, number>();
     sales.forEach(sale => {
       const royalty = parseFloat(sale.royalty);
-      marketMap.set(sale.marketplace, (marketMap.get(sale.marketplace) || 0) + royalty);
+      // Convertir a EUR antes de sumar
+      const royaltyEUR = convertToEUR(royalty, sale.currency);
+      marketMap.set(sale.marketplace, (marketMap.get(sale.marketplace) || 0) + royaltyEUR);
     });
 
     return Array.from(marketMap.entries())
       .map(([marketplace, royalty]) => ({ 
-        marketplace: marketplace.replace('Amazon.com.', '').toUpperCase(), 
-        royalty 
+        marketplace: marketplace.replace('amazon.com.', '').replace('amazon.', '').toUpperCase(), 
+        royalty: Math.round(royalty * 100) / 100 // Redondear a 2 decimales
       }))
       .sort((a, b) => b.royalty - a.royalty);
   }, [sales]);
@@ -117,7 +145,9 @@ export default function AuraDashboard() {
     const penNameMap = new Map<number, number>();
     sales.forEach(sale => {
       const royalty = parseFloat(sale.royalty);
-      penNameMap.set(sale.penNameId, (penNameMap.get(sale.penNameId) || 0) + royalty);
+      // Convertir a EUR antes de sumar
+      const royaltyEUR = convertToEUR(royalty, sale.currency);
+      penNameMap.set(sale.penNameId, (penNameMap.get(sale.penNameId) || 0) + royaltyEUR);
     });
 
     return Array.from(penNameMap.entries())
@@ -220,7 +250,7 @@ export default function AuraDashboard() {
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              Todas las transacciones
+              Ventas completadas
             </p>
           </CardContent>
         </Card>
@@ -269,7 +299,7 @@ export default function AuraDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>Ingresos por Fecha</CardTitle>
-                <CardDescription>Evolución de regalías (últimos 30 días)</CardDescription>
+                <CardDescription>Evolución de regalías en EUR (últimos 30 días)</CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -293,7 +323,7 @@ export default function AuraDashboard() {
                           border: '1px solid hsl(var(--border))',
                           borderRadius: '8px',
                         }}
-                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'Regalías']}
+                        formatter={(value: number) => [`${value.toFixed(2)}€`, 'Regalías']}
                       />
                       <Area 
                         type="monotone" 
@@ -362,8 +392,8 @@ export default function AuraDashboard() {
             {/* Sales by Marketplace */}
             <Card>
               <CardHeader>
-                <CardTitle>Ventas por Marketplace</CardTitle>
-                <CardDescription>Distribución de ingresos por país</CardDescription>
+                <CardTitle>Ingresos por Marketplace</CardTitle>
+                <CardDescription>Distribución de regalías en EUR por país</CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -387,7 +417,7 @@ export default function AuraDashboard() {
                           border: '1px solid hsl(var(--border))',
                           borderRadius: '8px',
                         }}
-                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'Regalías']}
+                        formatter={(value: number) => [`${value.toFixed(2)}€`, 'Regalías']}
                       />
                       <Bar 
                         dataKey="royalty" 
@@ -408,7 +438,7 @@ export default function AuraDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>Ingresos por Seudónimo</CardTitle>
-                <CardDescription>Rendimiento de cada autor</CardDescription>
+                <CardDescription>Regalías en EUR por autor</CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -435,7 +465,7 @@ export default function AuraDashboard() {
                           border: '1px solid hsl(var(--border))',
                           borderRadius: '8px',
                         }}
-                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'Regalías']}
+                        formatter={(value: number) => [`${value.toFixed(2)}€`, 'Regalías']}
                       />
                       <Bar 
                         dataKey="royalty" 
