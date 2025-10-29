@@ -80,6 +80,30 @@ The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessibl
             *   **UI Integration**: "Marcar evento" button on each book card with modal dialog for event creation
             *   **API Endpoints**: GET /api/aura/events, GET /api/aura/events/book/:bookId, GET /api/aura/events/asin/:asin, POST /api/aura/events, PUT /api/aura/events/:id, DELETE /api/aura/events/:id
             *   **Future Enhancements**: Visual event markers on KENP evolution charts, correlation analysis between events and performance spikes
+    *   **Aura Ventas** (`/aura/sales`): Sales analysis module for real revenue tracking (30% of revenue comes from direct sales)
+        *   **Sales Monthly Data Processing**: Automatically processes "Ventas combinadas" sheet during KDP import, creating aggregated monthly records
+        *   **Book Type Discrimination**: Separates ebook/paperback/hardcover sales for accurate analysis
+        *   **Currency Segregation**: Groups sales by ASIN + bookType + currency to prevent mixing royalties from different currencies (USD, EUR, GBP, etc.)
+        *   **Free Promotion Exclusion**: Filters out "Promoción gratuita" transactions to show only revenue-generating sales
+        *   **Replace Strategy**: Each import processes sales data cumulatively (additive), unlike KENP which replaces completely
+        *   **6-Month Evolution Charts**: Interactive visualizations showing unit and royalty trends per book
+        *   **Automatic Recommendations**: Deterministic categorization system based on sales performance
+            *   **SUBIR PRECIO** (Raise Price): High-performing books (>50 units in 6 months) - Suggests price increase
+            *   **OPTIMIZAR** (Optimize): Low-performing books (<20 units in 6 months) - Suggests metadata/cover review
+            *   **AUMENTAR PROMOCIÓN** (Increase Promotion): Very low sales (<20 units) - Suggests more visibility
+            *   **MANTENER** (Hold): Stable performance - Suggests continuing current strategy
+        *   **Multi-Currency Display**: Each book-currency combination shown separately with clear currency badges
+        *   **API Endpoints**: POST /api/aura/import/sales (automatic during KDP import), GET /api/aura/sales
+        *   **Dashboard Integration**: Sidebar menu item replacing "Análisis IA"
+        *   **Shared Events System**: Uses the same AuraBookEvents table as Aura Unlimited for cross-module event correlation
+    *   **Aura Seudónimos** (`/aura/pen-names`): Redesigned pseudonym management with consolidated view
+        *   **Author Consolidation**: Groups books by author name across all marketplaces, showing unified analytics
+        *   **Expandable Book List**: Each pseudonym card expands to show all associated books with key metrics
+        *   **Direct Navigation**: Quick links from each book to Aura Unlimited and Aura Ventas analysis pages
+        *   **Event Management**: Access to full event history and creation from pseudonym view
+        *   **Visual Book Type Indicators**: Color-coded badges for ebook/paperback/hardcover identification
+        *   **Marketplace Badges**: Shows all marketplaces where each book is available
+        *   **Smart Search**: Filter by author name or book title with real-time updates
     *   **Future Features**: Amazon Ads and Meta Ads API integration, background job status tracking, AI failure observability
 
 ## External Dependencies
