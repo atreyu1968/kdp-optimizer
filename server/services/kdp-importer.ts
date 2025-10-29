@@ -142,12 +142,23 @@ function normalizeTransactionType(kdpType: string): string {
 
 /**
  * Detecta el tipo de libro basándose en el campo "Tipo de regalía" de KDP
+ * 
+ * Mapeo de Amazon KDP:
+ * - "Estándar" → ebook
+ * - "Promoción gratuita" → ebook
+ * - "Kindle Countdown Deals" → ebook
+ * - "Estándar - Tapa blanda" → paperback
+ * - "Estándar - Tapa dura" → hardcover
+ * 
  * Retorna: "ebook", "paperback", "hardcover", o "unknown"
  */
 function detectBookType(royaltyType: string): string {
-  const type = royaltyType.toLowerCase();
+  if (!royaltyType) return 'unknown';
   
-  // Detectar libros impresos
+  const type = royaltyType.toLowerCase().trim();
+  
+  // IMPORTANTE: Primero verificar libros impresos (más específicos)
+  // porque "Estándar - Tapa blanda" contiene la palabra "estándar"
   if (type.includes('tapa blanda') || type.includes('paperback')) {
     return 'paperback';
   }
@@ -155,10 +166,18 @@ function detectBookType(royaltyType: string): string {
     return 'hardcover';
   }
   
-  // Detectar ebooks (Kindle)
-  if (type.includes('kindle') || type.includes('estándar') || type.includes('standard') || 
-      type.includes('extendida') || type.includes('extended') ||
-      type.includes('countdown') || type.includes('promoción') || type.includes('promotion')) {
+  // Luego detectar ebooks (más genéricos)
+  // Incluye: "Estándar", "Promoción gratuita", "Kindle Countdown Deals", etc.
+  if (type.includes('kindle') || 
+      type.includes('estándar') || 
+      type.includes('standard') || 
+      type.includes('extendida') || 
+      type.includes('extended') ||
+      type.includes('countdown') || 
+      type.includes('promoción') || 
+      type.includes('promotion') ||
+      type.includes('gratuita') ||
+      type.includes('free')) {
     return 'ebook';
   }
   
