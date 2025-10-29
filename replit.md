@@ -34,6 +34,7 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
     *   **Aura Ventas (Sales Analysis)**: Processes combined sales data, discriminating by book type and currency, and offering recommendations based on sales performance (Raise Price, Optimize, Increase Promotion, Hold). Currency-segregated metrics prevent mixing royalties across USD/EUR/GBP. Integrated import button for convenience.
     *   **Aura Seudónimos**: Provides consolidated pseudonym management with grouped books, key metrics, and direct navigation to detailed analytics.
     *   **Book Events System**: Tracks promotional activities and optimizations to correlate with performance changes.
+    *   **Calendar Integration**: Imported KDP books can be added to the publications calendar system. When a book is added, a "dummy" manuscript is created with status "published", and publication records are generated for each marketplace. Books already in the calendar are indicated with a "Ver en Calendario" button.
 
 ## External Dependencies
 *   **AI Services**: OpenAI API (GPT-4o-mini).

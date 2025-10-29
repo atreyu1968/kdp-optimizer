@@ -64,6 +64,7 @@ import {
   Globe
 } from "lucide-react";
 import { Link } from "wouter";
+import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 
 const penNameFormSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -578,6 +579,13 @@ export default function AuraPenNames() {
                                         <Flag className="w-3 h-3 mr-1" />
                                         Marcar evento
                                       </Button>
+                                      
+                                      <AddToCalendarButton
+                                        bookId={book.id}
+                                        asin={book.asin}
+                                        size="sm"
+                                        variant="outline"
+                                      />
                                     </div>
                                   </div>
                                 </CardContent>

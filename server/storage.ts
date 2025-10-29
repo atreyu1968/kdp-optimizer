@@ -159,6 +159,10 @@ export interface IStorage {
   createBookEvent(data: InsertBookEvent): Promise<BookEvent>;
   updateBookEvent(id: number, data: Partial<InsertBookEvent>): Promise<BookEvent>;
   deleteBookEvent(id: number): Promise<void>;
+  
+  // Add Aura Book to Publication Calendar
+  addAuraBookToCalendar(auraBookId: number): Promise<{ manuscriptId: number; publications: Publication[] }>;
+  checkIfAuraBookInCalendar(auraBookId: number): Promise<number | null>;
 }
 
 export class DbStorage implements IStorage {
@@ -866,6 +870,82 @@ export class DbStorage implements IStorage {
   async deleteBookEvent(id: number): Promise<void> {
     await this.db.delete(auraBookEvents).where(eq(auraBookEvents.id, id));
   }
+  
+  // Add Aura Book to Publication Calendar
+  async addAuraBookToCalendar(auraBookId: number): Promise<{ manuscriptId: number; publications: Publication[] }> {
+    // Get Aura book
+    const auraBook = await this.getAuraBook(auraBookId);
+    if (!auraBook) {
+      throw new Error(`Aura book with ID ${auraBookId} not found`);
+    }
+    
+    // Get pen name
+    const penName = await this.getPenName(auraBook.penNameId);
+    if (!penName) {
+      throw new Error(`Pen name with ID ${auraBook.penNameId} not found`);
+    }
+    
+    // Check if already in calendar
+    const existingManuscriptId = await this.checkIfAuraBookInCalendar(auraBookId);
+    if (existingManuscriptId) {
+      throw new Error(`Este libro ya está en el calendario (Manuscript ID: ${existingManuscriptId})`);
+    }
+    
+    // Create manuscript dummy (minimal data since book is already published)
+    const manuscriptData: InsertManuscript = {
+      originalTitle: auraBook.title,
+      author: penName.name,
+      genre: "Importado desde KDP", // Generic genre since we don't have it
+      language: "es", // Default language
+      manuscriptText: `[Libro importado desde KDP Dashboard]\n\nASIN: ${auraBook.asin}\nTítulo: ${auraBook.title}\nAutor: ${penName.name}\n\nEste manuscrito fue creado automáticamente al importar el libro desde el calendario de Aura.`,
+      wordCount: 0, // We don't have word count for imported books
+      targetAudience: undefined,
+      seriesName: undefined,
+      seriesNumber: undefined,
+    };
+    
+    const manuscript = await this.saveManuscript(manuscriptData);
+    
+    // Create publications for each marketplace (already published)
+    const publications: Publication[] = [];
+    
+    for (const marketplace of auraBook.marketplaces) {
+      const publicationData: InsertPublication = {
+        manuscriptId: manuscript.id,
+        market: marketplace,
+        status: "published",
+        scheduledDate: auraBook.publishDate || new Date(),
+        publishedDate: auraBook.publishDate || new Date(),
+        kdpUrl: `https://kdp.amazon.com`, // Generic KDP URL
+        notes: `Libro importado desde KDP Dashboard - ASIN: ${auraBook.asin}`,
+      };
+      
+      const publication = await this.createPublication(publicationData);
+      publications.push(publication);
+    }
+    
+    return {
+      manuscriptId: manuscript.id,
+      publications,
+    };
+  }
+  
+  // Check if Aura Book is already in calendar
+  async checkIfAuraBookInCalendar(auraBookId: number): Promise<number | null> {
+    const auraBook = await this.getAuraBook(auraBookId);
+    if (!auraBook) return null;
+    
+    // Look for manuscript with matching title and author
+    const penName = await this.getPenName(auraBook.penNameId);
+    if (!penName) return null;
+    
+    const allManuscripts = await this.getAllManuscripts();
+    const matchingManuscript = allManuscripts.find(
+      m => m.originalTitle === auraBook.title && m.author === penName.name
+    );
+    
+    return matchingManuscript ? matchingManuscript.id : null;
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -1173,6 +1253,14 @@ export class MemStorage implements IStorage {
   }
 
   async deleteBookEvent(id: number): Promise<void> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+  
+  async addAuraBookToCalendar(auraBookId: number): Promise<{ manuscriptId: number; publications: Publication[] }> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+  
+  async checkIfAuraBookInCalendar(auraBookId: number): Promise<number | null> {
     throw new Error("MemStorage does not support Aura operations");
   }
 }

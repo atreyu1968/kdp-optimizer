@@ -930,6 +930,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Agregar libro de Aura al calendario de publicaciones
+  app.post("/api/aura/books/:id/add-to-calendar", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid book ID" });
+        return;
+      }
+
+      const result = await storage.addAuraBookToCalendar(id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error adding book to calendar:", error);
+      res.status(500).json({ 
+        error: "Failed to add book to calendar",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Verificar si libro está en calendario
+  app.get("/api/aura/books/:id/in-calendar", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid book ID" });
+        return;
+      }
+
+      const manuscriptId = await storage.checkIfAuraBookInCalendar(id);
+      res.json({ 
+        inCalendar: manuscriptId !== null,
+        manuscriptId 
+      });
+    } catch (error) {
+      console.error("Error checking if book in calendar:", error);
+      res.status(500).json({ error: "Failed to check calendar status" });
+    }
+  });
+
   // ========== KDP SALES & IMPORT ==========
 
   // Importar archivo XLSX de KDP
