@@ -149,6 +149,8 @@ function normalizeTransactionType(kdpType: string): string {
  * - "Kindle Countdown Deals" → ebook
  * - "Estándar - Tapa blanda" → paperback
  * - "Estándar - Tapa dura" → hardcover
+ * - "70%", "35%" → ebook (porcentajes de regalía de ebook)
+ * - "60%" → paperback (porcentaje de regalía de libro impreso)
  * 
  * Retorna: "ebook", "paperback", "hardcover", o "unknown"
  */
@@ -166,6 +168,11 @@ function detectBookType(royaltyType: string): string {
     return 'hardcover';
   }
   
+  // Detectar por porcentaje de regalía (60% = impreso)
+  if (type === '60%') {
+    return 'paperback';
+  }
+  
   // Luego detectar ebooks (más genéricos)
   // Incluye: "Estándar", "Promoción gratuita", "Kindle Countdown Deals", "KENP leídas", etc.
   if (type.includes('kindle') || 
@@ -178,7 +185,9 @@ function detectBookType(royaltyType: string): string {
       type.includes('promoción') || 
       type.includes('promotion') ||
       type.includes('gratuita') ||
-      type.includes('free')) {
+      type.includes('free') ||
+      type === '70%' ||  // Regalía estándar de ebook
+      type === '35%') {  // Regalía extendida de ebook
     return 'ebook';
   }
   
