@@ -150,21 +150,38 @@ export default function AuraUnlimited() {
       let trend: 'up' | 'down' | 'stable' = 'stable';
       let trendPercentage = 0;
 
-      if (sortedRecords.length >= 3) {
+      // Solo calcular tendencia si hay exactamente 6 meses de datos (para comparar 3 vs 3)
+      if (sortedRecords.length >= 6) {
         const recent3 = sortedRecords.slice(-3);
         const previous3 = sortedRecords.slice(-6, -3);
 
-        if (previous3.length >= 3) {
-          const recentAvg = recent3.reduce((sum, r) => sum + r.totalKenpPages, 0) / 3;
-          const previousAvg = previous3.reduce((sum, r) => sum + r.totalKenpPages, 0) / 3;
+        // Sumar páginas de cada periodo (en lugar de promediar)
+        const recentTotal = recent3.reduce((sum, r) => sum + r.totalKenpPages, 0);
+        const previousTotal = previous3.reduce((sum, r) => sum + r.totalKenpPages, 0);
 
-          if (previousAvg > 0) {
-            trendPercentage = Math.round(((recentAvg - previousAvg) / previousAvg) * 100);
-            
-            if (trendPercentage > 15) trend = 'up';
-            else if (trendPercentage < -15) trend = 'down';
-            else trend = 'stable';
-          }
+        if (previousTotal > 0) {
+          trendPercentage = Math.round(((recentTotal - previousTotal) / previousTotal) * 100);
+          
+          if (trendPercentage > 15) trend = 'up';
+          else if (trendPercentage < -15) trend = 'down';
+          else trend = 'stable';
+        }
+      } else if (sortedRecords.length >= 3) {
+        // Si hay menos de 6 meses pero al menos 3, comparar contra el promedio general
+        const recent3 = sortedRecords.slice(-3);
+        const all = sortedRecords;
+        
+        const recentTotal = recent3.reduce((sum, r) => sum + r.totalKenpPages, 0);
+        const allTotal = all.reduce((sum, r) => sum + r.totalKenpPages, 0);
+        const allAvg = allTotal / all.length;
+        const recentAvg = recentTotal / 3;
+        
+        if (allAvg > 0) {
+          trendPercentage = Math.round(((recentAvg - allAvg) / allAvg) * 100);
+          
+          if (trendPercentage > 15) trend = 'up';
+          else if (trendPercentage < -15) trend = 'down';
+          else trend = 'stable';
         }
       }
 
