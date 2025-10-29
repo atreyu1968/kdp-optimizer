@@ -488,3 +488,202 @@ export async function importKdpXlsx(
     throw error;
   }
 }
+
+// ============================================================================
+// AURA UNLIMITED - Importación de datos mensuales KENP
+// ============================================================================
+
+export interface KenpMonthlyRecord {
+  asin: string;
+  title: string;
+  authorName: string;
+  month: string; // Formato: 'YYYY-MM'
+  totalKenpPages: number;
+  marketplaces: string[];
+}
+
+export interface KenpImportStats {
+  monthlyRecordsCreated: number;
+  penNamesProcessed: number;
+  errors: string[];
+}
+
+/**
+ * Parsea un archivo XLSX de KENP y genera datos mensuales agregados
+ * IMPORTANTE: Este reempl aza todos los datos KENP anteriores
+ */
+export async function parseKenpMonthlyFile(filePath: string): Promise<{
+  records: KenpMonthlyRecord[];
+  stats: KenpImportStats;
+}> {
+  const stats: KenpImportStats = {
+    monthlyRecordsCreated: 0,
+    penNamesProcessed: 0,
+    errors: [],
+  };
+
+  try {
+    console.log(`[KENP Import] Leyendo archivo: ${filePath}`);
+    const fileBuffer = readFileSync(filePath);
+    const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+
+    // Buscar la hoja "KENP leídas"
+    const sheetName = workbook.SheetNames.find(name => 
+      name.toLowerCase().includes('kenp') && name.toLowerCase().includes('leída')
+    );
+
+    if (!sheetName) {
+      throw new Error('No se encontró la hoja "KENP leídas" en el archivo');
+    }
+
+    console.log(`[KENP Import] Procesando hoja: "${sheetName}"`);
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json<any>(sheet);
+
+    if (rows.length === 0) {
+      throw new Error('La hoja KENP no contiene datos');
+    }
+
+    console.log(`[KENP Import] Encontradas ${rows.length} filas de datos KENP`);
+
+    // Agrupar por ASIN + mes
+    const monthlyData = new Map<string, {
+      asin: string;
+      title: string;
+      authorName: string;
+      month: string;
+      pages: number;
+      marketplaces: Set<string>;
+    }>();
+
+    for (const row of rows) {
+      try {
+        // Extraer datos del row (las columnas pueden variar según idioma)
+        const dateValue = row['Fecha'] || row['Date'];
+        const asin = row['ASIN'];
+        const title = row['Título'] || row['Title'];
+        const authorName = row['Nombre del autor'] || row['Author Name'];
+        const marketplace = row['Tienda'] || row['Marketplace'];
+        const kenpPages = parseInt(row['Páginas KENP leídas'] || row['KENP Read'] || '0', 10);
+
+        if (!asin || !dateValue || isNaN(kenpPages)) {
+          continue; // Skip invalid rows
+        }
+
+        // Parsear fecha y extraer mes (formato YYYY-MM)
+        const date = parseExcelDate(dateValue);
+        if (!date) {
+          stats.errors.push(`Fecha inválida para ASIN ${asin}`);
+          continue;
+        }
+
+        const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const normalizedMarketplace = normalizeMarketplace(marketplace);
+
+        // Clave única: ASIN + mes
+        const key = `${asin}:${month}`;
+
+        if (!monthlyData.has(key)) {
+          monthlyData.set(key, {
+            asin,
+            title,
+            authorName,
+            month,
+            pages: 0,
+            marketplaces: new Set(),
+          });
+        }
+
+        const record = monthlyData.get(key)!;
+        record.pages += kenpPages;
+        record.marketplaces.add(normalizedMarketplace);
+      } catch (error) {
+        stats.errors.push(`Error procesando fila KENP: ${error instanceof Error ? error.message : 'Unknown'}`);
+      }
+    }
+
+    // Convertir a array de records
+    const records: KenpMonthlyRecord[] = Array.from(monthlyData.values()).map(item => ({
+      asin: item.asin,
+      title: item.title,
+      authorName: item.authorName,
+      month: item.month,
+      totalKenpPages: item.pages,
+      marketplaces: Array.from(item.marketplaces),
+    }));
+
+    stats.monthlyRecordsCreated = records.length;
+
+    console.log(`[KENP Import] Agregación completada:`);
+    console.log(`  - Registros mensuales: ${records.length}`);
+    console.log(`  - Errores: ${stats.errors.length}`);
+
+    return { records, stats };
+  } catch (error) {
+    stats.errors.push(`Error fatal: ${error instanceof Error ? error.message : 'Unknown'}`);
+    throw error;
+  }
+}
+
+/**
+ * Importa datos KENP mensuales a la base de datos
+ * IMPORTANTE: REEMPLAZA todos los datos anteriores
+ */
+export async function importKenpMonthlyData(filePath: string): Promise<KenpImportStats> {
+  const { records, stats } = await parseKenpMonthlyFile(filePath);
+
+  try {
+    console.log(`[KENP Import] Eliminando datos KENP anteriores...`);
+    // PASO 1: ELIMINAR todos los datos KENP anteriores
+    await storage.deleteAllKenpMonthlyData();
+
+    console.log(`[KENP Import] Importando ${records.length} registros mensuales...`);
+
+    // PASO 2: Obtener/crear seudónimos y libros
+    const penNamesCache = new Map<string, PenName>();
+    const booksCache = new Map<string, { id: number; marketplaces: string[]; publishDate: Date | null }>();
+
+    // Procesar todos los autores únicos
+    const uniqueAuthors = new Set(records.map(r => r.authorName));
+    for (const authorName of Array.from(uniqueAuthors)) {
+      const { penName } = await getOrCreatePenName(authorName, penNamesCache);
+      stats.penNamesProcessed++;
+    }
+
+    // PASO 3: Insertar nuevos registros KENP mensuales
+    for (const record of records) {
+      try {
+        // Obtener penName
+        const { penName } = await getOrCreatePenName(record.authorName, penNamesCache);
+
+        // Obtener o crear libro
+        const { bookId } = await getOrCreateBook(
+          record.asin,
+          record.title,
+          penName.id,
+          record.marketplaces[0], // usar primer marketplace
+          booksCache
+        );
+
+        // Insertar registro mensual KENP
+        await storage.createKenpMonthlyData({
+          bookId,
+          asin: record.asin,
+          penNameId: penName.id,
+          month: record.month,
+          totalKenpPages: record.totalKenpPages,
+          marketplaces: record.marketplaces,
+          importedAt: new Date(),
+        });
+      } catch (error) {
+        stats.errors.push(`Error insertando KENP para ${record.asin}: ${error instanceof Error ? error.message : 'Unknown'}`);
+      }
+    }
+
+    console.log(`[KENP Import] Importación KENP completada exitosamente`);
+    return stats;
+  } catch (error) {
+    stats.errors.push(`Error en importación KENP: ${error instanceof Error ? error.message : 'Unknown'}`);
+    throw error;
+  }
+}

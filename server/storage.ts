@@ -12,6 +12,7 @@ import {
   auraBooks,
   kdpSales,
   auraBookInsights,
+  kenpMonthlyData,
   type Manuscript, 
   type Optimization,
   type Publication,
@@ -22,6 +23,7 @@ import {
   type AuraBook,
   type KdpSale,
   type BookInsight,
+  type KenpMonthlyData,
   type InsertManuscript,
   type InsertPublication,
   type InsertTask,
@@ -31,6 +33,7 @@ import {
   type InsertAuraBook,
   type InsertKdpSale,
   type InsertBookInsight,
+  type InsertKenpMonthlyData,
   type OptimizationResult,
   type MarketMetadata,
   amazonMarkets,
@@ -127,6 +130,13 @@ export interface IStorage {
   createOrUpdateBookInsight(data: InsertBookInsight): Promise<BookInsight>;
   deleteBookInsight(bookId: number): Promise<void>;
   markInsightsAsStale(): Promise<void>;
+  
+  // KENP Monthly Data (Aura Unlimited)
+  getAllKenpMonthlyData(): Promise<KenpMonthlyData[]>;
+  getKenpMonthlyDataByBook(bookId: number): Promise<KenpMonthlyData[]>;
+  getKenpMonthlyDataByAsin(asin: string): Promise<KenpMonthlyData[]>;
+  createKenpMonthlyData(data: InsertKenpMonthlyData): Promise<KenpMonthlyData>;
+  deleteAllKenpMonthlyData(): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -717,6 +727,39 @@ export class DbStorage implements IStorage {
   async markInsightsAsStale(): Promise<void> {
     await this.db.update(auraBookInsights).set({ status: 'stale' });
   }
+
+  // ============================================================================
+  // KENP Monthly Data (Aura Unlimited)
+  // ============================================================================
+  
+  async getAllKenpMonthlyData(): Promise<KenpMonthlyData[]> {
+    return await this.db.select().from(kenpMonthlyData).orderBy(desc(kenpMonthlyData.month));
+  }
+
+  async getKenpMonthlyDataByBook(bookId: number): Promise<KenpMonthlyData[]> {
+    return await this.db
+      .select()
+      .from(kenpMonthlyData)
+      .where(eq(kenpMonthlyData.bookId, bookId))
+      .orderBy(desc(kenpMonthlyData.month));
+  }
+
+  async getKenpMonthlyDataByAsin(asin: string): Promise<KenpMonthlyData[]> {
+    return await this.db
+      .select()
+      .from(kenpMonthlyData)
+      .where(eq(kenpMonthlyData.asin, asin))
+      .orderBy(desc(kenpMonthlyData.month));
+  }
+
+  async createKenpMonthlyData(data: InsertKenpMonthlyData): Promise<KenpMonthlyData> {
+    const [record] = await this.db.insert(kenpMonthlyData).values(data).returning();
+    return record;
+  }
+
+  async deleteAllKenpMonthlyData(): Promise<void> {
+    await this.db.delete(kenpMonthlyData);
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -956,6 +999,26 @@ export class MemStorage implements IStorage {
   }
 
   async markInsightsAsStale(): Promise<void> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getAllKenpMonthlyData(): Promise<KenpMonthlyData[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getKenpMonthlyDataByBook(bookId: number): Promise<KenpMonthlyData[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getKenpMonthlyDataByAsin(asin: string): Promise<KenpMonthlyData[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async createKenpMonthlyData(data: InsertKenpMonthlyData): Promise<KenpMonthlyData> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async deleteAllKenpMonthlyData(): Promise<void> {
     throw new Error("MemStorage does not support Aura operations");
   }
 }
