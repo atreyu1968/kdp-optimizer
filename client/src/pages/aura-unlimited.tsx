@@ -51,6 +51,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { AuraImport } from "@/components/aura-import";
 
 interface KenpMonthlyData {
   id: number;
@@ -112,7 +113,6 @@ interface BookEvent {
 
 export default function AuraUnlimited() {
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [location] = useLocation();
   const urlParams = new URLSearchParams(location.split('?')[1] || '');
   const asinFromUrl = urlParams.get('asin');
@@ -390,42 +390,6 @@ export default function AuraUnlimited() {
     });
   }, [bookTrends, searchQuery, trendFilter, recommendationFilter]);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      toast({
-        title: "Importando datos KENP...",
-        description: "Por favor espera, esto puede tardar unos momentos.",
-      });
-
-      await apiRequest('POST', '/api/aura/import/kenp', formData);
-
-      toast({
-        title: "✅ Importación exitosa",
-        description: "Datos KENP actualizados correctamente. Datos anteriores reemplazados.",
-      });
-
-      // Refrescar datos
-      await queryClient.invalidateQueries({ queryKey: ['/api/aura/kenp'] });
-      await refetch();
-    } catch (error: any) {
-      toast({
-        title: "Error en importación",
-        description: error.message || "No se pudo importar el archivo KENP",
-        variant: "destructive",
-      });
-    }
-
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
 
   const handleCreateEvent = () => {
     if (!selectedBookForEvent || !newEvent.title.trim()) {
@@ -508,21 +472,20 @@ export default function AuraUnlimited() {
           </p>
         </div>
         <div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx"
-            onChange={handleFileUpload}
-            className="hidden"
-            data-testid="input-kenp-file"
-          />
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            data-testid="button-import-kenp"
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            {hasData ? 'Actualizar datos KENP' : 'Importar datos KENP'}
-          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button data-testid="button-import-kenp">
+                <Upload className="w-4 h-4 mr-2" />
+                {hasData ? 'Actualizar datos' : 'Importar datos'}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Importar Datos de KDP</DialogTitle>
+              </DialogHeader>
+              <AuraImport />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -538,17 +501,23 @@ export default function AuraUnlimited() {
               <div>
                 <h3 className="text-lg font-semibold">No hay datos KENP importados</h3>
                 <p className="text-sm text-muted-foreground">
-                  Importa tu archivo XLSX de "KENP leídas" desde el dashboard de KDP
+                  Importa tu archivo XLSX desde el dashboard de KDP
                 </p>
               </div>
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                variant="outline"
-                data-testid="button-import-first"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Importar datos KENP
-              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" data-testid="button-import-first">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Importar datos
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Importar Datos de KDP</DialogTitle>
+                  </DialogHeader>
+                  <AuraImport />
+                </DialogContent>
+              </Dialog>
             </div>
           </CardContent>
         </Card>

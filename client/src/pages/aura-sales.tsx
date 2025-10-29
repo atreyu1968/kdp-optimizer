@@ -5,11 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { TrendingUp, TrendingDown, Minus, BookOpen, Package, HardDrive, DollarSign, X } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, BookOpen, Package, HardDrive, DollarSign, X, Upload } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AuraImport } from "@/components/aura-import";
 
 interface SalesMonthlyData {
   id: number;
@@ -221,14 +223,31 @@ export default function AuraSales() {
 
   return (
     <div className="p-6 space-y-6" data-testid="page-aura-sales">
-      <div>
-        <h1 className="text-3xl font-bold" data-testid="text-page-title">Aura Ventas</h1>
-        <p className="text-muted-foreground mt-1">
-          Análisis de ventas reales discriminadas por tipo de libro (ebook, tapa blanda, tapa dura)
-        </p>
-        <p className="text-sm text-muted-foreground mt-1">
-          ℹ️ Este análisis <strong>excluye promociones gratuitas</strong> y muestra solo ventas con regalías
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold" data-testid="text-page-title">Aura Ventas</h1>
+          <p className="text-muted-foreground mt-1">
+            Análisis de ventas reales discriminadas por tipo de libro (ebook, tapa blanda, tapa dura)
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            ℹ️ Este análisis <strong>excluye promociones gratuitas</strong> y muestra solo ventas con regalías
+          </p>
+        </div>
+        
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="default" className="gap-2" data-testid="button-import-sales">
+              <Upload className="h-4 w-4" />
+              Importar Datos
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Importar Datos de KDP</DialogTitle>
+            </DialogHeader>
+            <AuraImport />
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Estadísticas por tipo de libro y moneda (segregadas) */}
