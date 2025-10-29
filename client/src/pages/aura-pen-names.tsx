@@ -140,6 +140,7 @@ export default function AuraPenNames() {
   const [isEventHistoryDialogOpen, setIsEventHistoryDialogOpen] = useState(false);
   const [isCreateEventDialogOpen, setIsCreateEventDialogOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<{ bookId: number; asin: string; title: string } | null>(null);
+  const [isAddingAllToCalendar, setIsAddingAllToCalendar] = useState(false);
 
   const createForm = useForm<PenNameForm>({
     resolver: zodResolver(penNameFormSchema),
@@ -249,6 +250,46 @@ export default function AuraPenNames() {
       });
     },
   });
+
+  const handleAddAllToCalendar = async () => {
+    setIsAddingAllToCalendar(true);
+    try {
+      const response = await apiRequest<{ 
+        success: boolean; 
+        added: number; 
+        skipped: number; 
+        errors: string[]; 
+        message: string;
+      }>('/api/aura/books/add-all-to-calendar', 'POST', {});
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/aura/books'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/manuscripts'] });
+      
+      const { added, skipped, errors } = response;
+      
+      let description = `Se agregaron ${added} libros al calendario.`;
+      if (skipped > 0) {
+        description += ` ${skipped} ya estaban en el calendario.`;
+      }
+      if (errors && errors.length > 0) {
+        description += ` ${errors.length} errores encontrados.`;
+      }
+      
+      toast({
+        title: "Importación completada",
+        description,
+        variant: errors && errors.length > 0 ? "destructive" : "default",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo agregar los libros al calendario",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingAllToCalendar(false);
+    }
+  };
 
   const handleCreate = async (data: PenNameForm) => {
     setIsSubmitting(true);
@@ -418,10 +459,21 @@ export default function AuraPenNames() {
             Gestiona tus identidades de autor y sus libros
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-pen-name">
-          <Plus className="w-4 h-4 mr-2" />
-          Nuevo Seudónimo
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleAddAllToCalendar} 
+            disabled={isAddingAllToCalendar || !books || books.length === 0}
+            data-testid="button-add-all-to-calendar"
+          >
+            <Calendar className="w-4 h-4 mr-2" />
+            {isAddingAllToCalendar ? "Agregando..." : "Agregar Todos al Calendario"}
+          </Button>
+          <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-pen-name">
+            <Plus className="w-4 h-4 mr-2" />
+            Nuevo Seudónimo
+          </Button>
+        </div>
       </div>
 
       {consolidatedPenNames.length === 0 ? (
