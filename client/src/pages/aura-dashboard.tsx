@@ -126,12 +126,14 @@ export default function AuraDashboard() {
     if (!sales) return [];
     
     const marketMap = new Map<string, number>();
-    sales.forEach(sale => {
-      const royalty = parseFloat(sale.royalty);
-      // Convertir a EUR antes de sumar
-      const royaltyEUR = convertToEUR(royalty, sale.currency);
-      marketMap.set(sale.marketplace, (marketMap.get(sale.marketplace) || 0) + royaltyEUR);
-    });
+    sales
+      .filter(sale => sale.marketplace) // Filtrar ventas sin marketplace
+      .forEach(sale => {
+        const royalty = parseFloat(sale.royalty);
+        // Convertir a EUR antes de sumar
+        const royaltyEUR = convertToEUR(royalty, sale.currency);
+        marketMap.set(sale.marketplace, (marketMap.get(sale.marketplace) || 0) + royaltyEUR);
+      });
 
     return Array.from(marketMap.entries())
       .map(([marketplace, royalty]) => ({ 

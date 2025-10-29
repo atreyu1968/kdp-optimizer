@@ -89,7 +89,7 @@ export function AddToCalendarButton({
   // Si ya está en el calendario, mostrar botón para ir al calendario
   if (calendarStatus?.inCalendar) {
     return (
-      <Link href="/calendar">
+      <Link href="/publications">
         <Button 
           size={size} 
           variant="default"
