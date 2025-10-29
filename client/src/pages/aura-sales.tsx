@@ -177,11 +177,7 @@ export default function AuraSales() {
         penName: penName.name,
         bookType,
         currency,
-        last6Months: last6Months.map((r) => ({
-          month: r.month,
-          units: r.totalUnits,
-          royalty: parseFloat(r.totalRoyalty),
-        })),
+        last6Months,
         totalUnitsLast6,
         totalRoyaltyLast6,
         trend,
