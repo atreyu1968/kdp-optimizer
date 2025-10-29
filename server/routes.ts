@@ -970,6 +970,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Agregar TODOS los libros de Aura al calendario
+  app.post("/api/aura/books/add-all-to-calendar", async (req, res) => {
+    try {
+      console.log("[Add All to Calendar] Iniciando importación masiva...");
+      
+      const result = await storage.addAllAuraBooksToCalendar();
+      
+      console.log(`[Add All to Calendar] Completado: ${result.added} agregados, ${result.skipped} omitidos, ${result.errors.length} errores`);
+      
+      res.json({
+        success: true,
+        added: result.added,
+        skipped: result.skipped,
+        errors: result.errors,
+        message: `Se agregaron ${result.added} libros al calendario. ${result.skipped} ya estaban en el calendario.`
+      });
+    } catch (error) {
+      console.error("Error adding all books to calendar:", error);
+      res.status(500).json({ 
+        error: "Failed to add all books to calendar",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // ========== KDP SALES & IMPORT ==========
 
   // Importar archivo XLSX de KDP
