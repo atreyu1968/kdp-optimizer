@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarChart3, Users, BookOpen, TrendingUp, Zap, ArrowRight } from "lucide-react";
+import { BarChart3, Users, BookOpen, TrendingUp, Zap, ArrowRight, DollarSign, BookMarked } from "lucide-react";
 import { Link } from "wouter";
 import {
   AreaChart,
@@ -55,18 +55,30 @@ interface AuraBook {
   asin: string;
   title: string;
   marketplaces: string[];
+  bookType: string;
 }
 
-interface KdpSale {
+interface KenpMonthlyData {
   id: number;
-  bookId: number;
+  bookId: number | null;
+  asin: string;
   penNameId: number;
-  saleDate: string;
-  marketplace: string;
-  transactionType: string;
-  royalty: string;
+  month: string;
+  totalKenpPages: number;
+  marketplaces: string[];
+}
+
+interface SalesMonthlyData {
+  id: number;
+  bookId: number | null;
+  asin: string;
+  penNameId: number;
+  month: string;
+  bookType: string;
+  totalUnits: number;
+  totalRoyalty: string;
   currency: string;
-  unitsOrPages: number;
+  marketplaces: string[];
 }
 
 export default function AuraDashboard() {
@@ -79,112 +91,177 @@ export default function AuraDashboard() {
     queryKey: ['/api/aura/books'],
   });
 
-  const { data: sales, isLoading: loadingSales } = useQuery<KdpSale[]>({
+  const { data: kenpData, isLoading: loadingKenp } = useQuery<KenpMonthlyData[]>({
+    queryKey: ['/api/aura/kenp'],
+  });
+
+  const { data: salesData, isLoading: loadingSales } = useQuery<SalesMonthlyData[]>({
     queryKey: ['/api/aura/sales'],
   });
 
-  // Calculate stats
-  const totalPenNames = penNames?.length || 0;
-  const totalBooks = books?.length || 0;
-  // Contar solo ventas reales, no KENP ni Free
-  const totalSales = sales?.filter(s => s.transactionType === 'Sale').length || 0;
-  const totalKenpPages = sales
-    ?.filter(s => s.transactionType === 'KENP Read')
-    .reduce((sum, s) => sum + s.unitsOrPages, 0) || 0;
+  const isLoading = loadingPenNames || loadingBooks || loadingKenp || loadingSales;
 
-  const isLoading = loadingPenNames || loadingBooks || loadingSales;
+  // Consolidar seudónimos por nombre
+  const consolidatedPenNames = useMemo(() => {
+    if (!penNames) return [];
+    const nameMap = new Map<string, PenName & { ids: number[] }>();
+    penNames.forEach(penName => {
+      const existing = nameMap.get(penName.name);
+      if (existing) {
+        existing.ids.push(penName.id);
+      } else {
+        nameMap.set(penName.name, { ...penName, ids: [penName.id] });
+      }
+    });
+    return Array.from(nameMap.values());
+  }, [penNames]);
 
-  // Prepare chart data
-  const royaltyByDate = useMemo(() => {
-    if (!sales) return [];
-    
-    // Filter last 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const dateMap = new Map<string, number>();
-    sales
-      .filter(sale => new Date(sale.saleDate) >= thirtyDaysAgo)
-      .forEach(sale => {
-        const dateKey = new Date(sale.saleDate).toISOString().split('T')[0]; // YYYY-MM-DD
-        const royalty = parseFloat(sale.royalty);
-        // Convertir a EUR antes de sumar
-        const royaltyEUR = convertToEUR(royalty, sale.currency);
-        dateMap.set(dateKey, (dateMap.get(dateKey) || 0) + royaltyEUR);
-      });
+  // Deduplicar libros por ASIN
+  const uniqueBooks = useMemo(() => {
+    if (!books) return [];
+    const bookMap = new Map<string, AuraBook>();
+    books.forEach(book => {
+      if (!bookMap.has(book.asin)) {
+        bookMap.set(book.asin, book);
+      }
+    });
+    return Array.from(bookMap.values());
+  }, [books]);
 
-    // Sort by date ascending
-    return Array.from(dateMap.entries())
+  // Estadísticas generales
+  const totalPenNames = consolidatedPenNames.length;
+  const totalBooks = uniqueBooks.length;
+  const totalKenpPages = kenpData?.reduce((sum, k) => sum + k.totalKenpPages, 0) || 0;
+  const totalUnits = salesData?.reduce((sum, s) => sum + s.totalUnits, 0) || 0;
+
+  // Calcular ingresos totales en EUR
+  const totalRoyaltyEUR = useMemo(() => {
+    if (!salesData) return 0;
+    return salesData.reduce((sum, s) => {
+      const royalty = parseFloat(s.totalRoyalty);
+      return sum + convertToEUR(royalty, s.currency);
+    }, 0);
+  }, [salesData]);
+
+  // Tendencia mensual de KENP
+  const kenpByMonth = useMemo(() => {
+    if (!kenpData) return [];
+    const monthMap = new Map<string, number>();
+    kenpData.forEach(k => {
+      monthMap.set(k.month, (monthMap.get(k.month) || 0) + k.totalKenpPages);
+    });
+    return Array.from(monthMap.entries())
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([dateKey, royalty]) => ({ 
-        date: new Date(dateKey).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
-        royalty: Math.round(royalty * 100) / 100 // Redondear a 2 decimales
+      .map(([month, pages]) => ({
+        month: new Date(month + '-01').toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }),
+        pages,
       }));
-  }, [sales]);
+  }, [kenpData]);
 
-  const salesByMarketplace = useMemo(() => {
-    if (!sales) return [];
-    
-    const marketMap = new Map<string, number>();
-    sales
-      .filter(sale => sale.marketplace) // Filtrar ventas sin marketplace
-      .forEach(sale => {
-        const royalty = parseFloat(sale.royalty);
-        // Convertir a EUR antes de sumar
-        const royaltyEUR = convertToEUR(royalty, sale.currency);
-        marketMap.set(sale.marketplace, (marketMap.get(sale.marketplace) || 0) + royaltyEUR);
+  // Tendencia mensual de ventas (unidades)
+  const unitsByMonth = useMemo(() => {
+    if (!salesData) return [];
+    const monthMap = new Map<string, number>();
+    salesData.forEach(s => {
+      monthMap.set(s.month, (monthMap.get(s.month) || 0) + s.totalUnits);
+    });
+    return Array.from(monthMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([month, units]) => ({
+        month: new Date(month + '-01').toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }),
+        units,
+      }));
+  }, [salesData]);
+
+  // Tendencia mensual de ingresos
+  const royaltyByMonth = useMemo(() => {
+    if (!salesData) return [];
+    const monthMap = new Map<string, number>();
+    salesData.forEach(s => {
+      const royalty = parseFloat(s.totalRoyalty);
+      const royaltyEUR = convertToEUR(royalty, s.currency);
+      monthMap.set(s.month, (monthMap.get(s.month) || 0) + royaltyEUR);
+    });
+    return Array.from(monthMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([month, royalty]) => ({
+        month: new Date(month + '-01').toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }),
+        royalty: Math.round(royalty * 100) / 100,
+      }));
+  }, [salesData]);
+
+  // Ventas por tipo de libro
+  const salesByBookType = useMemo(() => {
+    if (!salesData) return [];
+    const typeMap = new Map<string, { units: number; royalty: number }>();
+    salesData.forEach(s => {
+      const existing = typeMap.get(s.bookType) || { units: 0, royalty: 0 };
+      const royalty = parseFloat(s.totalRoyalty);
+      const royaltyEUR = convertToEUR(royalty, s.currency);
+      typeMap.set(s.bookType, {
+        units: existing.units + s.totalUnits,
+        royalty: existing.royalty + royaltyEUR,
       });
-
-    return Array.from(marketMap.entries())
-      .map(([marketplace, royalty]) => ({ 
-        marketplace: marketplace.replace('amazon.com.', '').replace('amazon.', '').toUpperCase(), 
-        royalty: Math.round(royalty * 100) / 100 // Redondear a 2 decimales
-      }))
-      .sort((a, b) => b.royalty - a.royalty);
-  }, [sales]);
-
-  const royaltyByPenName = useMemo(() => {
-    if (!sales || !penNames) return [];
-    
-    const penNameMap = new Map<number, number>();
-    sales.forEach(sale => {
-      const royalty = parseFloat(sale.royalty);
-      // Convertir a EUR antes de sumar
-      const royaltyEUR = convertToEUR(royalty, sale.currency);
-      penNameMap.set(sale.penNameId, (penNameMap.get(sale.penNameId) || 0) + royaltyEUR);
     });
 
-    return Array.from(penNameMap.entries())
-      .map(([penNameId, royalty]) => ({
-        name: penNames.find(p => p.id === penNameId)?.name || 'Desconocido',
-        royalty
+    const typeLabels: Record<string, string> = {
+      ebook: 'eBook',
+      paperback: 'Tapa blanda',
+      hardcover: 'Tapa dura',
+      unknown: 'Desconocido',
+    };
+
+    return Array.from(typeMap.entries())
+      .map(([type, data]) => ({
+        type: typeLabels[type] || type,
+        units: data.units,
+        royalty: Math.round(data.royalty * 100) / 100,
       }))
       .sort((a, b) => b.royalty - a.royalty);
-  }, [sales, penNames]);
+  }, [salesData]);
 
-  const kenpByDate = useMemo(() => {
-    if (!sales) return [];
+  // Top 5 libros por KENP
+  const topKenpBooks = useMemo(() => {
+    if (!kenpData || !books) return [];
+    const bookMap = new Map<string, number>();
+    kenpData.forEach(k => {
+      bookMap.set(k.asin, (bookMap.get(k.asin) || 0) + k.totalKenpPages);
+    });
     
-    // Filter last 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const dateMap = new Map<string, number>();
-    sales
-      .filter(s => s.transactionType === 'KENP Read' && new Date(s.saleDate) >= thirtyDaysAgo)
-      .forEach(sale => {
-        const dateKey = new Date(sale.saleDate).toISOString().split('T')[0]; // YYYY-MM-DD
-        dateMap.set(dateKey, (dateMap.get(dateKey) || 0) + sale.unitsOrPages);
-      });
-
-    // Sort by date ascending
-    return Array.from(dateMap.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([dateKey, pages]) => ({ 
-        date: new Date(dateKey).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
-        pages 
+    return Array.from(bookMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([asin, pages]) => ({
+        asin,
+        title: books.find(b => b.asin === asin)?.title || asin,
+        pages,
       }));
-  }, [sales]);
+  }, [kenpData, books]);
+
+  // Top 5 libros por ventas
+  const topSalesBooks = useMemo(() => {
+    if (!salesData || !books) return [];
+    const bookMap = new Map<string, { units: number; royalty: number }>();
+    salesData.forEach(s => {
+      const existing = bookMap.get(s.asin) || { units: 0, royalty: 0 };
+      const royalty = parseFloat(s.totalRoyalty);
+      const royaltyEUR = convertToEUR(royalty, s.currency);
+      bookMap.set(s.asin, {
+        units: existing.units + s.totalUnits,
+        royalty: existing.royalty + royaltyEUR,
+      });
+    });
+    
+    return Array.from(bookMap.entries())
+      .sort((a, b) => b[1].royalty - a[1].royalty)
+      .slice(0, 5)
+      .map(([asin, data]) => ({
+        asin,
+        title: books.find(b => b.asin === asin)?.title || asin,
+        units: data.units,
+        royalty: Math.round(data.royalty * 100) / 100,
+      }));
+  }, [salesData, books]);
 
   return (
     <div className="space-y-6">
@@ -195,11 +272,12 @@ export default function AuraDashboard() {
         </p>
       </div>
 
+      {/* Tarjetas de estadísticas principales */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total Seudónimos
+              Seudónimos
             </CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -212,7 +290,7 @@ export default function AuraDashboard() {
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              Autores registrados
+              Autores únicos
             </p>
           </CardContent>
         </Card>
@@ -220,7 +298,7 @@ export default function AuraDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total Libros
+              Libros Publicados
             </CardTitle>
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -233,28 +311,7 @@ export default function AuraDashboard() {
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              Títulos publicados
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Ventas Totales
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold" data-testid="stat-total-sales">
-                {totalSales}
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Ventas completadas
+              Títulos únicos
             </p>
           </CardContent>
         </Card>
@@ -275,7 +332,28 @@ export default function AuraDashboard() {
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              Lecturas Kindle Unlimited
+              Kindle Unlimited
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Ingresos Totales
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-8 w-20" />
+            ) : (
+              <div className="text-2xl font-bold" data-testid="stat-total-royalty">
+                {totalRoyaltyEUR.toFixed(2)}€
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {totalUnits} unidades vendidas
             </p>
           </CardContent>
         </Card>
@@ -289,15 +367,19 @@ export default function AuraDashboard() {
               Comienza importando tus datos de ventas de KDP para ver análisis detallados
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              Ve a "Importar" en el menú lateral para subir tu archivo XLSX de KDP Dashboard.
+              Ve a "Importar" en el menú lateral para subir tus archivos XLSX:
             </p>
+            <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground ml-4">
+              <li><strong>Aura Unlimited:</strong> Importa tu reporte mensual de páginas KENP leídas</li>
+              <li><strong>Aura Ventas:</strong> Importa tu reporte de ventas y regalías</li>
+            </ul>
           </CardContent>
         </Card>
       ) : (
         <>
-          {/* Aura Unlimited Promo Card */}
+          {/* Tarjeta promocional de Aura Unlimited */}
           <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20">
             <CardContent className="py-6">
               <div className="flex items-center justify-between gap-4">
@@ -308,7 +390,7 @@ export default function AuraDashboard() {
                   <div>
                     <h3 className="text-lg font-semibold">Aura Unlimited - Análisis KENP</h3>
                     <p className="text-sm text-muted-foreground">
-                      70% de tu facturación proviene de Amazon Unlimited. Analiza la evolución de tus páginas KENP.
+                      Analiza la evolución mensual de tus páginas KENP y descubre qué libros tienen mejor rendimiento.
                     </p>
                   </div>
                 </div>
@@ -322,23 +404,23 @@ export default function AuraDashboard() {
             </CardContent>
           </Card>
 
-          {/* Charts Section */}
+          {/* Gráficas principales */}
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Royalty by Date */}
+            {/* Tendencia de ingresos mensuales */}
             <Card>
               <CardHeader>
-                <CardTitle>Ingresos por Fecha</CardTitle>
-                <CardDescription>Evolución de regalías en EUR (últimos 30 días)</CardDescription>
+                <CardTitle>Ingresos Mensuales</CardTitle>
+                <CardDescription>Evolución de regalías en EUR</CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
                   <Skeleton className="h-[300px] w-full" />
-                ) : royaltyByDate.length > 0 ? (
+                ) : royaltyByMonth.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={royaltyByDate}>
+                    <AreaChart data={royaltyByMonth}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis 
-                        dataKey="date" 
+                        dataKey="month" 
                         className="text-xs"
                         tick={{ fill: 'hsl(var(--muted-foreground))' }}
                       />
@@ -371,21 +453,21 @@ export default function AuraDashboard() {
               </CardContent>
             </Card>
 
-            {/* KENP Pages by Date */}
+            {/* Tendencia de páginas KENP */}
             <Card>
               <CardHeader>
-                <CardTitle>Páginas KENP Leídas</CardTitle>
-                <CardDescription>Tendencia de lecturas KU (últimos 30 días)</CardDescription>
+                <CardTitle>Páginas KENP Mensuales</CardTitle>
+                <CardDescription>Tendencia de lecturas Kindle Unlimited</CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
                   <Skeleton className="h-[300px] w-full" />
-                ) : kenpByDate.length > 0 ? (
+                ) : kenpByMonth.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={kenpByDate}>
+                    <LineChart data={kenpByMonth}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis 
-                        dataKey="date" 
+                        dataKey="month" 
                         className="text-xs"
                         tick={{ fill: 'hsl(var(--muted-foreground))' }}
                       />
@@ -418,21 +500,21 @@ export default function AuraDashboard() {
               </CardContent>
             </Card>
 
-            {/* Sales by Marketplace */}
+            {/* Ventas por tipo de libro */}
             <Card>
               <CardHeader>
-                <CardTitle>Ingresos por Marketplace</CardTitle>
-                <CardDescription>Distribución de regalías en EUR por país</CardDescription>
+                <CardTitle>Ventas por Formato</CardTitle>
+                <CardDescription>Distribución de ingresos por tipo de libro</CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
                   <Skeleton className="h-[300px] w-full" />
-                ) : salesByMarketplace.length > 0 ? (
+                ) : salesByBookType.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={salesByMarketplace}>
+                    <BarChart data={salesByBookType}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis 
-                        dataKey="marketplace" 
+                        dataKey="type" 
                         className="text-xs"
                         tick={{ fill: 'hsl(var(--muted-foreground))' }}
                       />
@@ -446,78 +528,80 @@ export default function AuraDashboard() {
                           border: '1px solid hsl(var(--border))',
                           borderRadius: '8px',
                         }}
-                        formatter={(value: number) => [`${value.toFixed(2)}€`, 'Regalías']}
+                        formatter={(value: number, name: string) => {
+                          if (name === 'royalty') return [`${value.toFixed(2)}€`, 'Regalías'];
+                          return [`${value} uds`, 'Unidades'];
+                        }}
                       />
                       <Bar 
                         dataKey="royalty" 
                         fill="hsl(var(--chart-3))" 
+                        radius={[4, 4, 0, 0]}
+                        name="royalty"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                    No hay datos de ventas por tipo
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Tendencia de unidades vendidas */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Unidades Vendidas Mensuales</CardTitle>
+                <CardDescription>Evolución de ventas por mes</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <Skeleton className="h-[300px] w-full" />
+                ) : unitsByMonth.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={unitsByMonth}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        dataKey="month" 
+                        className="text-xs"
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <YAxis 
+                        className="text-xs"
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                        formatter={(value: number) => [`${value} uds`, 'Unidades']}
+                      />
+                      <Bar 
+                        dataKey="units" 
+                        fill="hsl(var(--chart-4))" 
                         radius={[4, 4, 0, 0]}
                       />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                    No hay datos de ventas
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Royalty by Pen Name */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Ingresos por Seudónimo</CardTitle>
-                <CardDescription>Regalías en EUR por autor</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <Skeleton className="h-[300px] w-full" />
-                ) : royaltyByPenName.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={royaltyByPenName} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis 
-                        type="number"
-                        className="text-xs"
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                      />
-                      <YAxis 
-                        type="category"
-                        dataKey="name" 
-                        className="text-xs"
-                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                        width={100}
-                      />
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                        }}
-                        formatter={(value: number) => [`${value.toFixed(2)}€`, 'Regalías']}
-                      />
-                      <Bar 
-                        dataKey="royalty" 
-                        fill="hsl(var(--chart-4))" 
-                        radius={[0, 4, 4, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                    No hay datos de ventas
+                    No hay datos de unidades vendidas
                   </div>
                 )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Lists Section */}
+          {/* Listas de Top libros */}
           <div className="grid gap-4 md:grid-cols-2">
+            {/* Top libros por KENP */}
             <Card>
               <CardHeader>
-                <CardTitle>Seudónimos Activos</CardTitle>
-                <CardDescription>Tus identidades de autor</CardDescription>
+                <CardTitle>Top 5 Libros - KENP</CardTitle>
+                <CardDescription>Libros más leídos en Kindle Unlimited</CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -525,30 +609,35 @@ export default function AuraDashboard() {
                     <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-3/4" />
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {penNames?.slice(0, 5).map((penName) => (
-                      <div key={penName.id} className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{penName.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {books?.filter(b => b.penNameId === penName.id).length || 0} libros
-                        </span>
+                ) : topKenpBooks.length > 0 ? (
+                  <div className="space-y-3">
+                    {topKenpBooks.map((book, i) => (
+                      <div key={book.asin} className="flex items-start gap-3">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+                          {i + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{book.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {book.pages.toLocaleString()} páginas leídas
+                          </p>
+                        </div>
                       </div>
                     ))}
-                    {(penNames?.length || 0) > 5 && (
-                      <p className="text-xs text-muted-foreground">
-                        ... y {(penNames?.length || 0) - 5} más
-                      </p>
-                    )}
                   </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No hay datos de KENP disponibles
+                  </p>
                 )}
               </CardContent>
             </Card>
 
+            {/* Top libros por ventas */}
             <Card>
               <CardHeader>
-                <CardTitle>Actividad Reciente</CardTitle>
-                <CardDescription>Últimas transacciones</CardDescription>
+                <CardTitle>Top 5 Libros - Ventas</CardTitle>
+                <CardDescription>Libros con mayores ingresos</CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -556,24 +645,26 @@ export default function AuraDashboard() {
                     <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-3/4" />
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {sales?.slice(-5).reverse().map((sale, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground truncate max-w-[200px]">
-                          {books?.find(b => b.id === sale.bookId)?.title || 'Libro desconocido'}
-                        </span>
-                        <span className="text-xs font-medium">
-                          {sale.transactionType === 'KENP Read' ? `${sale.unitsOrPages} pág` : sale.transactionType}
-                        </span>
+                ) : topSalesBooks.length > 0 ? (
+                  <div className="space-y-3">
+                    {topSalesBooks.map((book, i) => (
+                      <div key={book.asin} className="flex items-start gap-3">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-chart-3/10 text-xs font-medium text-chart-3">
+                          {i + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{book.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {book.royalty.toFixed(2)}€ • {book.units} unidades
+                          </p>
+                        </div>
                       </div>
                     ))}
-                    {!sales || sales.length === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        No hay transacciones registradas
-                      </p>
-                    )}
                   </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No hay datos de ventas disponibles
+                  </p>
                 )}
               </CardContent>
             </Card>
