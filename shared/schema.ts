@@ -400,6 +400,31 @@ export const insertKenpMonthlyDataSchema = createInsertSchema(kenpMonthlyData).o
 export type InsertKenpMonthlyData = z.infer<typeof insertKenpMonthlyDataSchema>;
 export type KenpMonthlyData = typeof kenpMonthlyData.$inferSelect;
 
+// Tabla de datos mensuales de VENTAS (Aura Ventas)
+// Almacena ventas agregadas por mes/libro/tipo de libro
+// IMPORTANTE: Datos se ACUMULAN (no se reemplazan) - cada importación agrega nuevas ventas
+export const salesMonthlyData = pgTable("sales_monthly_data", {
+  id: serial("id").primaryKey(),
+  bookId: integer("book_id").references(() => auraBooks.id), // nullable - puede haber ASINs sin libro registrado
+  asin: text("asin").notNull(), // ASIN del libro
+  penNameId: integer("pen_name_id").notNull().references(() => penNames.id),
+  month: text("month").notNull(), // Formato: 'YYYY-MM' ej: '2025-10'
+  bookType: text("book_type").notNull().default("unknown"), // "ebook", "paperback", "hardcover", "unknown"
+  totalUnits: integer("total_units").notNull().default(0), // Unidades totales vendidas
+  totalRoyalty: text("total_royalty").notNull().default("0"), // Regalías totales (decimal como texto)
+  currency: text("currency").notNull(), // Moneda principal (puede ser mixta)
+  marketplaces: text("marketplaces").array().notNull(), // array de marketplaces donde se vendió
+  importedAt: timestamp("imported_at").defaultNow().notNull(), // Cuándo se importó este lote
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSalesMonthlyDataSchema = createInsertSchema(salesMonthlyData).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export type InsertSalesMonthlyData = z.infer<typeof insertSalesMonthlyDataSchema>;
+export type SalesMonthlyData = typeof salesMonthlyData.$inferSelect;
+
 // Tipos de eventos para libros
 export const bookEventTypes = [
   "promotion",        // Promoción (Amazon Ads, descuentos, etc.)

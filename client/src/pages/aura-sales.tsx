@@ -1,519 +1,433 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { TrendingUp, TrendingDown, Minus, BookOpen, Package, HardDrive, DollarSign, X } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Search, Filter } from "lucide-react";
 
-interface PenName {
+interface SalesMonthlyData {
   id: number;
-  name: string;
-  description: string | null;
+  bookId: number | null;
+  asin: string;
+  penNameId: number;
+  month: string;
+  bookType: string;
+  totalUnits: number;
+  totalRoyalty: string;
+  currency: string;
+  marketplaces: string[];
+  importedAt: string;
 }
 
 interface AuraBook {
   id: number;
-  penNameId: number;
   asin: string;
   title: string;
-  marketplaces: string[];
-}
-
-interface KdpSale {
-  id: number;
-  bookId: number;
+  subtitle: string | null;
   penNameId: number;
-  saleDate: string;
-  marketplace: string;
-  transactionType: string;
-  royalty: string;
-  currency: string;
-  unitsOrPages: number;
+  marketplaces: string[];
+  publishDate: string | null;
+  bookType?: string;
 }
 
-const ITEMS_PER_PAGE = 20;
+interface PenName {
+  id: number;
+  name: string;
+}
 
-const TRANSACTION_TYPES = [
-  'Sale',
-  'Free promo',
-  'Refund',
-  'Borrow',
-  'KENP Read',
-] as const;
+interface BookSalesTrend {
+  asin: string;
+  title: string;
+  penName: string;
+  bookType: string;
+  currency: string;
+  last6Months: { month: string; units: number; royalty: number }[];
+  totalUnitsLast6: number;
+  totalRoyaltyLast6: number;
+  trend: number;
+  recommendation: string;
+}
+
+const BOOK_TYPE_LABELS: Record<string, { label: string; icon: any; color: string }> = {
+  ebook: { label: "Ebook", icon: BookOpen, color: "text-blue-600 dark:text-blue-400" },
+  paperback: { label: "Tapa blanda", icon: Package, color: "text-amber-600 dark:text-amber-400" },
+  hardcover: { label: "Tapa dura", icon: HardDrive, color: "text-purple-600 dark:text-purple-400" },
+  unknown: { label: "Desconocido", icon: BookOpen, color: "text-muted-foreground" },
+};
 
 export default function AuraSales() {
-  // Fetch data
-  const { data: penNames, isLoading: loadingPenNames } = useQuery<PenName[]>({
-    queryKey: ['/api/aura/pen-names'],
+  const [location] = useLocation();
+  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  const asinFromUrl = urlParams.get('asin');
+  
+  const [selectedPenName, setSelectedPenName] = useState<string>("all");
+  const [selectedBookType, setSelectedBookType] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState(asinFromUrl || '');
+
+  // Update search query when URL parameter changes
+  useEffect(() => {
+    if (asinFromUrl) {
+      setSearchQuery(asinFromUrl);
+    }
+  }, [asinFromUrl]);
+
+  const { data: salesData = [], isLoading: isLoadingSales } = useQuery<SalesMonthlyData[]>({
+    queryKey: ["/api/aura/sales"],
   });
 
-  const { data: books, isLoading: loadingBooks } = useQuery<AuraBook[]>({
-    queryKey: ['/api/aura/books'],
+  const { data: books = [], isLoading: isLoadingBooks } = useQuery<AuraBook[]>({
+    queryKey: ["/api/aura/books"],
   });
 
-  const { data: sales, isLoading: loadingSales } = useQuery<KdpSale[]>({
-    queryKey: ['/api/aura/sales'],
+  const { data: penNames = [], isLoading: isLoadingPenNames } = useQuery<PenName[]>({
+    queryKey: ["/api/aura/pen-names"],
   });
 
-  // Filter states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPenName, setSelectedPenName] = useState<string>('all');
-  const [selectedBook, setSelectedBook] = useState<string>('all');
-  const [selectedMarketplace, setSelectedMarketplace] = useState<string>('all');
-  const [selectedTransactionType, setSelectedTransactionType] = useState<string>('all');
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
-  const [currentPage, setCurrentPage] = useState(1);
+  const isLoading = isLoadingSales || isLoadingBooks || isLoadingPenNames;
 
-  const isLoading = loadingPenNames || loadingBooks || loadingSales;
+  // Calcular tendencias por libro discriminando por tipo Y moneda
+  const bookTrends = useMemo<BookSalesTrend[]>(() => {
+    if (!salesData.length || !books.length || !penNames.length) return [];
 
-  // Get unique marketplaces
-  const marketplaces = useMemo(() => {
-    if (!sales) return [];
-    return Array.from(new Set(sales.map(s => s.marketplace))).sort();
-  }, [sales]);
+    // Agrupar ventas por ASIN + bookType + currency (evitar mezclar monedas)
+    const bookMap = new Map<string, SalesMonthlyData[]>();
 
-  // Filter books by selected pen name
-  const filteredBooksByPenName = useMemo(() => {
-    if (!books || selectedPenName === 'all') return books || [];
-    return books.filter(b => b.penNameId === parseInt(selectedPenName));
-  }, [books, selectedPenName]);
+    salesData.forEach((sale) => {
+      const key = `${sale.asin}:${sale.bookType}:${sale.currency}`;
+      if (!bookMap.has(key)) {
+        bookMap.set(key, []);
+      }
+      bookMap.get(key)!.push(sale);
+    });
 
-  // Apply filters
-  const filteredSales = useMemo(() => {
-    if (!sales) return [];
+    const trends: BookSalesTrend[] = [];
 
-    let result = sales;
+    bookMap.forEach((records, key) => {
+      const [asin, bookType, currency] = key.split(":");
+      const book = books.find((b) => b.asin === asin);
+      if (!book) return;
 
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(sale => {
-        const book = books?.find(b => b.id === sale.bookId);
-        return (
-          book?.title.toLowerCase().includes(query) ||
-          book?.asin.toLowerCase().includes(query)
-        );
+      const penName = penNames.find((p) => p.id === book.penNameId);
+      if (!penName) return;
+
+      // Ordenar por mes (más reciente primero)
+      const sortedRecords = [...records].sort((a, b) => b.month.localeCompare(a.month));
+
+      // Últimos 6 meses de datos
+      const last6Months = sortedRecords.slice(0, 6).reverse();
+
+      // Calcular totales
+      const totalUnitsLast6 = last6Months.reduce((sum, r) => sum + r.totalUnits, 0);
+      const totalRoyaltyLast6 = last6Months.reduce((sum, r) => sum + parseFloat(r.totalRoyalty), 0);
+
+      // Calcular tendencia (comparar últimos 3 meses vs 3 anteriores)
+      const last3 = last6Months.slice(3);
+      const prev3 = last6Months.slice(0, 3);
+
+      const unitsLast3 = last3.reduce((sum, r) => sum + r.totalUnits, 0);
+      const unitsPrev3 = prev3.reduce((sum, r) => sum + r.totalUnits, 0);
+
+      let trend = 0;
+      if (unitsPrev3 > 0) {
+        trend = ((unitsLast3 - unitsPrev3) / unitsPrev3) * 100;
+      }
+
+      // Generar recomendación determinista
+      let recommendation = "MANTENER";
+      if (trend > 20 && totalUnitsLast6 > 50) {
+        recommendation = bookType === 'ebook' ? "SUBIR PRECIO" : "AUMENTAR STOCK";
+      } else if (trend < -20) {
+        recommendation = "OPTIMIZAR METADATOS";
+      } else if (totalUnitsLast6 < 20) {
+        recommendation = "AUMENTAR PROMOCIÓN";
+      }
+
+      trends.push({
+        asin,
+        title: book.title,
+        penName: penName.name,
+        bookType,
+        currency,
+        last6Months: last6Months.map((r) => ({
+          month: r.month,
+          units: r.totalUnits,
+          royalty: parseFloat(r.totalRoyalty),
+        })),
+        totalUnitsLast6,
+        totalRoyaltyLast6,
+        trend,
+        recommendation,
       });
-    }
+    });
 
-    // Pen name filter
-    if (selectedPenName !== 'all') {
-      result = result.filter(s => s.penNameId === parseInt(selectedPenName));
-    }
+    return trends.sort((a, b) => b.totalRoyaltyLast6 - a.totalRoyaltyLast6);
+  }, [salesData, books, penNames]);
 
-    // Book filter
-    if (selectedBook !== 'all') {
-      result = result.filter(s => s.bookId === parseInt(selectedBook));
-    }
+  // Filtrar por seudónimo, tipo de libro y búsqueda por ASIN
+  const filteredTrends = useMemo(() => {
+    return bookTrends.filter((trend) => {
+      if (selectedPenName !== "all" && trend.penName !== selectedPenName) return false;
+      if (selectedBookType !== "all" && trend.bookType !== selectedBookType) return false;
+      if (searchQuery && !trend.asin.toLowerCase().includes(searchQuery.toLowerCase()) && 
+          !trend.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      return true;
+    });
+  }, [bookTrends, selectedPenName, selectedBookType, searchQuery]);
 
-    // Marketplace filter
-    if (selectedMarketplace !== 'all') {
-      result = result.filter(s => s.marketplace === selectedMarketplace);
-    }
+  // Estadísticas globales por tipo de libro Y moneda (evitar mezclar monedas)
+  const statsByTypeCurrency = useMemo(() => {
+    const stats: Record<string, { units: number; royalty: number; currency: string; bookType: string }> = {};
 
-    // Transaction type filter
-    if (selectedTransactionType !== 'all') {
-      result = result.filter(s => s.transactionType === selectedTransactionType);
-    }
+    salesData.forEach((sale) => {
+      const type = sale.bookType || "unknown";
+      const currency = sale.currency;
+      const key = `${type}:${currency}`;
+      
+      if (!stats[key]) {
+        stats[key] = { units: 0, royalty: 0, currency, bookType: type };
+      }
+      
+      stats[key].units += sale.totalUnits;
+      stats[key].royalty += parseFloat(sale.totalRoyalty);
+    });
 
-    // Date range filter
-    if (dateFrom) {
-      const fromDate = new Date(dateFrom);
-      fromDate.setHours(0, 0, 0, 0);
-      result = result.filter(s => new Date(s.saleDate) >= fromDate);
-    }
-    if (dateTo) {
-      const toDate = new Date(dateTo);
-      toDate.setHours(23, 59, 59, 999);
-      result = result.filter(s => new Date(s.saleDate) <= toDate);
-    }
+    return Object.entries(stats).map(([key, value]) => ({
+      key,
+      ...value
+    })).sort((a, b) => b.royalty - a.royalty); // Ordenar por regalías descendente
+  }, [salesData]);
 
-    // Sort by date descending (newest first)
-    return result.sort((a, b) => 
-      new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime()
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+      </div>
     );
-  }, [sales, books, searchQuery, selectedPenName, selectedBook, selectedMarketplace, selectedTransactionType, dateFrom, dateTo]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredSales.length / ITEMS_PER_PAGE);
-  const paginatedSales = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredSales.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredSales, currentPage]);
-
-  // Reset to page 1 when filters change and current page exceeds total pages
-  if (currentPage > totalPages && totalPages > 0) {
-    setCurrentPage(1);
   }
 
-  // Calculate totals
-  const totalRoyalty = filteredSales.reduce((sum, s) => sum + parseFloat(s.royalty), 0);
-  const totalTransactions = filteredSales.length;
-
-  const handleClearFilters = () => {
-    setSearchQuery('');
-    setSelectedPenName('all');
-    setSelectedBook('all');
-    setSelectedMarketplace('all');
-    setSelectedTransactionType('all');
-    setDateFrom('');
-    setDateTo('');
-    setCurrentPage(1);
-  };
-
-  const getTransactionTypeColor = (type: string) => {
-    switch (type) {
-      case 'Sale':
-        return 'bg-green-500/10 text-green-700 dark:text-green-400';
-      case 'Borrow':
-        return 'bg-blue-500/10 text-blue-700 dark:text-blue-400';
-      case 'KENP Read':
-        return 'bg-purple-500/10 text-purple-700 dark:text-purple-400';
-      case 'Free promo':
-        return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400';
-      case 'Refund':
-        return 'bg-red-500/10 text-red-700 dark:text-red-400';
-      default:
-        return 'bg-muted text-muted-foreground';
-    }
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6" data-testid="page-aura-sales">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Ventas y Transacciones</h2>
-        <p className="text-muted-foreground">
-          Historial completo de ventas, préstamos y lecturas KENP
+        <h1 className="text-3xl font-bold" data-testid="text-page-title">Aura Ventas</h1>
+        <p className="text-muted-foreground mt-1">
+          Análisis de ventas reales discriminadas por tipo de libro (ebook, tapa blanda, tapa dura)
+        </p>
+        <p className="text-sm text-muted-foreground mt-1">
+          ℹ️ Este análisis <strong>excluye promociones gratuitas</strong> y muestra solo ventas con regalías
         </p>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Transacciones</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <div className="text-2xl font-bold" data-testid="stat-filtered-transactions">
-                {totalTransactions.toLocaleString()}
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              {filteredSales.length !== (sales?.length || 0) && `De ${sales?.length || 0} totales`}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Regalías Totales</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <div className="text-2xl font-bold" data-testid="stat-filtered-royalty">
-                ${totalRoyalty.toFixed(2)}
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Con filtros aplicados
-            </p>
-          </CardContent>
-        </Card>
+      {/* Estadísticas por tipo de libro y moneda (segregadas) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {statsByTypeCurrency.map((stat) => {
+          const config = BOOK_TYPE_LABELS[stat.bookType];
+          const Icon = config.icon;
+          return (
+            <Card key={stat.key} data-testid={`card-stats-${stat.bookType}-${stat.currency}`}>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  {config.label}
+                  <Badge variant="secondary" className="ml-2">{stat.currency}</Badge>
+                </CardTitle>
+                <Icon className={`h-4 w-4 ${config.color}`} />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid={`text-units-${stat.bookType}-${stat.currency}`}>
+                  {stat.units.toLocaleString()}
+                </div>
+                <p className="text-xs text-muted-foreground">unidades vendidas</p>
+                <div className="text-lg font-semibold text-green-600 dark:text-green-400 mt-2">
+                  {stat.currency === 'USD' ? '$' : ''}{stat.royalty.toFixed(2)} {stat.currency}
+                </div>
+                <p className="text-xs text-muted-foreground">en regalías</p>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filtros
-          </CardTitle>
-          <CardDescription>Filtra las transacciones por diferentes criterios</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {/* Search */}
-            <div className="space-y-2">
-              <Label htmlFor="search">Buscar</Label>
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="Título o ASIN..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8"
-                  data-testid="input-search-sales"
-                />
-              </div>
-            </div>
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-4">
+        <div className="flex-1 min-w-[200px]">
+          <Select value={selectedPenName} onValueChange={setSelectedPenName}>
+            <SelectTrigger data-testid="select-pen-name">
+              <SelectValue placeholder="Todos los seudónimos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los seudónimos</SelectItem>
+              {penNames.map((pn) => (
+                <SelectItem key={pn.id} value={pn.name}>
+                  {pn.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-            {/* Pen Name Filter */}
-            <div className="space-y-2">
-              <Label htmlFor="pen-name-filter">Seudónimo</Label>
-              <Select
-                value={selectedPenName}
-                onValueChange={(value) => {
-                  setSelectedPenName(value);
-                  setSelectedBook('all');
-                }}
-              >
-                <SelectTrigger id="pen-name-filter" data-testid="select-pen-name-filter">
-                  <SelectValue placeholder="Todos los seudónimos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los seudónimos</SelectItem>
-                  {penNames?.map((pn) => (
-                    <SelectItem key={pn.id} value={pn.id.toString()}>
-                      {pn.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <div className="flex-1 min-w-[200px]">
+          <Select value={selectedBookType} onValueChange={setSelectedBookType}>
+            <SelectTrigger data-testid="select-book-type">
+              <SelectValue placeholder="Todos los tipos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los tipos</SelectItem>
+              {Object.entries(BOOK_TYPE_LABELS).map(([type, config]) => (
+                <SelectItem key={type} value={type}>
+                  {config.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
-            {/* Book Filter */}
-            <div className="space-y-2">
-              <Label htmlFor="book-filter">Libro</Label>
-              <Select
-                value={selectedBook}
-                onValueChange={setSelectedBook}
-                disabled={selectedPenName === 'all'}
-              >
-                <SelectTrigger id="book-filter" data-testid="select-book-filter">
-                  <SelectValue placeholder="Todos los libros" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los libros</SelectItem>
-                  {filteredBooksByPenName?.map((book) => (
-                    <SelectItem key={book.id} value={book.id.toString()}>
-                      {book.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      {/* Lista de libros con tendencias */}
+      <div className="space-y-4">
+        {filteredTrends.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <p className="text-muted-foreground">
+                No hay datos de ventas disponibles. Importa un archivo KDP para comenzar.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredTrends.map((trend) => {
+            const config = BOOK_TYPE_LABELS[trend.bookType];
+            const Icon = config.icon;
+            return (
+              <Card key={`${trend.asin}:${trend.bookType}:${trend.currency}`} data-testid={`card-book-${trend.asin}-${trend.bookType}-${trend.currency}`}>
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <CardTitle className="text-lg" data-testid={`text-title-${trend.asin}`}>
+                          {trend.title}
+                        </CardTitle>
+                        <Badge variant="outline" className="gap-1">
+                          <Icon className={`h-3 w-3 ${config.color}`} />
+                          {config.label}
+                        </Badge>
+                        <Badge variant="secondary">{trend.currency}</Badge>
+                      </div>
+                      <CardDescription className="mt-1">
+                        {trend.penName} · ASIN: {trend.asin}
+                      </CardDescription>
+                    </div>
 
-            {/* Marketplace Filter */}
-            <div className="space-y-2">
-              <Label htmlFor="marketplace-filter">Marketplace</Label>
-              <Select
-                value={selectedMarketplace}
-                onValueChange={setSelectedMarketplace}
-              >
-                <SelectTrigger id="marketplace-filter" data-testid="select-marketplace-filter">
-                  <SelectValue placeholder="Todos los marketplaces" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los marketplaces</SelectItem>
-                  {marketplaces.map((mp) => (
-                    <SelectItem key={mp} value={mp}>
-                      {mp.replace('Amazon.com.', '').toUpperCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Transaction Type Filter */}
-            <div className="space-y-2">
-              <Label htmlFor="transaction-type-filter">Tipo de Transacción</Label>
-              <Select
-                value={selectedTransactionType}
-                onValueChange={setSelectedTransactionType}
-              >
-                <SelectTrigger id="transaction-type-filter" data-testid="select-transaction-type-filter">
-                  <SelectValue placeholder="Todos los tipos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los tipos</SelectItem>
-                  {TRANSACTION_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Date From Filter */}
-            <div className="space-y-2">
-              <Label htmlFor="date-from">Desde</Label>
-              <Input
-                id="date-from"
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                data-testid="input-date-from"
-              />
-            </div>
-
-            {/* Date To Filter */}
-            <div className="space-y-2">
-              <Label htmlFor="date-to">Hasta</Label>
-              <Input
-                id="date-to"
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                data-testid="input-date-to"
-              />
-            </div>
-
-            {/* Clear Filters Button */}
-            <div className="flex items-end">
-              <Button
-                variant="outline"
-                onClick={handleClearFilters}
-                className="w-full"
-                data-testid="button-clear-filters"
-              >
-                Limpiar Filtros
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Sales Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Transacciones</CardTitle>
-          <CardDescription>
-            Mostrando {paginatedSales.length} de {filteredSales.length} transacciones
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ) : filteredSales.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No se encontraron transacciones con los filtros seleccionados
-            </div>
-          ) : (
-            <>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Libro</TableHead>
-                      <TableHead>Seudónimo</TableHead>
-                      <TableHead>Marketplace</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead className="text-right">Unidades/Pág</TableHead>
-                      <TableHead className="text-right">Regalías</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedSales.map((sale) => {
-                      const book = books?.find(b => b.id === sale.bookId);
-                      const penName = penNames?.find(p => p.id === sale.penNameId);
-                      
-                      return (
-                        <TableRow key={sale.id} data-testid={`row-sale-${sale.id}`}>
-                          <TableCell className="font-medium">
-                            {new Date(sale.saleDate).toLocaleDateString('es-ES')}
-                          </TableCell>
-                          <TableCell>
-                            <div className="max-w-[200px]">
-                              <div className="font-medium truncate" title={book?.title}>
-                                {book?.title || 'Desconocido'}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {book?.asin}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>{penName?.name || 'Desconocido'}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">
-                              {sale.marketplace.replace('Amazon.com.', '').toUpperCase()}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge 
-                              variant="secondary"
-                              className={getTransactionTypeColor(sale.transactionType)}
-                            >
-                              {sale.transactionType}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {sale.unitsOrPages.toLocaleString()}
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {sale.currency} {parseFloat(sale.royalty).toFixed(2)}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Página {currentPage} de {totalPages}
+                    <div className="text-right">
+                      <div className="flex items-center gap-1">
+                        {trend.trend > 5 ? (
+                          <TrendingUp className="h-4 w-4 text-green-600" />
+                        ) : trend.trend < -5 ? (
+                          <TrendingDown className="h-4 w-4 text-red-600" />
+                        ) : (
+                          <Minus className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        <span
+                          className={`text-sm font-medium ${
+                            trend.trend > 5
+                              ? "text-green-600"
+                              : trend.trend < -5
+                              ? "text-red-600"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {trend.trend > 0 ? "+" : ""}
+                          {trend.trend.toFixed(1)}%
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">tendencia 3 meses</p>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      data-testid="button-prev-page"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      Anterior
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                      data-testid="button-next-page"
-                    >
-                      Siguiente
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+                </CardHeader>
+
+                <CardContent>
+                  <Tabs defaultValue="evolution" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="evolution">Evolución</TabsTrigger>
+                      <TabsTrigger value="metrics">Métricas</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="evolution" className="space-y-4">
+                      <ResponsiveContainer width="100%" height={200}>
+                        <LineChart data={trend.last6Months}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" />
+                          <YAxis yAxisId="left" />
+                          <YAxis yAxisId="right" orientation="right" />
+                          <Tooltip />
+                          <Legend />
+                          <Line
+                            yAxisId="left"
+                            type="monotone"
+                            dataKey="units"
+                            stroke="#3b82f6"
+                            name="Unidades"
+                            strokeWidth={2}
+                          />
+                          <Line
+                            yAxisId="right"
+                            type="monotone"
+                            dataKey="royalty"
+                            stroke="#10b981"
+                            name="Regalías"
+                            strokeWidth={2}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </TabsContent>
+
+                    <TabsContent value="metrics" className="space-y-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Unidades (6 meses)</p>
+                          <p className="text-2xl font-bold">{trend.totalUnitsLast6}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Regalías (6 meses)</p>
+                          <p className="text-2xl font-bold text-green-600">
+                            {trend.currency === 'USD' ? '$' : ''}{trend.totalRoyaltyLast6.toFixed(2)} {trend.currency}
+                          </p>
+                        </div>
+                        <div className="col-span-2 md:col-span-1">
+                          <p className="text-sm font-medium text-muted-foreground">Recomendación</p>
+                          <Badge
+                            variant={
+                              trend.recommendation.includes("SUBIR") || trend.recommendation.includes("AUMENTAR STOCK")
+                                ? "default"
+                                : trend.recommendation.includes("OPTIMIZAR")
+                                ? "destructive"
+                                : "secondary"
+                            }
+                            className="mt-1"
+                          >
+                            {trend.recommendation}
+                          </Badge>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }

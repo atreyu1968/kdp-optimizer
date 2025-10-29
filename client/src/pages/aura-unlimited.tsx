@@ -47,9 +47,10 @@ import {
   BarChart,
   Bar,
 } from "recharts";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 interface KenpMonthlyData {
   id: number;
@@ -112,7 +113,11 @@ interface BookEvent {
 export default function AuraUnlimited() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [location] = useLocation();
+  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  const asinFromUrl = urlParams.get('asin');
+  
+  const [searchQuery, setSearchQuery] = useState(asinFromUrl || '');
   const [trendFilter, setTrendFilter] = useState<string>('all');
   const [recommendationFilter, setRecommendationFilter] = useState<string>('all');
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
@@ -123,6 +128,13 @@ export default function AuraUnlimited() {
     title: '',
     description: '',
   });
+
+  // Update search query when URL parameter changes
+  useEffect(() => {
+    if (asinFromUrl) {
+      setSearchQuery(asinFromUrl);
+    }
+  }, [asinFromUrl]);
 
   const { data: kenpData, isLoading: loadingKenp, refetch } = useQuery<KenpMonthlyData[]>({
     queryKey: ['/api/aura/kenp'],

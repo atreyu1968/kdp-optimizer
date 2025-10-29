@@ -12,7 +12,7 @@ import {
   markPublicationAsPublished,
 } from "./services/publication-scheduler";
 import { createDefaultTasks, updateTaskDueDates } from "./services/default-tasks";
-import { importKdpXlsx, importKenpMonthlyData } from "./services/kdp-importer";
+import { importKdpXlsx, importKenpMonthlyData, processSalesMonthlyData } from "./services/kdp-importer";
 import { analyzeAllBooks, getEnrichedInsights } from "./services/book-analyzer";
 import multer from "multer";
 import { join } from "path";
@@ -944,10 +944,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const stats = await importKdpXlsx(req.file.path);
       
+      // Procesar ventas mensuales (discriminando por tipo de libro)
+      console.log(`[KDP Import] Procesando datos de ventas mensuales...`);
+      const salesStats = await processSalesMonthlyData(stats.importBatchId || 'unknown');
+      
       res.json({
         success: true,
         message: "Importación completada exitosamente",
-        stats
+        stats: {
+          ...stats,
+          salesMonthlyRecords: salesStats.monthlyRecordsCreated,
+        }
       });
     } catch (error) {
       console.error("Error importing KDP file:", error);
@@ -958,14 +965,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Obtener todas las ventas KDP
+  // Obtener datos de ventas mensuales (para Aura Ventas)
   app.get("/api/aura/sales", async (req, res) => {
     try {
-      const sales = await storage.getAllKdpSales();
-      res.json(sales);
+      const salesData = await storage.getAllSalesMonthlyData();
+      res.json(salesData);
     } catch (error) {
-      console.error("Error fetching KDP sales:", error);
-      res.status(500).json({ error: "Failed to fetch KDP sales" });
+      console.error("Error fetching sales monthly data:", error);
+      res.status(500).json({ error: "Failed to fetch sales monthly data" });
     }
   });
 
@@ -1068,6 +1075,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching KENP data by ASIN:", error);
       res.status(500).json({ error: "Failed to fetch KENP data by ASIN" });
+    }
+  });
+
+  // ========== AURA VENTAS (SALES MONTHLY DATA) ==========
+
+  // Obtener todos los datos de ventas mensuales
+  app.get("/api/aura/sales", async (req, res) => {
+    try {
+      const salesData = await storage.getAllSalesMonthlyData();
+      res.json(salesData);
+    } catch (error) {
+      console.error("Error fetching sales data:", error);
+      res.status(500).json({ error: "Failed to fetch sales data" });
+    }
+  });
+
+  // Obtener datos de ventas por libro
+  app.get("/api/aura/sales/book/:bookId", async (req, res) => {
+    try {
+      const bookId = parseInt(req.params.bookId);
+      if (isNaN(bookId)) {
+        res.status(400).json({ error: "Invalid book ID" });
+        return;
+      }
+
+      const salesData = await storage.getSalesMonthlyDataByBook(bookId);
+      res.json(salesData);
+    } catch (error) {
+      console.error("Error fetching sales data by book:", error);
+      res.status(500).json({ error: "Failed to fetch sales data by book" });
+    }
+  });
+
+  // Obtener datos de ventas por ASIN
+  app.get("/api/aura/sales/asin/:asin", async (req, res) => {
+    try {
+      const asin = req.params.asin;
+      const salesData = await storage.getSalesMonthlyDataByAsin(asin);
+      res.json(salesData);
+    } catch (error) {
+      console.error("Error fetching sales data by ASIN:", error);
+      res.status(500).json({ error: "Failed to fetch sales data by ASIN" });
     }
   });
 

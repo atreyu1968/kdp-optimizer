@@ -86,6 +86,7 @@ export interface ImportStats {
   booksCreated: number;
   salesImported: number;
   kenpImported: number;
+  importBatchId: string;
   errors: string[];
 }
 
@@ -268,11 +269,15 @@ export async function importKdpXlsx(
     deleteExisting?: boolean;
   } = {}
 ): Promise<ImportStats> {
+  // Generar ID único para este batch de importación
+  const batchId = `kdp-import-${nanoid()}`;
+
   const stats: ImportStats = {
     penNamesCreated: 0,
     booksCreated: 0,
     salesImported: 0,
     kenpImported: 0,
+    importBatchId: batchId,
     errors: [],
   };
 
@@ -280,9 +285,6 @@ export async function importKdpXlsx(
     // Leer el archivo
     const fileBuffer = readFileSync(filePath);
     const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
-    
-    // Generar ID único para este batch de importación
-    const batchId = `kdp-import-${nanoid()}`;
     
     // Si se solicita, eliminar importación anterior con este batchId (no debería existir)
     if (options.deleteExisting) {
@@ -731,6 +733,123 @@ export async function importKenpMonthlyData(filePath: string): Promise<KenpImpor
     return stats;
   } catch (error) {
     stats.errors.push(`Error en importación KENP: ${error instanceof Error ? error.message : 'Unknown'}`);
+    throw error;
+  }
+}
+
+// ============================================================================
+// AURA VENTAS - Procesamiento de ventas mensuales por tipo de libro
+// ============================================================================
+
+export interface SalesImportStats {
+  monthlyRecordsCreated: number;
+  errors: string[];
+}
+
+/**
+ * Procesa ventas de kdpSales y genera datos mensuales agregados por tipo de libro
+ * IMPORTANTE: Los datos se ACUMULAN (no se reemplazan)
+ */
+export async function processSalesMonthlyData(batchId: string): Promise<SalesImportStats> {
+  const stats: SalesImportStats = {
+    monthlyRecordsCreated: 0,
+    errors: [],
+  };
+
+  try {
+    console.log(`[Sales Import] Procesando ventas del batch: ${batchId}`);
+    
+    // Obtener todas las ventas del batch actual
+    const allSales = await storage.getAllKdpSales();
+    const batchSales = allSales.filter(sale => 
+      sale.importBatchId === batchId && 
+      sale.transactionType === 'Sale' // Solo ventas reales
+    );
+
+    console.log(`[Sales Import] Encontradas ${batchSales.length} ventas para procesar`);
+
+    // Obtener todos los libros para saber su bookType
+    const allBooks = await storage.getAllAuraBooks();
+    const booksMap = new Map(allBooks.map(book => [book.id, book]));
+
+    // Agrupar por: ASIN + mes + bookType
+    const monthlyData = new Map<string, {
+      asin: string;
+      bookId: number | null;
+      penNameId: number;
+      month: string;
+      bookType: string;
+      totalUnits: number;
+      totalRoyalty: number;
+      currency: string;
+      marketplaces: Set<string>;
+    }>();
+
+    for (const sale of batchSales) {
+      try {
+        // Saltar ventas sin ASIN
+        if (!sale.asin) {
+          continue;
+        }
+
+        const saleDate = new Date(sale.saleDate);
+        const month = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`;
+        
+        // Obtener tipo de libro
+        const book = sale.bookId ? booksMap.get(sale.bookId) : null;
+        const bookType = book?.bookType || 'unknown';
+        
+        // Clave única: ASIN + mes + bookType
+        const key = `${sale.asin}:${month}:${bookType}`;
+
+        if (!monthlyData.has(key)) {
+          monthlyData.set(key, {
+            asin: sale.asin,
+            bookId: sale.bookId,
+            penNameId: sale.penNameId,
+            month,
+            bookType,
+            totalUnits: 0,
+            totalRoyalty: 0,
+            currency: sale.currency,
+            marketplaces: new Set(),
+          });
+        }
+
+        const record = monthlyData.get(key)!;
+        record.totalUnits += (sale.unitsOrPages || 0);
+        record.totalRoyalty += parseFloat(sale.royalty || '0');
+        record.marketplaces.add(sale.marketplace);
+      } catch (error) {
+        stats.errors.push(`Error procesando venta: ${error instanceof Error ? error.message : 'Unknown'}`);
+      }
+    }
+
+    console.log(`[Sales Import] Generados ${monthlyData.size} registros mensuales únicos`);
+
+    // Insertar registros mensuales
+    const recordsToInsert = Array.from(monthlyData.values()).map(record => ({
+      bookId: record.bookId,
+      asin: record.asin,
+      penNameId: record.penNameId,
+      month: record.month,
+      bookType: record.bookType,
+      totalUnits: record.totalUnits,
+      totalRoyalty: record.totalRoyalty.toFixed(2),
+      currency: record.currency,
+      marketplaces: Array.from(record.marketplaces),
+      importedAt: new Date(),
+    }));
+
+    if (recordsToInsert.length > 0) {
+      await storage.bulkCreateSalesMonthlyData(recordsToInsert);
+      stats.monthlyRecordsCreated = recordsToInsert.length;
+    }
+
+    console.log(`[Sales Import] Importación de ventas completada: ${stats.monthlyRecordsCreated} registros creados`);
+    return stats;
+  } catch (error) {
+    stats.errors.push(`Error en procesamiento de ventas: ${error instanceof Error ? error.message : 'Unknown'}`);
     throw error;
   }
 }
