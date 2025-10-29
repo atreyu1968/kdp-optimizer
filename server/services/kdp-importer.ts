@@ -167,8 +167,9 @@ function detectBookType(royaltyType: string): string {
   }
   
   // Luego detectar ebooks (más genéricos)
-  // Incluye: "Estándar", "Promoción gratuita", "Kindle Countdown Deals", etc.
+  // Incluye: "Estándar", "Promoción gratuita", "Kindle Countdown Deals", "KENP leídas", etc.
   if (type.includes('kindle') || 
+      type.includes('kenp') || 
       type.includes('estándar') || 
       type.includes('standard') || 
       type.includes('extendida') || 
@@ -429,13 +430,14 @@ export async function importKdpXlsx(
           // Normalizar marketplace
           const marketplace = normalizeMarketplace(row['Tienda']);
           
-          // Obtener o crear libro
+          // Obtener o crear libro (KENP solo existe para ebooks)
           const { bookId, wasCreated: bookCreated } = await getOrCreateBook(
             row['ASIN'],
             row['Título'],
             penName.id,
             marketplace,
-            booksCache
+            booksCache,
+            'KENP leídas' // Tipo de regalía ficticio para indicar que es ebook
           );
           if (bookCreated) {
             stats.booksCreated++;
@@ -455,6 +457,7 @@ export async function importKdpXlsx(
             saleDate,
             marketplace,
             transactionType: 'KENP Read',
+            royaltyType: 'KENP leídas', // Indicar que es un ebook
             royalty: '0', // Se calcula por el total de páginas del mes
             currency: 'USD', // KENP siempre en USD
             unitsOrPages: row['Páginas KENP leídas'],
@@ -492,13 +495,14 @@ export async function importKdpXlsx(
             // Normalizar marketplace
             const marketplace = normalizeMarketplace(row['Tienda']);
             
-            // Obtener o crear libro
+            // Obtener o crear libro (Pedidos gratuitos solo existen para ebooks)
             const { bookId, wasCreated: bookCreated } = await getOrCreateBook(
               row['ASIN'],
               row['Título'],
               penName.id,
               marketplace,
-              booksCache
+              booksCache,
+              'Promoción gratuita' // Tipo de regalía ficticio para indicar que es ebook
             );
             if (bookCreated) {
               stats.booksCreated++;
@@ -518,6 +522,7 @@ export async function importKdpXlsx(
               saleDate,
               marketplace,
               transactionType: 'Free',
+              royaltyType: 'Promoción gratuita', // Indicar que es un ebook
               royalty: '0',
               currency: 'USD',
               unitsOrPages: row['Unidades gratuitas'],
@@ -725,13 +730,14 @@ export async function importKenpMonthlyData(filePath: string): Promise<KenpImpor
         // Obtener penName
         const { penName } = await getOrCreatePenName(record.authorName, penNamesCache);
 
-        // Obtener o crear libro
+        // Obtener o crear libro (KENP solo existe para ebooks)
         const { bookId } = await getOrCreateBook(
           record.asin,
           record.title,
           penName.id,
           record.marketplaces[0], // usar primer marketplace
-          booksCache
+          booksCache,
+          'KENP leídas' // Tipo de regalía ficticio para indicar que es ebook
         );
 
         // Insertar registro mensual KENP
