@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AuraImport } from "@/components/aura-import";
 import { queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface SalesMonthlyData {
   id: number;
@@ -65,6 +66,7 @@ const BOOK_TYPE_LABELS: Record<string, { label: string; icon: any; color: string
 };
 
 export default function AuraSales() {
+  const { toast } = useToast();
   const [location] = useLocation();
   const urlParams = new URLSearchParams(location.split('?')[1] || '');
   const asinFromUrl = urlParams.get('asin');
@@ -81,24 +83,36 @@ export default function AuraSales() {
     }
   }, [asinFromUrl]);
 
-  const { data: salesData = [], isLoading: isLoadingSales } = useQuery<SalesMonthlyData[]>({
+  const { data: salesData = [], isLoading: isLoadingSales, refetch: refetchSales } = useQuery<SalesMonthlyData[]>({
     queryKey: ["/api/aura/sales"],
   });
 
-  const { data: books = [], isLoading: isLoadingBooks } = useQuery<AuraBook[]>({
+  const { data: books = [], isLoading: isLoadingBooks, refetch: refetchBooks } = useQuery<AuraBook[]>({
     queryKey: ["/api/aura/books"],
   });
 
-  const { data: penNames = [], isLoading: isLoadingPenNames } = useQuery<PenName[]>({
+  const { data: penNames = [], isLoading: isLoadingPenNames, refetch: refetchPenNames } = useQuery<PenName[]>({
     queryKey: ["/api/aura/pen-names"],
   });
 
   const isLoading = isLoadingSales || isLoadingBooks || isLoadingPenNames;
 
-  const handleImportComplete = () => {
-    queryClient.invalidateQueries({ queryKey: ["/api/aura/sales"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/aura/books"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/aura/pen-names"] });
+  const handleImportComplete = async () => {
+    // Invalidar y refetch inmediato para asegurar que los datos se actualizan
+    try {
+      await Promise.all([
+        refetchSales(),
+        refetchBooks(),
+        refetchPenNames(),
+      ]);
+    } catch (error) {
+      console.error('Error refetching data after import:', error);
+      toast({
+        title: "Error al actualizar datos",
+        description: "Los datos se importaron correctamente pero hubo un problema al refrescar la vista. Recarga la página para ver los cambios.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCloseImportDialog = () => {

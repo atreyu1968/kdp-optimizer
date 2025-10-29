@@ -10,7 +10,7 @@ Preferred communication style: Simple, everyday language in Spanish.
 
 ## System Architecture
 ### Frontend
-The frontend uses React (TypeScript), Vite, Shadcn/ui (Radix UI + Tailwind CSS), Wouter for routing, and React Hook Form with Zod. It features a multi-step wizard, responsive design, light/dark modes, and a library page. React Query manages server state, and Server-Sent Events (SSE) provide real-time progress updates.
+The frontend uses React (TypeScript), Vite, Shadcn/ui (Radix UI + Tailwind CSS), Wouter for routing, and React Hook Form with Zod. It features a multi-step wizard, responsive design, light/dark modes, and a library page. React Query manages server state with `staleTime: Infinity` and `refetchOnWindowFocus: false`, requiring explicit refetch calls after data mutations. Server-Sent Events (SSE) provide real-time progress updates.
 
 ### Backend
 The backend is built with Node.js and Express.js (TypeScript, ES modules), offering RESTful APIs with SSE for real-time progress. It includes services for Metadata Generation, Progress Emitter, Storage, and Publication Scheduling. Key architectural decisions include asynchronous processing, session management, centralized error handling, and robust OpenAI API rate limiting with retry logic. A Publication Management Module handles scheduling with daily limits and market prioritization.
@@ -42,8 +42,8 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
         - Top 5 performing books by KENP and sales
         - Multi-currency support with automatic EUR conversion
         - Deduplication logic for books across multiple marketplaces
-    *   **Aura Unlimited (KENP Analysis)**: Imports and aggregates monthly KENP data for trend analysis, providing book-level insights and recommendations (Boost, Optimize Metadata, Increase Promotion, Hold). Automatically fills missing months with 0 values to accurately detect declining trends.
-    *   **Aura Ventas (Sales Analysis)**: Processes combined sales data, discriminating by book type and currency, and offering recommendations based on sales performance (Raise Price, Optimize, Increase Promotion, Hold). Currency-segregated metrics prevent mixing royalties across USD/EUR/GBP. Integrated import button for convenience.
+    *   **Aura Unlimited (KENP Analysis)**: Imports and aggregates monthly KENP data for trend analysis, providing book-level insights and recommendations (Boost, Optimize Metadata, Increase Promotion, Hold). Automatically fills missing months with 0 values to accurately detect declining trends. Import dialog with dual callbacks: `onImportComplete` triggers explicit refetch of queries, `onClose` handles dialog dismissal.
+    *   **Aura Ventas (Sales Analysis)**: Processes combined sales data, discriminating by book type and currency, and offering recommendations based on sales performance (Raise Price, Optimize, Increase Promotion, Hold). Currency-segregated metrics prevent mixing royalties across USD/EUR/GBP. Integrated import button with explicit data refresh after import completion.
     *   **Aura Seudónimos**: Provides consolidated pseudonym management with grouped books, key metrics, and direct navigation to detailed analytics. Implements ASIN-based deduplication with metadata merging (unique marketplaces, longest subtitle, earliest publish date) to prevent duplicate book listings.
     *   **Book Events System**: Tracks promotional activities and optimizations to correlate with performance changes.
     *   **Calendar Integration**: Imported KDP books can be added to the publications calendar system. When a book is added, a "dummy" manuscript is created with status "published", and publication records are generated for each marketplace. Books already in the calendar are indicated with a "Ver en Calendario" button.

@@ -138,15 +138,15 @@ export default function AuraUnlimited() {
     }
   }, [asinFromUrl]);
 
-  const { data: kenpData, isLoading: loadingKenp, refetch } = useQuery<KenpMonthlyData[]>({
+  const { data: kenpData, isLoading: loadingKenp, refetch: refetchKenp } = useQuery<KenpMonthlyData[]>({
     queryKey: ['/api/aura/kenp'],
   });
 
-  const { data: books, isLoading: loadingBooks } = useQuery<AuraBook[]>({
+  const { data: books, isLoading: loadingBooks, refetch: refetchBooks } = useQuery<AuraBook[]>({
     queryKey: ['/api/aura/books'],
   });
 
-  const { data: penNames, isLoading: loadingPenNames } = useQuery<PenName[]>({
+  const { data: penNames, isLoading: loadingPenNames, refetch: refetchPenNames } = useQuery<PenName[]>({
     queryKey: ['/api/aura/pen-names'],
   });
 
@@ -183,10 +183,22 @@ export default function AuraUnlimited() {
 
   const isLoading = loadingKenp || loadingBooks || loadingPenNames;
 
-  const handleImportComplete = () => {
-    queryClient.invalidateQueries({ queryKey: ['/api/aura/kenp'] });
-    queryClient.invalidateQueries({ queryKey: ['/api/aura/books'] });
-    queryClient.invalidateQueries({ queryKey: ['/api/aura/pen-names'] });
+  const handleImportComplete = async () => {
+    // Invalidar y refetch inmediato para asegurar que los datos se actualizan
+    try {
+      await Promise.all([
+        refetchKenp(),
+        refetchBooks(),
+        refetchPenNames(),
+      ]);
+    } catch (error) {
+      console.error('Error refetching data after import:', error);
+      toast({
+        title: "Error al actualizar datos",
+        description: "Los datos se importaron correctamente pero hubo un problema al refrescar la vista. Recarga la página para ver los cambios.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCloseImportDialogHeader = () => {
