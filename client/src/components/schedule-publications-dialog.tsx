@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { FlagIcon } from "@/components/flag-icon";
 import { Calendar as CalendarIcon, Loader2, CheckCircle2 } from "lucide-react";
 import { amazonMarkets, type AmazonMarket } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
@@ -147,7 +148,7 @@ export function SchedulePublicationsDialog({
                       <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">
                         {index + 1}
                       </div>
-                      <span className="text-2xl">{marketInfo.flag}</span>
+                      <FlagIcon countryCode={marketInfo.countryCode} size="lg" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">{marketInfo.name}</p>
                       </div>
