@@ -13,6 +13,7 @@ import {
   kdpSales,
   auraBookInsights,
   kenpMonthlyData,
+  auraBookEvents,
   type Manuscript, 
   type Optimization,
   type Publication,
@@ -24,6 +25,7 @@ import {
   type KdpSale,
   type BookInsight,
   type KenpMonthlyData,
+  type BookEvent,
   type InsertManuscript,
   type InsertPublication,
   type InsertTask,
@@ -34,6 +36,7 @@ import {
   type InsertKdpSale,
   type InsertBookInsight,
   type InsertKenpMonthlyData,
+  type InsertBookEvent,
   type OptimizationResult,
   type MarketMetadata,
   amazonMarkets,
@@ -137,6 +140,15 @@ export interface IStorage {
   getKenpMonthlyDataByAsin(asin: string): Promise<KenpMonthlyData[]>;
   createKenpMonthlyData(data: InsertKenpMonthlyData): Promise<KenpMonthlyData>;
   deleteAllKenpMonthlyData(): Promise<void>;
+  
+  // Book Events (Promociones, Optimizaciones)
+  getAllBookEvents(): Promise<BookEvent[]>;
+  getBookEventsByBook(bookId: number): Promise<BookEvent[]>;
+  getBookEventsByAsin(asin: string): Promise<BookEvent[]>;
+  getBookEvent(id: number): Promise<BookEvent | undefined>;
+  createBookEvent(data: InsertBookEvent): Promise<BookEvent>;
+  updateBookEvent(id: number, data: Partial<InsertBookEvent>): Promise<BookEvent>;
+  deleteBookEvent(id: number): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -760,6 +772,56 @@ export class DbStorage implements IStorage {
   async deleteAllKenpMonthlyData(): Promise<void> {
     await this.db.delete(kenpMonthlyData);
   }
+
+  // ============================================================================
+  // Book Events (Promociones, Optimizaciones)
+  // ============================================================================
+  
+  async getAllBookEvents(): Promise<BookEvent[]> {
+    return await this.db.select().from(auraBookEvents).orderBy(desc(auraBookEvents.eventDate));
+  }
+
+  async getBookEventsByBook(bookId: number): Promise<BookEvent[]> {
+    return await this.db
+      .select()
+      .from(auraBookEvents)
+      .where(eq(auraBookEvents.bookId, bookId))
+      .orderBy(desc(auraBookEvents.eventDate));
+  }
+
+  async getBookEventsByAsin(asin: string): Promise<BookEvent[]> {
+    return await this.db
+      .select()
+      .from(auraBookEvents)
+      .where(eq(auraBookEvents.asin, asin))
+      .orderBy(desc(auraBookEvents.eventDate));
+  }
+
+  async getBookEvent(id: number): Promise<BookEvent | undefined> {
+    const [event] = await this.db
+      .select()
+      .from(auraBookEvents)
+      .where(eq(auraBookEvents.id, id));
+    return event;
+  }
+
+  async createBookEvent(data: InsertBookEvent): Promise<BookEvent> {
+    const [event] = await this.db.insert(auraBookEvents).values(data).returning();
+    return event;
+  }
+
+  async updateBookEvent(id: number, data: Partial<InsertBookEvent>): Promise<BookEvent> {
+    const [event] = await this.db
+      .update(auraBookEvents)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(auraBookEvents.id, id))
+      .returning();
+    return event;
+  }
+
+  async deleteBookEvent(id: number): Promise<void> {
+    await this.db.delete(auraBookEvents).where(eq(auraBookEvents.id, id));
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -1019,6 +1081,34 @@ export class MemStorage implements IStorage {
   }
 
   async deleteAllKenpMonthlyData(): Promise<void> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getAllBookEvents(): Promise<BookEvent[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getBookEventsByBook(bookId: number): Promise<BookEvent[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getBookEventsByAsin(asin: string): Promise<BookEvent[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getBookEvent(id: number): Promise<BookEvent | undefined> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async createBookEvent(data: InsertBookEvent): Promise<BookEvent> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async updateBookEvent(id: number, data: Partial<InsertBookEvent>): Promise<BookEvent> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async deleteBookEvent(id: number): Promise<void> {
     throw new Error("MemStorage does not support Aura operations");
   }
 }

@@ -1,9 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { optimizationRequestSchema, insertPublicationSchema, insertTaskSchema, insertPenNameSchema, insertBookSeriesSchema, insertAuraBookSchema } from "@shared/schema";
+import { optimizationRequestSchema, insertPublicationSchema, insertTaskSchema, insertPenNameSchema, insertBookSeriesSchema, insertAuraBookSchema, insertBookEventSchema } from "@shared/schema";
 import { generateOptimizationResult } from "./services/metadata-generator";
 import { ProgressEmitter } from "./services/progress-emitter";
+import { z } from "zod";
 import {
   generatePublicationSchedule,
   reschedulePublication,
@@ -1067,6 +1068,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching KENP data by ASIN:", error);
       res.status(500).json({ error: "Failed to fetch KENP data by ASIN" });
+    }
+  });
+
+  // ========== BOOK EVENTS (PROMOCIONES, OPTIMIZACIONES) ==========
+
+  // Obtener todos los eventos
+  app.get("/api/aura/events", async (req, res) => {
+    try {
+      const events = await storage.getAllBookEvents();
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching book events:", error);
+      res.status(500).json({ error: "Failed to fetch book events" });
+    }
+  });
+
+  // Obtener eventos por libro
+  app.get("/api/aura/events/book/:bookId", async (req, res) => {
+    try {
+      const bookId = parseInt(req.params.bookId);
+      if (isNaN(bookId)) {
+        res.status(400).json({ error: "Invalid book ID" });
+        return;
+      }
+
+      const events = await storage.getBookEventsByBook(bookId);
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching events by book:", error);
+      res.status(500).json({ error: "Failed to fetch events by book" });
+    }
+  });
+
+  // Obtener eventos por ASIN
+  app.get("/api/aura/events/asin/:asin", async (req, res) => {
+    try {
+      const asin = req.params.asin;
+      const events = await storage.getBookEventsByAsin(asin);
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching events by ASIN:", error);
+      res.status(500).json({ error: "Failed to fetch events by ASIN" });
+    }
+  });
+
+  // Crear nuevo evento
+  app.post("/api/aura/events", async (req, res) => {
+    try {
+      const eventData = insertBookEventSchema.parse(req.body);
+      const event = await storage.createBookEvent(eventData);
+      res.json(event);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid event data", details: error.errors });
+        return;
+      }
+      console.error("Error creating book event:", error);
+      res.status(500).json({ error: "Failed to create book event" });
+    }
+  });
+
+  // Actualizar evento
+  app.put("/api/aura/events/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid event ID" });
+        return;
+      }
+
+      const eventData = insertBookEventSchema.partial().parse(req.body);
+      const event = await storage.updateBookEvent(id, eventData);
+      res.json(event);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid event data", details: error.errors });
+        return;
+      }
+      console.error("Error updating book event:", error);
+      res.status(500).json({ error: "Failed to update book event" });
+    }
+  });
+
+  // Eliminar evento
+  app.delete("/api/aura/events/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid event ID" });
+        return;
+      }
+
+      await storage.deleteBookEvent(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting book event:", error);
+      res.status(500).json({ error: "Failed to delete book event" });
     }
   });
 

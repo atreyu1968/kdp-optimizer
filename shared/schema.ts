@@ -394,3 +394,39 @@ export const insertKenpMonthlyDataSchema = createInsertSchema(kenpMonthlyData).o
 });
 export type InsertKenpMonthlyData = z.infer<typeof insertKenpMonthlyDataSchema>;
 export type KenpMonthlyData = typeof kenpMonthlyData.$inferSelect;
+
+// Tipos de eventos para libros
+export const bookEventTypes = [
+  "promotion",        // Promoción (Amazon Ads, descuentos, etc.)
+  "reoptimization",   // Reoptimización de metadatos
+  "price_change",     // Cambio de precio
+  "cover_update",     // Actualización de portada
+  "description_update", // Actualización de descripción
+  "keywords_update",  // Actualización de palabras clave
+  "other"             // Otro tipo de evento
+] as const;
+export type BookEventType = typeof bookEventTypes[number];
+
+// Tabla de eventos de libros (promociones, optimizaciones, cambios)
+// Permite marcar fechas de acciones para correlacionar con cambios en tendencias
+export const auraBookEvents = pgTable("aura_book_events", {
+  id: serial("id").primaryKey(),
+  bookId: integer("book_id").notNull().references(() => auraBooks.id),
+  asin: text("asin").notNull(), // ASIN del libro (desnormalizado para facilitar queries)
+  eventType: text("event_type").notNull(), // "promotion", "reoptimization", "price_change", etc.
+  eventDate: timestamp("event_date").notNull(), // Fecha del evento
+  title: text("title").notNull(), // Título del evento (ej: "Campaña Amazon Ads", "Nueva portada")
+  description: text("description"), // Descripción detallada opcional
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertBookEventSchema = createInsertSchema(auraBookEvents).omit({ 
+  id: true, 
+  createdAt: true,
+  updatedAt: true
+}).extend({
+  eventType: z.enum(bookEventTypes),
+});
+export type InsertBookEvent = z.infer<typeof insertBookEventSchema>;
+export type BookEvent = typeof auraBookEvents.$inferSelect;

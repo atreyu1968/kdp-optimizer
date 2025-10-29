@@ -18,9 +18,9 @@ The backend utilizes Node.js with Express.js (TypeScript, ES modules), implement
 ### Data Storage
 PostgreSQL is used as the database, accessed via Drizzle ORM. The schema includes:
 - **KDP Optimizer**: `Manuscripts`, `Optimizations`, `Publications`, `Tasks`, `BlockedDates`
-- **Aura System**: `PenNames`, `BookSeries`, `AuraBooks`, `KdpSales`, `AuraBookInsights`, `KenpMonthlyData`
+- **Aura System**: `PenNames`, `BookSeries`, `AuraBooks`, `KdpSales`, `AuraBookInsights`, `KenpMonthlyData`, `AuraBookEvents`
 
-The Tasks table enables per-manuscript task management for tracking file preparation workflows. The AuraBookInsights table caches AI-generated recommendations to avoid repeated OpenAI API calls. The KenpMonthlyData table stores monthly aggregated KENP (Kindle Unlimited pages read) data for trend analysis. Pricing rules implement specific KDP royalty calculations and psychological pricing strategies for supported currencies.
+The Tasks table enables per-manuscript task management for tracking file preparation workflows. The AuraBookInsights table caches AI-generated recommendations to avoid repeated OpenAI API calls. The KenpMonthlyData table stores monthly aggregated KENP (Kindle Unlimited pages read) data for trend analysis. The AuraBookEvents table tracks promotional activities, optimizations, and other marketing events for books to correlate with performance changes. Pricing rules implement specific KDP royalty calculations and psychological pricing strategies for supported currencies.
 
 ### UI/UX Decisions
 The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessible interface. It features a multi-step wizard (Upload → Configure → Analyze → Results) with a progress indicator, supporting light/dark modes and responsive design. A library page allows for saved manuscript management with search and filtering capabilities. The calendar view provides visual indicators for blocked days, daily publication limits, and today's date.
@@ -72,6 +72,12 @@ The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessibl
         *   **Partial Month Detection**: Excludes publication month from trend calculations if book was published after day 7 of the month
         *   **API Endpoints**: POST /api/aura/import/kenp, GET /api/aura/kenp, GET /api/aura/kenp/book/:bookId, GET /api/aura/kenp/asin/:asin
         *   **Dashboard Integration**: Promotional card highlighting Unlimited importance with direct link
+        *   **Book Events System**: Track promotional activities and optimizations to correlate with performance changes
+            *   **Event Types**: Promotion, Reoptimization, Price Change, Cover Update, Description Update, Keywords Update, Other
+            *   **Event Tracking**: Record event date, title, description for detailed history
+            *   **UI Integration**: "Marcar evento" button on each book card with modal dialog for event creation
+            *   **API Endpoints**: GET /api/aura/events, GET /api/aura/events/book/:bookId, GET /api/aura/events/asin/:asin, POST /api/aura/events, PUT /api/aura/events/:id, DELETE /api/aura/events/:id
+            *   **Future Enhancements**: Visual event markers on KENP evolution charts, correlation analysis between events and performance spikes
     *   **Future Features**: Amazon Ads and Meta Ads API integration, background job status tracking, AI failure observability
 
 ## External Dependencies

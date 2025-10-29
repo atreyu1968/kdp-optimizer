@@ -1,9 +1,19 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -16,12 +26,14 @@ import {
   TrendingUp, 
   TrendingDown, 
   Upload,
-  Calendar,
+  Calendar as CalendarIcon,
   Sparkles,
   Minus,
   Search,
   X,
   AlertCircle,
+  Plus,
+  Flag,
 } from "lucide-react";
 import {
   LineChart,
@@ -84,12 +96,32 @@ interface BookTrend {
   recommendationReason: string;
 }
 
+interface BookEvent {
+  id: number;
+  bookId: number;
+  asin: string;
+  eventType: string;
+  eventDate: string;
+  title: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function AuraUnlimited() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [trendFilter, setTrendFilter] = useState<string>('all');
   const [recommendationFilter, setRecommendationFilter] = useState<string>('all');
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [selectedBookForEvent, setSelectedBookForEvent] = useState<{ asin: string; bookId: number; title: string } | null>(null);
+  const [newEvent, setNewEvent] = useState({
+    eventType: 'promotion',
+    eventDate: new Date().toISOString().split('T')[0],
+    title: '',
+    description: '',
+  });
 
   const { data: kenpData, isLoading: loadingKenp, refetch } = useQuery<KenpMonthlyData[]>({
     queryKey: ['/api/aura/kenp'],
@@ -101,6 +133,37 @@ export default function AuraUnlimited() {
 
   const { data: penNames, isLoading: loadingPenNames } = useQuery<PenName[]>({
     queryKey: ['/api/aura/pen-names'],
+  });
+
+  const { data: allEvents } = useQuery<BookEvent[]>({
+    queryKey: ['/api/aura/events'],
+  });
+
+  const createEventMutation = useMutation({
+    mutationFn: async (eventData: any) => {
+      return await apiRequest('/api/aura/events', 'POST', eventData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/aura/events'] });
+      setEventDialogOpen(false);
+      setNewEvent({
+        eventType: 'promotion',
+        eventDate: new Date().toISOString().split('T')[0],
+        title: '',
+        description: '',
+      });
+      toast({
+        title: "Evento creado",
+        description: "El evento se ha registrado correctamente",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo crear el evento",
+        variant: "destructive",
+      });
+    },
   });
 
   const isLoading = loadingKenp || loadingBooks || loadingPenNames;
@@ -345,6 +408,31 @@ export default function AuraUnlimited() {
     }
   };
 
+  const handleCreateEvent = () => {
+    if (!selectedBookForEvent || !newEvent.title.trim()) {
+      toast({
+        title: "Error",
+        description: "Por favor completa todos los campos requeridos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createEventMutation.mutate({
+      bookId: selectedBookForEvent.bookId,
+      asin: selectedBookForEvent.asin,
+      eventType: newEvent.eventType,
+      eventDate: new Date(newEvent.eventDate).toISOString(),
+      title: newEvent.title.trim(),
+      description: newEvent.description.trim() || null,
+    });
+  };
+
+  const openEventDialog = (bookId: number, asin: string, title: string) => {
+    setSelectedBookForEvent({ bookId, asin, title });
+    setEventDialogOpen(true);
+  };
+
   const getRecommendationConfig = (rec: string) => {
     switch (rec) {
       case 'POTENCIAR':
@@ -467,7 +555,7 @@ export default function AuraUnlimited() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Páginas KENP Totales</CardTitle>
-                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <CalendarIcon className="w-4 h-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold" data-testid="text-total-pages">
@@ -611,9 +699,25 @@ export default function AuraUnlimited() {
                             <h3 className="font-semibold text-sm">{trend.title}</h3>
                             <p className="text-xs text-muted-foreground">{trend.penName} • ASIN: {trend.asin}</p>
                           </div>
-                          <Badge {...recConfig} data-testid={`badge-recommendation-${trend.asin}`}>
-                            {recConfig.label}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const book = books?.find(b => b.asin === trend.asin);
+                                if (book) {
+                                  openEventDialog(book.id, trend.asin, trend.title);
+                                }
+                              }}
+                              data-testid={`button-add-event-${trend.asin}`}
+                            >
+                              <Flag className="w-3 h-3 mr-1" />
+                              Marcar evento
+                            </Button>
+                            <Badge {...recConfig} data-testid={`badge-recommendation-${trend.asin}`}>
+                              {recConfig.label}
+                            </Badge>
+                          </div>
                         </div>
 
                         {/* Razón de la recomendación */}
@@ -736,6 +840,97 @@ export default function AuraUnlimited() {
           )}
         </>
       )}
+
+      {/* Dialog para crear eventos */}
+      <Dialog open={eventDialogOpen} onOpenChange={setEventDialogOpen}>
+        <DialogContent data-testid="dialog-create-event">
+          <DialogHeader>
+            <DialogTitle>Marcar Evento para Libro</DialogTitle>
+            <DialogDescription>
+              Registra una promoción, optimización o cambio para {selectedBookForEvent?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="event-type">Tipo de evento *</Label>
+              <Select
+                value={newEvent.eventType}
+                onValueChange={(value) => setNewEvent({ ...newEvent, eventType: value })}
+              >
+                <SelectTrigger id="event-type" data-testid="select-event-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="promotion">📣 Promoción</SelectItem>
+                  <SelectItem value="reoptimization">🔧 Reoptimización</SelectItem>
+                  <SelectItem value="price_change">💰 Cambio de Precio</SelectItem>
+                  <SelectItem value="cover_update">🎨 Actualización de Portada</SelectItem>
+                  <SelectItem value="description_update">📝 Actualización de Descripción</SelectItem>
+                  <SelectItem value="keywords_update">🔑 Actualización de Keywords</SelectItem>
+                  <SelectItem value="other">📌 Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="event-date">Fecha del evento *</Label>
+              <Input
+                id="event-date"
+                type="date"
+                value={newEvent.eventDate}
+                onChange={(e) => setNewEvent({ ...newEvent, eventDate: e.target.value })}
+                data-testid="input-event-date"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="event-title">Título del evento *</Label>
+              <Input
+                id="event-title"
+                placeholder="Ej: Campaña Amazon Ads - €50"
+                value={newEvent.title}
+                onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                data-testid="input-event-title"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="event-description">Descripción (opcional)</Label>
+              <Textarea
+                id="event-description"
+                placeholder="Detalles adicionales sobre el evento..."
+                value={newEvent.description}
+                onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                rows={3}
+                data-testid="textarea-event-description"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setEventDialogOpen(false)}
+              data-testid="button-cancel-event"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreateEvent}
+              disabled={createEventMutation.isPending || !newEvent.title.trim()}
+              data-testid="button-save-event"
+            >
+              {createEventMutation.isPending ? (
+                <>Guardando...</>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Crear Evento
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
