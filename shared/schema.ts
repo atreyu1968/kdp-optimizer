@@ -3,14 +3,14 @@ import { pgTable, serial, text, timestamp, integer, jsonb } from "drizzle-orm/pg
 import { createInsertSchema } from "drizzle-zod";
 
 export const amazonMarkets = {
-  "amazon.com": { name: "Amazon.com (Estados Unidos)", currency: "USD", flag: "🇺🇸", locale: "en-US" },
-  "amazon.es": { name: "Amazon.es (España)", currency: "EUR", flag: "🇪🇸", locale: "es-ES" },
-  "amazon.es-ca": { name: "Amazon.es (Catalunya)", currency: "EUR", flag: "🇪🇸", locale: "ca-ES" },
-  "amazon.de": { name: "Amazon.de (Alemania)", currency: "EUR", flag: "🇩🇪", locale: "de-DE" },
-  "amazon.fr": { name: "Amazon.fr (Francia)", currency: "EUR", flag: "🇫🇷", locale: "fr-FR" },
-  "amazon.it": { name: "Amazon.it (Italia)", currency: "EUR", flag: "🇮🇹", locale: "it-IT" },
-  "amazon.co.uk": { name: "Amazon.co.uk (Reino Unido)", currency: "GBP", flag: "🇬🇧", locale: "en-GB" },
-  "amazon.com.br": { name: "Amazon.com.br (Brasil)", currency: "BRL", flag: "🇧🇷", locale: "pt-BR" },
+  "amazon.com": { name: "Amazon.com (Estados Unidos)", currency: "USD", countryCode: "us", locale: "en-US" },
+  "amazon.es": { name: "Amazon.es (España)", currency: "EUR", countryCode: "es", locale: "es-ES" },
+  "amazon.es-ca": { name: "Amazon.es (Catalunya)", currency: "EUR", countryCode: "es-ct", locale: "ca-ES" },
+  "amazon.de": { name: "Amazon.de (Alemania)", currency: "EUR", countryCode: "de", locale: "de-DE" },
+  "amazon.fr": { name: "Amazon.fr (Francia)", currency: "EUR", countryCode: "fr", locale: "fr-FR" },
+  "amazon.it": { name: "Amazon.it (Italia)", currency: "EUR", countryCode: "it", locale: "it-IT" },
+  "amazon.co.uk": { name: "Amazon.co.uk (Reino Unido)", currency: "GBP", countryCode: "gb", locale: "en-GB" },
+  "amazon.com.br": { name: "Amazon.com.br (Brasil)", currency: "BRL", countryCode: "br", locale: "pt-BR" },
 } as const;
 
 export type AmazonMarket = keyof typeof amazonMarkets;
