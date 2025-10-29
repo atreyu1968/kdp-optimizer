@@ -216,10 +216,24 @@ export default function AuraPenNames() {
       // Deduplicar libros por ASIN (mismo libro puede estar en múltiples marketplaces)
       const uniqueBooks = Array.from(
         penNameBooks.reduce((acc, book) => {
-          // Si ya existe un libro con este ASIN, mantener el que tiene más info
           const existing = acc.get(book.asin);
-          if (!existing || (book.subtitle && !existing.subtitle)) {
+          if (!existing) {
+            // Primera vez que vemos este ASIN, lo agregamos
             acc.set(book.asin, book);
+          } else {
+            // Ya existe, fusionar información
+            const merged: AuraBook = {
+              ...existing,
+              // Preferir el subtitle más largo si hay diferencias
+              subtitle: (book.subtitle && (!existing.subtitle || book.subtitle.length > existing.subtitle.length)) 
+                ? book.subtitle 
+                : existing.subtitle,
+              // Fusionar marketplaces únicos
+              marketplaces: Array.from(new Set([...existing.marketplaces, ...book.marketplaces])),
+              // Usar la fecha de publicación más antigua si está disponible
+              publishDate: existing.publishDate || book.publishDate,
+            };
+            acc.set(book.asin, merged);
           }
           return acc;
         }, new Map<string, AuraBook>()).values()
