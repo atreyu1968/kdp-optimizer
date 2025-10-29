@@ -21,6 +21,7 @@ import {
   Minus,
   Search,
   X,
+  AlertCircle,
 } from "lucide-react";
 import {
   LineChart,
@@ -128,6 +129,28 @@ export default function AuraUnlimited() {
         avgPagesPerBook: Math.round(data.pages / data.books.size),
       }));
   }, [kenpData]);
+
+  // Libros sin datos KENP
+  const booksWithoutKenp = useMemo(() => {
+    if (!books || !kenpData || !penNames) return [];
+
+    // ASINs que tienen datos KENP
+    const asinsWithKenp = new Set(kenpData.map(r => r.asin));
+
+    // Libros que NO tienen datos KENP
+    return books
+      .filter(book => !asinsWithKenp.has(book.asin))
+      .map(book => {
+        const penName = penNames.find(p => p.id === book.penNameId);
+        return {
+          asin: book.asin,
+          title: book.title,
+          penName: penName?.name || 'Desconocido',
+          publishDate: book.publishDate,
+        };
+      })
+      .sort((a, b) => a.title.localeCompare(b.title));
+  }, [books, kenpData, penNames]);
 
   // Calcular tendencias por libro
   const bookTrends = useMemo<BookTrend[]>(() => {
@@ -669,6 +692,48 @@ export default function AuraUnlimited() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Libros sin datos KENP */}
+          {booksWithoutKenp.length > 0 && (
+            <Card className="border-orange-200 dark:border-orange-800">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-orange-600" />
+                  Libros sin Datos KENP ({booksWithoutKenp.length})
+                </CardTitle>
+                <CardDescription>
+                  Estos libros no tienen lecturas de Kindle Unlimited registradas. Pueden ser libros nuevos o que necesitan promoción urgente.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {booksWithoutKenp.map((book) => (
+                    <div
+                      key={book.asin}
+                      className="flex items-center justify-between p-3 rounded-md bg-muted/50 border border-muted"
+                      data-testid={`book-no-kenp-${book.asin}`}
+                    >
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm">{book.title}</h4>
+                        <p className="text-xs text-muted-foreground">
+                          {book.penName} • ASIN: {book.asin}
+                          {book.publishDate && ` • Publicado: ${new Date(book.publishDate).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' })}`}
+                        </p>
+                      </div>
+                      <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-400">
+                        Sin datos KENP
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-md">
+                  <p className="text-sm text-orange-800 dark:text-orange-400">
+                    <span className="font-semibold">💡 Recomendación:</span> Estos libros necesitan aumentar su visibilidad. Considera campañas de Amazon Ads, promociones cruzadas con tus otros libros, o actualizar metadatos para mejorar su descubrimiento.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>
