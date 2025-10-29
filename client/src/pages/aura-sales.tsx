@@ -159,6 +159,11 @@ export default function AuraSales() {
       let trend = 0;
       if (unitsPrev3 > 0) {
         trend = ((unitsLast3 - unitsPrev3) / unitsPrev3) * 100;
+        // Limitar tendencias extremas para evitar porcentajes irreales
+        trend = Math.max(-999, Math.min(999, trend));
+      } else if (unitsLast3 > 0) {
+        // Si no había ventas antes pero ahora sí, mostrar +999% (indicador de crecimiento nuevo)
+        trend = 999;
       }
 
       // Generar recomendación determinista
