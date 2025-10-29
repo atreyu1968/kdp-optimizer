@@ -46,6 +46,7 @@ interface AuraBook {
   subtitle: string | null;
   penNameId: number;
   marketplaces: string[];
+  publishDate: string | null;
 }
 
 interface PenName {
@@ -134,10 +135,21 @@ export default function AuraUnlimited() {
       const penName = penNames.find(p => p.id === book.penNameId);
       if (!penName) return;
 
+      // Determinar mes de publicación (si existe)
+      const publishMonth = book.publishDate ? new Date(book.publishDate).toISOString().slice(0, 7) : null;
+      const publishDay = book.publishDate ? new Date(book.publishDate).getDate() : 1;
+      
       // Ordenar por mes y tomar últimos 6
       const sortedRecords = records
         .sort((a, b) => a.month.localeCompare(b.month))
         .slice(-6);
+
+      // Filtrar meses completos: excluir el mes de publicación si se publicó después del día 7
+      const completeMonthsRecords = sortedRecords.filter(r => {
+        if (!publishMonth) return true; // Si no hay fecha de publicación, asumir todos completos
+        if (r.month !== publishMonth) return true; // Meses diferentes al de publicación son completos
+        return publishDay <= 7; // El mes de publicación es completo solo si se publicó antes del día 7
+      });
 
       const last6Months = sortedRecords.map(r => ({
         month: r.month,
@@ -147,15 +159,16 @@ export default function AuraUnlimited() {
       const totalPages = sortedRecords.reduce((sum, r) => sum + r.totalKenpPages, 0);
 
       // Calcular tendencia comparando últimos 3 meses vs anteriores 3 meses
+      // IMPORTANTE: Usar solo meses completos para el cálculo de tendencias
       let trend: 'up' | 'down' | 'stable' = 'stable';
       let trendPercentage = 0;
 
-      // Solo calcular tendencia si hay exactamente 6 meses de datos (para comparar 3 vs 3)
-      if (sortedRecords.length >= 6) {
-        const recent3 = sortedRecords.slice(-3);
-        const previous3 = sortedRecords.slice(-6, -3);
+      // Solo calcular tendencia si hay al menos 6 meses completos (para comparar 3 vs 3)
+      if (completeMonthsRecords.length >= 6) {
+        const recent3 = completeMonthsRecords.slice(-3);
+        const previous3 = completeMonthsRecords.slice(-6, -3);
 
-        // Sumar páginas de cada periodo (en lugar de promediar)
+        // Sumar páginas de cada periodo
         const recentTotal = recent3.reduce((sum, r) => sum + r.totalKenpPages, 0);
         const previousTotal = previous3.reduce((sum, r) => sum + r.totalKenpPages, 0);
 
@@ -166,18 +179,16 @@ export default function AuraUnlimited() {
           else if (trendPercentage < -15) trend = 'down';
           else trend = 'stable';
         }
-      } else if (sortedRecords.length >= 3) {
-        // Si hay menos de 6 meses pero al menos 3, comparar contra el promedio general
-        const recent3 = sortedRecords.slice(-3);
-        const all = sortedRecords;
+      } else if (completeMonthsRecords.length >= 3) {
+        // Si hay menos de 6 meses completos pero al menos 3, comparar últimos 3 vs primeros 3
+        const recent3 = completeMonthsRecords.slice(-3);
+        const first3 = completeMonthsRecords.slice(0, 3);
         
         const recentTotal = recent3.reduce((sum, r) => sum + r.totalKenpPages, 0);
-        const allTotal = all.reduce((sum, r) => sum + r.totalKenpPages, 0);
-        const allAvg = allTotal / all.length;
-        const recentAvg = recentTotal / 3;
+        const firstTotal = first3.reduce((sum, r) => sum + r.totalKenpPages, 0);
         
-        if (allAvg > 0) {
-          trendPercentage = Math.round(((recentAvg - allAvg) / allAvg) * 100);
+        if (firstTotal > 0 && recent3.length === 3 && first3.length === 3) {
+          trendPercentage = Math.round(((recentTotal - firstTotal) / firstTotal) * 100);
           
           if (trendPercentage > 15) trend = 'up';
           else if (trendPercentage < -15) trend = 'down';
@@ -488,7 +499,9 @@ export default function AuraUnlimited() {
                                 {trend.trendPercentage > 0 ? '+' : ''}{trend.trendPercentage}%
                               </p>
                             </div>
-                            <p className="text-xs text-muted-foreground">Tendencia 3 meses</p>
+                            <p className="text-xs text-muted-foreground">
+                              {trend.trendPercentage === 0 ? 'Datos insuficientes' : 'Tendencia (meses completos)'}
+                            </p>
                           </div>
                           <div>
                             <p className="text-2xl font-bold" data-testid={`text-months-${trend.asin}`}>
