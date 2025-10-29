@@ -30,9 +30,16 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
 *   **Aura Analytics System**:
     *   **KDP XLSX Importer**: Parses KDP Dashboard XLSX files, identifies pseudonyms, and registers books with marketplace tracking. Automatically detects book types and filters printed books from KENP analyses.
     *   **AI Book Insights**: Uses GPT-4o-mini for intelligent book performance analysis, categorizing books for optimization, pricing, or hold strategies, and caching results.
+    *   **Aura Dashboard**: Centralized analytics dashboard displaying monthly aggregated data from KENP and sales imports. Features include:
+        - Key metrics: Total pseudonyms (consolidated), unique books (deduplicated by ASIN), total KENP pages, and total royalties in EUR
+        - Monthly trends: Income, KENP pages, and units sold visualizations
+        - Sales breakdown by book format (ebook, paperback, hardcover)
+        - Top 5 performing books by KENP and sales
+        - Multi-currency support with automatic EUR conversion
+        - Deduplication logic for books across multiple marketplaces
     *   **Aura Unlimited (KENP Analysis)**: Imports and aggregates monthly KENP data for trend analysis, providing book-level insights and recommendations (Boost, Optimize Metadata, Increase Promotion, Hold). Automatically fills missing months with 0 values to accurately detect declining trends.
     *   **Aura Ventas (Sales Analysis)**: Processes combined sales data, discriminating by book type and currency, and offering recommendations based on sales performance (Raise Price, Optimize, Increase Promotion, Hold). Currency-segregated metrics prevent mixing royalties across USD/EUR/GBP. Integrated import button for convenience.
-    *   **Aura Seudónimos**: Provides consolidated pseudonym management with grouped books, key metrics, and direct navigation to detailed analytics.
+    *   **Aura Seudónimos**: Provides consolidated pseudonym management with grouped books, key metrics, and direct navigation to detailed analytics. Implements ASIN-based deduplication with metadata merging (unique marketplaces, longest subtitle, earliest publish date) to prevent duplicate book listings.
     *   **Book Events System**: Tracks promotional activities and optimizations to correlate with performance changes.
     *   **Calendar Integration**: Imported KDP books can be added to the publications calendar system. When a book is added, a "dummy" manuscript is created with status "published", and publication records are generated for each marketplace. Books already in the calendar are indicated with a "Ver en Calendario" button.
 
