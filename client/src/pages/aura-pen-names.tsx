@@ -212,7 +212,20 @@ export default function AuraPenNames() {
       const penNameBooks = books.filter(book => 
         penName.ids.includes(book.penNameId)
       );
-      map.set(penName.name, penNameBooks);
+      
+      // Deduplicar libros por ASIN (mismo libro puede estar en múltiples marketplaces)
+      const uniqueBooks = Array.from(
+        penNameBooks.reduce((acc, book) => {
+          // Si ya existe un libro con este ASIN, mantener el que tiene más info
+          const existing = acc.get(book.asin);
+          if (!existing || (book.subtitle && !existing.subtitle)) {
+            acc.set(book.asin, book);
+          }
+          return acc;
+        }, new Map<string, AuraBook>()).values()
+      );
+      
+      map.set(penName.name, uniqueBooks);
     });
     
     return map;
@@ -252,15 +265,20 @@ export default function AuraPenNames() {
   });
 
   const handleAddAllToCalendar = async () => {
+    console.log("[Add All to Calendar] Starting batch import...");
     setIsAddingAllToCalendar(true);
     try {
-      const response = await apiRequest<{ 
+      console.log("[Add All to Calendar] Making API request...");
+      const res = await apiRequest('POST', '/api/aura/books/add-all-to-calendar', {});
+      console.log("[Add All to Calendar] Got response, parsing JSON...");
+      const response: { 
         success: boolean; 
         added: number; 
         skipped: number; 
         errors: string[]; 
         message: string;
-      }>('/api/aura/books/add-all-to-calendar', 'POST', {});
+      } = await res.json();
+      console.log("[Add All to Calendar] Response parsed:", response);
       
       queryClient.invalidateQueries({ queryKey: ['/api/aura/books'] });
       queryClient.invalidateQueries({ queryKey: ['/api/manuscripts'] });
@@ -275,18 +293,21 @@ export default function AuraPenNames() {
         description += ` ${errors.length} errores encontrados.`;
       }
       
+      console.log("[Add All to Calendar] Showing success toast");
       toast({
         title: "Importación completada",
         description,
         variant: errors && errors.length > 0 ? "destructive" : "default",
       });
     } catch (error: any) {
+      console.error("[Add All to Calendar] Error occurred:", error);
       toast({
         title: "Error",
         description: error.message || "No se pudo agregar los libros al calendario",
         variant: "destructive",
       });
     } finally {
+      console.log("[Add All to Calendar] Resetting loading state");
       setIsAddingAllToCalendar(false);
     }
   };
