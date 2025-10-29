@@ -275,6 +275,10 @@ export const bookSeries = pgTable("book_series", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Tipos de libro
+export const bookTypes = ["ebook", "paperback", "hardcover", "unknown"] as const;
+export type BookType = typeof bookTypes[number];
+
 // Tabla de libros (asociados a seudónimos)
 export const auraBooks = pgTable("aura_books", {
   id: serial("id").primaryKey(),
@@ -286,6 +290,7 @@ export const auraBooks = pgTable("aura_books", {
   publishDate: timestamp("publish_date"),
   price: text("price"), // Guardamos como texto para manejar múltiples monedas como JSON
   marketplaces: text("marketplaces").array().notNull(), // array de marketplaces
+  bookType: text("book_type").default("unknown"), // "ebook", "paperback", "hardcover", "unknown"
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

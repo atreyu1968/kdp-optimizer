@@ -140,6 +140,31 @@ function normalizeTransactionType(kdpType: string): string {
 }
 
 /**
+ * Detecta el tipo de libro basándose en el campo "Tipo de regalía" de KDP
+ * Retorna: "ebook", "paperback", "hardcover", o "unknown"
+ */
+function detectBookType(royaltyType: string): string {
+  const type = royaltyType.toLowerCase();
+  
+  // Detectar libros impresos
+  if (type.includes('tapa blanda') || type.includes('paperback')) {
+    return 'paperback';
+  }
+  if (type.includes('tapa dura') || type.includes('hardcover')) {
+    return 'hardcover';
+  }
+  
+  // Detectar ebooks (Kindle)
+  if (type.includes('kindle') || type.includes('estándar') || type.includes('standard') || 
+      type.includes('extendida') || type.includes('extended') ||
+      type.includes('countdown') || type.includes('promoción') || type.includes('promotion')) {
+    return 'ebook';
+  }
+  
+  return 'unknown';
+}
+
+/**
  * Obtiene o crea un seudónimo por nombre de autor
  * Retorna el seudónimo y una flag indicando si fue creado
  */
@@ -176,19 +201,37 @@ async function getOrCreateBook(
   title: string,
   penNameId: number,
   marketplace: string,
-  booksCache: Map<string, { id: number; marketplaces: string[]; publishDate: Date | null }>
+  booksCache: Map<string, { id: number; marketplaces: string[]; publishDate: Date | null; bookType?: string }>,
+  royaltyType?: string
 ): Promise<{ bookId: number; wasCreated: boolean }> {
   // Buscar en cache
   const existing = booksCache.get(asin);
   
+  // Detectar tipo de libro si se proporciona tipo de regalía
+  const detectedType = royaltyType ? detectBookType(royaltyType) : 'unknown';
+  
   if (existing) {
     // Actualizar marketplaces si no está incluido
+    let needsUpdate = false;
+    const updates: any = {};
+    
     if (!existing.marketplaces.includes(marketplace)) {
       existing.marketplaces.push(marketplace);
-      await storage.updateAuraBook(existing.id, {
-        marketplaces: existing.marketplaces,
-      });
+      updates.marketplaces = existing.marketplaces;
+      needsUpdate = true;
     }
+    
+    // Actualizar bookType si se detectó uno más específico
+    if (detectedType !== 'unknown' && (!existing.bookType || existing.bookType === 'unknown')) {
+      updates.bookType = detectedType;
+      existing.bookType = detectedType;
+      needsUpdate = true;
+    }
+    
+    if (needsUpdate) {
+      await storage.updateAuraBook(existing.id, updates);
+    }
+    
     return { bookId: existing.id, wasCreated: false };
   }
   
@@ -202,6 +245,7 @@ async function getOrCreateBook(
     publishDate: null, // Se actualizará después
     price: null,
     marketplaces: [marketplace],
+    bookType: detectedType,
   });
   
   // Agregar al cache
@@ -209,6 +253,7 @@ async function getOrCreateBook(
     id: book.id,
     marketplaces: [marketplace],
     publishDate: null,
+    bookType: detectedType,
   });
   
   return { bookId: book.id, wasCreated: true };
@@ -246,7 +291,7 @@ export async function importKdpXlsx(
 
     // Inicializar caches para optimizar rendimiento
     const penNamesCache = new Map<string, PenName>();
-    const booksCache = new Map<string, { id: number; marketplaces: string[]; publishDate: Date | null }>();
+    const booksCache = new Map<string, { id: number; marketplaces: string[]; publishDate: Date | null; bookType?: string }>();
     
     // Cargar pen names existentes en cache
     const existingPenNames = await storage.getAllPenNames();
@@ -261,6 +306,7 @@ export async function importKdpXlsx(
         id: book.id,
         marketplaces: [...book.marketplaces],
         publishDate: book.publishDate ? new Date(book.publishDate) : null,
+        bookType: book.bookType || 'unknown',
       });
     });
     
@@ -288,13 +334,14 @@ export async function importKdpXlsx(
           // Normalizar marketplace
           const marketplace = normalizeMarketplace(row['Tienda']);
           
-          // Obtener o crear libro
+          // Obtener o crear libro (pasando tipo de regalía para detectar si es ebook o impreso)
           const { bookId, wasCreated: bookCreated } = await getOrCreateBook(
             row['ASIN/ISBN'],
             row['Título'],
             penName.id,
             marketplace,
-            booksCache
+            booksCache,
+            row['Tipo de regalía'] // Pasar tipo de regalía para detectar formato del libro
           );
           if (bookCreated) {
             stats.booksCreated++;

@@ -70,6 +70,7 @@ interface AuraBook {
   penNameId: number;
   marketplaces: string[];
   publishDate: string | null;
+  bookType?: string; // "ebook", "paperback", "hardcover", "unknown"
 }
 
 interface PenName {
@@ -231,6 +232,12 @@ export default function AuraUnlimited() {
     bookMap.forEach((records, asin) => {
       const book = books.find(b => b.asin === asin);
       if (!book) return;
+
+      // FILTRAR libros impresos - solo mostrar ebooks en análisis KENP
+      // Los libros impresos nunca tienen páginas KENP (Kindle Unlimited es solo para ebooks)
+      if (book.bookType && book.bookType !== 'ebook' && book.bookType !== 'unknown') {
+        return; // Excluir paperback, hardcover, etc.
+      }
 
       const penName = penNames.find(p => p.id === book.penNameId);
       if (!penName) return;

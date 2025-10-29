@@ -20,7 +20,7 @@ PostgreSQL is used as the database, accessed via Drizzle ORM. The schema include
 - **KDP Optimizer**: `Manuscripts`, `Optimizations`, `Publications`, `Tasks`, `BlockedDates`
 - **Aura System**: `PenNames`, `BookSeries`, `AuraBooks`, `KdpSales`, `AuraBookInsights`, `KenpMonthlyData`, `AuraBookEvents`
 
-The Tasks table enables per-manuscript task management for tracking file preparation workflows. The AuraBookInsights table caches AI-generated recommendations to avoid repeated OpenAI API calls. The KenpMonthlyData table stores monthly aggregated KENP (Kindle Unlimited pages read) data for trend analysis. The AuraBookEvents table tracks promotional activities, optimizations, and other marketing events for books to correlate with performance changes. Pricing rules implement specific KDP royalty calculations and psychological pricing strategies for supported currencies.
+The Tasks table enables per-manuscript task management for tracking file preparation workflows. The AuraBookInsights table caches AI-generated recommendations to avoid repeated OpenAI API calls. The KenpMonthlyData table stores monthly aggregated KENP (Kindle Unlimited pages read) data for trend analysis. The AuraBookEvents table tracks promotional activities, optimizations, and other marketing events for books to correlate with performance changes. The AuraBooks table includes a `bookType` field ("ebook", "paperback", "hardcover", "unknown") to automatically detect and filter printed books from KENP analyses. Pricing rules implement specific KDP royalty calculations and psychological pricing strategies for supported currencies.
 
 ### UI/UX Decisions
 The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessible interface. It features a multi-step wizard (Upload → Configure → Analyze → Results) with a progress indicator, supporting light/dark modes and responsive design. A library page allows for saved manuscript management with search and filtering capabilities. The calendar view provides visual indicators for blocked days, daily publication limits, and today's date.
@@ -45,6 +45,8 @@ The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessibl
         *   Parses "Ventas combinadas", "KENP leídas", and "Pedidos completados" sheets
         *   Automatically identifies pseudonyms by author name
         *   Registers books by ASIN with marketplace tracking
+        *   **Automatic Book Type Detection**: Detects ebook/paperback/hardcover based on "Tipo de regalía" field
+        *   **Printed Books Filtering**: Automatically excludes paperback/hardcover from KENP analyses (Kindle Unlimited is ebook-only)
         *   Performance-optimized with in-memory caching (prevents O(n²) database queries)
         *   Accurate import statistics (only counts newly created entities)
     *   **AI Book Insights** (`book-analyzer.ts`): Intelligent book performance analysis and recommendations
