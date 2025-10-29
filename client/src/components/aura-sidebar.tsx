@@ -9,7 +9,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { BarChart3, Upload, Users, BookOpen, DollarSign, Library, Zap, ShoppingCart } from "lucide-react";
+import { BarChart3, Users, BookOpen, DollarSign, Library, Zap } from "lucide-react";
 
 const menuItems = [
   {
@@ -26,11 +26,6 @@ const menuItems = [
     title: "Aura Unlimited",
     url: "/aura/unlimited",
     icon: Zap,
-  },
-  {
-    title: "Importar",
-    url: "/aura/import",
-    icon: Upload,
   },
   {
     title: "Seudónimos",

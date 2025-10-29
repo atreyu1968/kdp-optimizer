@@ -21,7 +21,12 @@ interface ImportResult {
   stats: ImportStats;
 }
 
-export function AuraImport() {
+interface AuraImportProps {
+  onImportComplete?: () => void;
+  onClose?: () => void;
+}
+
+export function AuraImport({ onImportComplete, onClose }: AuraImportProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -81,6 +86,10 @@ export function AuraImport() {
         title: "Importación exitosa",
         description: `${response.stats.penNamesCreated} seudónimos, ${response.stats.booksCreated} libros, ${response.stats.salesImported + response.stats.kenpImported} transacciones`,
       });
+
+      if (onImportComplete) {
+        onImportComplete();
+      }
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
@@ -233,6 +242,16 @@ export function AuraImport() {
                       </ul>
                     </AlertDescription>
                   </Alert>
+                )}
+
+                {onClose && (
+                  <Button 
+                    onClick={onClose} 
+                    className="w-full"
+                    data-testid="button-close-import"
+                  >
+                    Cerrar
+                  </Button>
                 )}
               </CardContent>
             </Card>

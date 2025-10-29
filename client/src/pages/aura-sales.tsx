@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AuraImport } from "@/components/aura-import";
+import { queryClient } from "@/lib/queryClient";
 
 interface SalesMonthlyData {
   id: number;
@@ -71,6 +72,7 @@ export default function AuraSales() {
   const [selectedPenName, setSelectedPenName] = useState<string>("all");
   const [selectedBookType, setSelectedBookType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState(asinFromUrl || '');
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   // Update search query when URL parameter changes
   useEffect(() => {
@@ -92,6 +94,16 @@ export default function AuraSales() {
   });
 
   const isLoading = isLoadingSales || isLoadingBooks || isLoadingPenNames;
+
+  const handleImportComplete = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/aura/sales"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/aura/books"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/aura/pen-names"] });
+  };
+
+  const handleCloseImportDialog = () => {
+    setImportDialogOpen(false);
+  };
 
   // Helper: Generar últimos 6 meses calendario en formato YYYY-MM
   const getLast6Months = () => {
@@ -256,7 +268,7 @@ export default function AuraSales() {
           </p>
         </div>
         
-        <Dialog>
+        <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="default" className="gap-2" data-testid="button-import-sales">
               <Upload className="h-4 w-4" />
@@ -267,7 +279,7 @@ export default function AuraSales() {
             <DialogHeader>
               <DialogTitle>Importar Datos de KDP</DialogTitle>
             </DialogHeader>
-            <AuraImport />
+            <AuraImport onImportComplete={handleImportComplete} onClose={handleCloseImportDialog} />
           </DialogContent>
         </Dialog>
       </div>

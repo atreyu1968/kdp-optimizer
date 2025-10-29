@@ -121,6 +121,8 @@ export default function AuraUnlimited() {
   const [trendFilter, setTrendFilter] = useState<string>('all');
   const [recommendationFilter, setRecommendationFilter] = useState<string>('all');
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [importDialogHeaderOpen, setImportDialogHeaderOpen] = useState(false);
+  const [importDialogEmptyOpen, setImportDialogEmptyOpen] = useState(false);
   const [selectedBookForEvent, setSelectedBookForEvent] = useState<{ asin: string; bookId: number; title: string } | null>(null);
   const [newEvent, setNewEvent] = useState({
     eventType: 'promotion',
@@ -180,6 +182,20 @@ export default function AuraUnlimited() {
   });
 
   const isLoading = loadingKenp || loadingBooks || loadingPenNames;
+
+  const handleImportComplete = () => {
+    queryClient.invalidateQueries({ queryKey: ['/api/aura/kenp'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/aura/books'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/aura/pen-names'] });
+  };
+
+  const handleCloseImportDialogHeader = () => {
+    setImportDialogHeaderOpen(false);
+  };
+
+  const handleCloseImportDialogEmpty = () => {
+    setImportDialogEmptyOpen(false);
+  };
 
   // Calcular evolución mensual agregada
   const monthlyEvolution = useMemo<MonthlyEvolution[]>(() => {
@@ -489,7 +505,7 @@ export default function AuraUnlimited() {
           </p>
         </div>
         <div>
-          <Dialog>
+          <Dialog open={importDialogHeaderOpen} onOpenChange={setImportDialogHeaderOpen}>
             <DialogTrigger asChild>
               <Button data-testid="button-import-kenp">
                 <Upload className="w-4 h-4 mr-2" />
@@ -500,7 +516,7 @@ export default function AuraUnlimited() {
               <DialogHeader>
                 <DialogTitle>Importar Datos de KDP</DialogTitle>
               </DialogHeader>
-              <AuraImport />
+              <AuraImport onImportComplete={handleImportComplete} onClose={handleCloseImportDialogHeader} />
             </DialogContent>
           </Dialog>
         </div>
@@ -521,7 +537,7 @@ export default function AuraUnlimited() {
                   Importa tu archivo XLSX desde el dashboard de KDP
                 </p>
               </div>
-              <Dialog>
+              <Dialog open={importDialogEmptyOpen} onOpenChange={setImportDialogEmptyOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" data-testid="button-import-first">
                     <Upload className="w-4 h-4 mr-2" />
@@ -532,7 +548,7 @@ export default function AuraUnlimited() {
                   <DialogHeader>
                     <DialogTitle>Importar Datos de KDP</DialogTitle>
                   </DialogHeader>
-                  <AuraImport />
+                  <AuraImport onImportComplete={handleImportComplete} onClose={handleCloseImportDialogEmpty} />
                 </DialogContent>
               </Dialog>
             </div>
