@@ -28,7 +28,12 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
 *   **Publication Scheduling**: Manages daily publication limits (3 per day) and market priorities, with functionality for blocking dates and rescheduling.
 *   **Task Checklist System**: Automated per-manuscript task management with dynamic due dates, inline editing, and visual urgency indicators.
 *   **Aura Analytics System**:
-    *   **KDP XLSX Importer**: Parses KDP Dashboard XLSX files across all sheets (Ventas combinadas, KENP leídas, Pedidos gratuitos), identifies pseudonyms, and registers books with marketplace tracking. Automatically detects book types from KDP's "Tipo de regalía" field ("Estándar" → ebook, "Promoción gratuita" → ebook, "Kindle Countdown Deals" → ebook, "KENP leídas" → ebook, "Estándar - Tapa blanda" → paperback, "Estándar - Tapa dura" → hardcover). For sheets without explicit royalty type fields (KENP leídas, Pedidos gratuitos), the importer assigns appropriate values to ensure correct ebook detection. Filters printed books from KENP analyses.
+    *   **KDP XLSX Importer**: Parses KDP Dashboard XLSX files across all sheets (Ventas combinadas, KENP leídas, Pedidos gratuitos), identifies pseudonyms, and registers books with marketplace tracking. Automatically detects book types from KDP's "Tipo de regalía" field using multiple detection methods:
+        - Descriptive types: "Estándar" → ebook, "Promoción gratuita" → ebook, "Kindle Countdown Deals" → ebook, "KENP leídas" → ebook, "Estándar - Tapa blanda" → paperback, "Estándar - Tapa dura" → hardcover
+        - Royalty percentages: "70%", "35%" → ebook (Kindle royalty rates), "60%" → paperback (print book royalty)
+        - For sheets without explicit royalty type fields (KENP leídas, Pedidos gratuitos), the importer assigns appropriate values to ensure correct ebook detection
+        - Books without sufficient data remain as "unknown" until evidence is available, then auto-update on subsequent imports
+        - Filters printed books from KENP analyses
     *   **AI Book Insights**: Uses GPT-4o-mini for intelligent book performance analysis, categorizing books for optimization, pricing, or hold strategies, and caching results.
     *   **Aura Dashboard**: Centralized analytics dashboard displaying monthly aggregated data from KENP and sales imports. Features include:
         - Key metrics: Total pseudonyms (consolidated), unique books (deduplicated by ASIN), total KENP pages, and total royalties in EUR
