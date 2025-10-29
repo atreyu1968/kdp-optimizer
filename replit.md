@@ -18,9 +18,9 @@ The backend utilizes Node.js with Express.js (TypeScript, ES modules), implement
 ### Data Storage
 PostgreSQL is used as the database, accessed via Drizzle ORM. The schema includes:
 - **KDP Optimizer**: `Manuscripts`, `Optimizations`, `Publications`, `Tasks`, `BlockedDates`
-- **Aura System**: `PenNames`, `BookSeries`, `AuraBooks`, `KdpSales`, `AuraBookInsights`
+- **Aura System**: `PenNames`, `BookSeries`, `AuraBooks`, `KdpSales`, `AuraBookInsights`, `KenpMonthlyData`
 
-The Tasks table enables per-manuscript task management for tracking file preparation workflows. The AuraBookInsights table caches AI-generated recommendations to avoid repeated OpenAI API calls. Pricing rules implement specific KDP royalty calculations and psychological pricing strategies for supported currencies.
+The Tasks table enables per-manuscript task management for tracking file preparation workflows. The AuraBookInsights table caches AI-generated recommendations to avoid repeated OpenAI API calls. The KenpMonthlyData table stores monthly aggregated KENP (Kindle Unlimited pages read) data for trend analysis. Pricing rules implement specific KDP royalty calculations and psychological pricing strategies for supported currencies.
 
 ### UI/UX Decisions
 The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessible interface. It features a multi-step wizard (Upload → Configure → Analyze → Results) with a progress indicator, supporting light/dark modes and responsive design. A library page allows for saved manuscript management with search and filtering capabilities. The calendar view provides visual indicators for blocked days, daily publication limits, and today's date.
@@ -59,6 +59,17 @@ The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessibl
     *   **Book Series Tracking**: Organize books into series for better insights
     *   **Sales Analytics**: Transaction-level data with support for Sales, Free promos, Refunds, Borrows, and KENP reads
     *   **Multi-marketplace Support**: Tracks performance across all Amazon marketplaces
+    *   **Aura Unlimited** (`/aura/unlimited`): Dedicated KENP analysis module (70% of revenue comes from Unlimited)
+        *   **KENP Monthly Data Import**: Parses "KENP leídas" sheet from KDP Dashboard XLSX, aggregates daily data into monthly totals
+        *   **Replace Strategy**: Each import deletes all previous KENP data and inserts new data (ensures data freshness)
+        *   **6-Month Evolution Charts**: Interactive Recharts visualizations showing monthly KENP trends
+        *   **Book-Level Analysis**: Individual book performance with trend calculations (comparing last 3 months vs previous 3 months)
+        *   **Automatic Recommendations**: Deterministic categorization system
+            *   **POTENCIAR** (Boost): Books with upward trend (>15%) AND high volume (>10k pages)
+            *   **OPTIMIZAR** (Optimize): Books with downward trend (<-15%) OR low volume (<5k pages)
+            *   **MANTENER** (Hold): Stable performance books
+        *   **API Endpoints**: POST /api/aura/import/kenp, GET /api/aura/kenp, GET /api/aura/kenp/book/:bookId, GET /api/aura/kenp/asin/:asin
+        *   **Dashboard Integration**: Promotional card highlighting Unlimited importance with direct link
     *   **Future Features**: Amazon Ads and Meta Ads API integration, background job status tracking, AI failure observability
 
 ## External Dependencies
