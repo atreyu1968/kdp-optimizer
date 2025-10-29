@@ -69,7 +69,8 @@ interface BookTrend {
   totalPages: number;
   trend: 'up' | 'down' | 'stable';
   trendPercentage: number;
-  recommendation: 'POTENCIAR' | 'MANTENER' | 'OPTIMIZAR';
+  recommendation: 'POTENCIAR' | 'MANTENER' | 'OPTIMIZAR_METADATOS' | 'AUMENTAR_PROMO';
+  recommendationReason: string;
 }
 
 export default function AuraUnlimited() {
@@ -196,12 +197,25 @@ export default function AuraUnlimited() {
         }
       }
 
-      // Determinar recomendación
-      let recommendation: 'POTENCIAR' | 'MANTENER' | 'OPTIMIZAR' = 'MANTENER';
+      // Determinar recomendación con razón específica
+      let recommendation: 'POTENCIAR' | 'MANTENER' | 'OPTIMIZAR_METADATOS' | 'AUMENTAR_PROMO' = 'MANTENER';
+      let recommendationReason = '';
+
       if (trend === 'up' && totalPages > 10000) {
         recommendation = 'POTENCIAR';
-      } else if (trend === 'down' || totalPages < 5000) {
-        recommendation = 'OPTIMIZAR';
+        recommendationReason = 'Alto rendimiento y tendencia positiva. Considera subir precio o crear secuela.';
+      } else if (trend === 'down') {
+        recommendation = 'OPTIMIZAR_METADATOS';
+        recommendationReason = 'Tendencia descendente. Revisa portada, descripción, precio y palabras clave.';
+      } else if (totalPages < 5000) {
+        recommendation = 'AUMENTAR_PROMO';
+        recommendationReason = 'Bajo volumen de lecturas. Aumenta visibilidad con Amazon Ads o promociones.';
+      } else if (trend === 'stable' && totalPages > 10000) {
+        recommendation = 'MANTENER';
+        recommendationReason = 'Rendimiento estable y saludable. Continúa con la estrategia actual.';
+      } else {
+        recommendation = 'MANTENER';
+        recommendationReason = 'Rendimiento moderado. Monitorea evolución en próximos meses.';
       }
 
       trends.push({
@@ -213,6 +227,7 @@ export default function AuraUnlimited() {
         trend,
         trendPercentage,
         recommendation,
+        recommendationReason,
       });
     });
 
@@ -277,16 +292,25 @@ export default function AuraUnlimited() {
         return {
           variant: 'default' as const,
           className: 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400',
+          label: 'Potenciar',
         };
-      case 'OPTIMIZAR':
+      case 'OPTIMIZAR_METADATOS':
+        return {
+          variant: 'destructive' as const,
+          className: 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-400',
+          label: 'Optimizar Metadatos',
+        };
+      case 'AUMENTAR_PROMO':
         return {
           variant: 'destructive' as const,
           className: 'bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-400',
+          label: 'Aumentar Promoción',
         };
       default:
         return {
           variant: 'secondary' as const,
           className: '',
+          label: 'Mantener',
         };
     }
   };
@@ -467,8 +491,15 @@ export default function AuraUnlimited() {
                             <p className="text-xs text-muted-foreground">{trend.penName} • ASIN: {trend.asin}</p>
                           </div>
                           <Badge {...recConfig} data-testid={`badge-recommendation-${trend.asin}`}>
-                            {trend.recommendation}
+                            {recConfig.label}
                           </Badge>
+                        </div>
+
+                        {/* Razón de la recomendación */}
+                        <div className="bg-muted/50 rounded-md p-3">
+                          <p className="text-sm">
+                            <span className="font-semibold">Recomendación:</span> {trend.recommendationReason}
+                          </p>
                         </div>
 
                         {/* Métricas */}

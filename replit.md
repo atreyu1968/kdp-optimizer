@@ -64,10 +64,12 @@ The application uses Shadcn/ui (Radix UI + Tailwind CSS) for a modern, accessibl
         *   **Replace Strategy**: Each import deletes all previous KENP data and inserts new data (ensures data freshness)
         *   **6-Month Evolution Charts**: Interactive Recharts visualizations showing monthly KENP trends
         *   **Book-Level Analysis**: Individual book performance with trend calculations (comparing last 3 months vs previous 3 months)
-        *   **Automatic Recommendations**: Deterministic categorization system
-            *   **POTENCIAR** (Boost): Books with upward trend (>15%) AND high volume (>10k pages)
-            *   **OPTIMIZAR** (Optimize): Books with downward trend (<-15%) OR low volume (<5k pages)
-            *   **MANTENER** (Hold): Stable performance books
+        *   **Automatic Recommendations**: Deterministic categorization system with specific actionable advice
+            *   **POTENCIAR** (Boost): Books with upward trend (>15%) AND high volume (>10k pages) - Suggests raising price or creating sequel
+            *   **OPTIMIZAR METADATOS** (Optimize Metadata): Books with downward trend (<-15%) - Suggests reviewing cover, description, price, and keywords
+            *   **AUMENTAR PROMO** (Increase Promotion): Books with low volume (<5k pages) - Suggests increasing visibility with Amazon Ads or promotions
+            *   **MANTENER** (Hold): Stable performance books - Suggests continuing current strategy
+        *   **Partial Month Detection**: Excludes publication month from trend calculations if book was published after day 7 of the month
         *   **API Endpoints**: POST /api/aura/import/kenp, GET /api/aura/kenp, GET /api/aura/kenp/book/:bookId, GET /api/aura/kenp/asin/:asin
         *   **Dashboard Integration**: Promotional card highlighting Unlimited importance with direct link
     *   **Future Features**: Amazon Ads and Meta Ads API integration, background job status tracking, AI failure observability
