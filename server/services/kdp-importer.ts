@@ -366,6 +366,7 @@ export async function importKdpXlsx(
             saleDate,
             marketplace,
             transactionType: transactionType as any,
+            royaltyType: row['Tipo de regalía'], // Guardar tipo de regalía para detectar formato del libro
             royalty: row['Regalías'].toString(),
             currency: row['Moneda'],
             unitsOrPages: row['Unidades netas vendidas'],
@@ -795,9 +796,8 @@ export async function processSalesMonthlyData(batchId: string): Promise<SalesImp
         const saleDate = new Date(sale.saleDate);
         const month = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`;
         
-        // Obtener tipo de libro
-        const book = sale.bookId ? booksMap.get(sale.bookId) : null;
-        const bookType = book?.bookType || 'unknown';
+        // Detectar tipo de libro desde royaltyType (más confiable que aura_books)
+        const bookType = sale.royaltyType ? detectBookType(sale.royaltyType) : 'unknown';
         
         // Clave única: ASIN + mes + bookType
         const key = `${sale.asin}:${month}:${bookType}`;

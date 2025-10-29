@@ -307,6 +307,7 @@ export const kdpSales = pgTable("kdp_sales", {
   saleDate: timestamp("sale_date").notNull(),
   marketplace: text("marketplace").notNull(), // ej: "amazon.com", "amazon.es"
   transactionType: text("transaction_type").notNull(), // "Sale", "Refund", "Free", "KENP Read", "Borrow"
+  royaltyType: text("royalty_type"), // "Estándar", "Estándar - Tapa blanda", "Kindle Countdown Deals", etc.
   royalty: text("royalty").notNull(), // Guardamos como texto decimal
   currency: text("currency").notNull(), // USD, EUR, GBP, BRL, etc.
   unitsOrPages: integer("units_or_pages"), // unidades vendidas o páginas leídas
