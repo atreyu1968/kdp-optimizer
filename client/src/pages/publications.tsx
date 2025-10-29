@@ -9,6 +9,7 @@ import { ReschedulePublicationDialog } from "@/components/reschedule-publication
 import { DeletePublicationDialog } from "@/components/delete-publication-dialog";
 import { TaskChecklist } from "@/components/task-checklist";
 import { AllTasksView } from "@/components/all-tasks-view";
+import { FlagIcon } from "@/components/flag-icon";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -412,8 +413,9 @@ export default function Publications() {
                         key={key}
                         onClick={() => setMarketFilter(key)}
                         data-testid={`filter-market-${key}`}
+                        className="flex items-center gap-2"
                       >
-                        <span className="mr-2">{market.flag}</span>
+                        <FlagIcon countryCode={market.countryCode} size="sm" />
                         {market.name}
                       </DropdownMenuItem>
                     ))}
@@ -606,7 +608,7 @@ export default function Publications() {
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                                  <span className="text-2xl flex-shrink-0">{marketInfo.flag}</span>
+                                  <FlagIcon countryCode={marketInfo.countryCode} size="lg" className="flex-shrink-0" />
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium truncate">
                                       {marketInfo.name.split('(')[1]?.replace(')', '') || marketInfo.name}
@@ -931,11 +933,11 @@ export default function Publications() {
                                       <DropdownMenu key={pub.id}>
                                         <DropdownMenuTrigger asChild>
                                           <div
-                                            className="text-[10px] bg-secondary/50 rounded px-1 py-0.5 truncate cursor-pointer hover-elevate active-elevate-2"
+                                            className="text-[10px] bg-secondary/50 rounded px-1 py-0.5 truncate cursor-pointer hover-elevate active-elevate-2 flex items-center gap-1"
                                             title={`${manuscript?.originalTitle} - ${market?.name}`}
                                             data-testid={`calendar-publication-${pub.id}`}
                                           >
-                                            <span className="mr-1">{market?.flag}</span>
+                                            {market && <FlagIcon countryCode={market.countryCode} size="sm" />}
                                             <span className="truncate">{manuscript?.originalTitle}</span>
                                           </div>
                                         </DropdownMenuTrigger>
@@ -1050,7 +1052,7 @@ export default function Publications() {
                             const marketPubs = allPublications.filter(p => p.market === key);
                             return {
                               market: market.name.split(' (')[0],
-                              flag: market.flag,
+                              countryCode: market.countryCode,
                               publicadas: marketPubs.filter(p => p.status === "published").length,
                               programadas: marketPubs.filter(p => p.status === "scheduled").length,
                               total: marketPubs.length,
@@ -1071,8 +1073,9 @@ export default function Publications() {
                               if (active && payload && payload.length) {
                                 return (
                                   <div className="bg-card border rounded-md p-3 shadow-lg">
-                                    <p className="font-medium mb-2">
-                                      {payload[0].payload.flag} {payload[0].payload.market}
+                                    <p className="font-medium mb-2 flex items-center gap-2">
+                                      <FlagIcon countryCode={payload[0].payload.countryCode} size="sm" />
+                                      {payload[0].payload.market}
                                     </p>
                                     <p className="text-sm text-green-600">
                                       Publicadas: {payload[0].value}
@@ -1377,7 +1380,7 @@ export default function Publications() {
                               {index + 1}
                             </div>
                             <div className="flex items-center gap-2 flex-1">
-                              <span className="text-xl">{item.market.flag}</span>
+                              <FlagIcon countryCode={item.market.countryCode} size="md" />
                               <span className="font-medium">{item.market.name.split(' (')[0]}</span>
                             </div>
                             <div className="flex items-center gap-2">
