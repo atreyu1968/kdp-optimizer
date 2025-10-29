@@ -3,6 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   BookOpen, 
   TrendingUp, 
@@ -11,6 +19,8 @@ import {
   Calendar,
   Sparkles,
   Minus,
+  Search,
+  X,
 } from "lucide-react";
 import {
   LineChart,
@@ -24,7 +34,7 @@ import {
   BarChart,
   Bar,
 } from "recharts";
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -76,6 +86,9 @@ interface BookTrend {
 export default function AuraUnlimited() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [trendFilter, setTrendFilter] = useState<string>('all');
+  const [recommendationFilter, setRecommendationFilter] = useState<string>('all');
 
   const { data: kenpData, isLoading: loadingKenp, refetch } = useQuery<KenpMonthlyData[]>({
     queryKey: ['/api/aura/kenp'],
@@ -248,6 +261,29 @@ export default function AuraUnlimited() {
       avgPagesPerBook: uniqueBooks.size > 0 ? Math.round(totalPages / uniqueBooks.size) : 0,
     };
   }, [kenpData]);
+
+  // Filtrar bookTrends según los filtros activos
+  const filteredBookTrends = useMemo(() => {
+    if (!bookTrends) return [];
+
+    return bookTrends.filter(trend => {
+      // Filtro de búsqueda (título o autor)
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = searchQuery === '' || 
+        trend.title.toLowerCase().includes(searchLower) ||
+        trend.penName.toLowerCase().includes(searchLower) ||
+        trend.asin.toLowerCase().includes(searchLower);
+
+      // Filtro de tendencia
+      const matchesTrend = trendFilter === 'all' || trend.trend === trendFilter;
+
+      // Filtro de recomendación
+      const matchesRecommendation = recommendationFilter === 'all' || 
+        trend.recommendation === recommendationFilter;
+
+      return matchesSearch && matchesTrend && matchesRecommendation;
+    });
+  }, [bookTrends, searchQuery, trendFilter, recommendationFilter]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -470,13 +506,75 @@ export default function AuraUnlimited() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Filtros */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
+                {/* Búsqueda */}
+                <div className="relative md:col-span-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por título, autor o ASIN..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 pr-9"
+                    data-testid="input-search-books"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      data-testid="button-clear-search"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filtro de Tendencia */}
+                <Select value={trendFilter} onValueChange={setTrendFilter}>
+                  <SelectTrigger data-testid="select-trend-filter">
+                    <SelectValue placeholder="Todas las tendencias" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las tendencias</SelectItem>
+                    <SelectItem value="up">🔥 Al alza</SelectItem>
+                    <SelectItem value="stable">➖ Estable</SelectItem>
+                    <SelectItem value="down">📉 A la baja</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Filtro de Recomendación */}
+                <Select value={recommendationFilter} onValueChange={setRecommendationFilter}>
+                  <SelectTrigger data-testid="select-recommendation-filter">
+                    <SelectValue placeholder="Todas las recomendaciones" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las recomendaciones</SelectItem>
+                    <SelectItem value="POTENCIAR">🚀 Potenciar</SelectItem>
+                    <SelectItem value="MANTENER">✅ Mantener</SelectItem>
+                    <SelectItem value="OPTIMIZAR_METADATOS">🔧 Optimizar Metadatos</SelectItem>
+                    <SelectItem value="AUMENTAR_PROMO">📣 Aumentar Promoción</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Contador de resultados */}
+              {(searchQuery || trendFilter !== 'all' || recommendationFilter !== 'all') && (
+                <div className="mb-4 text-sm text-muted-foreground">
+                  Mostrando {filteredBookTrends.length} de {bookTrends.length} libros
+                </div>
+              )}
+
               <div className="space-y-4">
                 {bookTrends.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
                     No hay suficientes datos para generar tendencias
                   </p>
+                ) : filteredBookTrends.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No se encontraron libros que coincidan con los filtros
+                  </p>
                 ) : (
-                  bookTrends.map((trend) => {
+                  filteredBookTrends.map((trend) => {
                     const recConfig = getRecommendationConfig(trend.recommendation);
                     return (
                       <div 
