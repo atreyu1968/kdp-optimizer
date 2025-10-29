@@ -163,6 +163,7 @@ export interface IStorage {
   // Add Aura Book to Publication Calendar
   addAuraBookToCalendar(auraBookId: number): Promise<{ manuscriptId: number; publications: Publication[] }>;
   checkIfAuraBookInCalendar(auraBookId: number): Promise<number | null>;
+  addAllAuraBooksToCalendar(): Promise<{ added: number; skipped: number; errors: string[] }>;
 }
 
 export class DbStorage implements IStorage {
@@ -946,6 +947,51 @@ export class DbStorage implements IStorage {
     
     return matchingManuscript ? matchingManuscript.id : null;
   }
+  
+  // Add ALL Aura Books to Publication Calendar
+  async addAllAuraBooksToCalendar(): Promise<{ added: number; skipped: number; errors: string[] }> {
+    const stats = {
+      added: 0,
+      skipped: 0,
+      errors: [] as string[],
+    };
+    
+    try {
+      // Get all Aura books
+      const allBooks = await this.getAllAuraBooks();
+      
+      console.log(`[Add All to Calendar] Processing ${allBooks.length} books...`);
+      
+      for (const book of allBooks) {
+        try {
+          // Check if already in calendar
+          const existingManuscriptId = await this.checkIfAuraBookInCalendar(book.id);
+          
+          if (existingManuscriptId) {
+            stats.skipped++;
+            console.log(`[Add All to Calendar] Skipped book ${book.asin} - already in calendar`);
+            continue;
+          }
+          
+          // Add to calendar
+          await this.addAuraBookToCalendar(book.id);
+          stats.added++;
+          console.log(`[Add All to Calendar] Added book ${book.asin} to calendar`);
+        } catch (error) {
+          const errorMsg = `Error con libro ${book.asin}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          stats.errors.push(errorMsg);
+          console.error(`[Add All to Calendar] ${errorMsg}`);
+        }
+      }
+      
+      console.log(`[Add All to Calendar] Complete: ${stats.added} added, ${stats.skipped} skipped, ${stats.errors.length} errors`);
+      
+      return stats;
+    } catch (error) {
+      stats.errors.push(`Error fatal: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -1261,6 +1307,10 @@ export class MemStorage implements IStorage {
   }
   
   async checkIfAuraBookInCalendar(auraBookId: number): Promise<number | null> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+  
+  async addAllAuraBooksToCalendar(): Promise<{ added: number; skipped: number; errors: string[] }> {
     throw new Error("MemStorage does not support Aura operations");
   }
 }
