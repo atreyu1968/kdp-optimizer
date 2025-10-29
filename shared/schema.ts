@@ -372,3 +372,25 @@ export const insertBookInsightSchema = createInsertSchema(auraBookInsights).omit
 });
 export type InsertBookInsight = z.infer<typeof insertBookInsightSchema>;
 export type BookInsight = typeof auraBookInsights.$inferSelect;
+
+// Tabla de datos mensuales KENP (Kindle Unlimited)
+// Almacena páginas KENP leídas agregadas por mes/libro
+// IMPORTANTE: Al importar un archivo nuevo, se REEMPLAZAN todos los datos anteriores
+export const kenpMonthlyData = pgTable("kenp_monthly_data", {
+  id: serial("id").primaryKey(),
+  bookId: integer("book_id").references(() => auraBooks.id), // nullable - puede haber ASINs sin libro registrado
+  asin: text("asin").notNull(), // ASIN del libro
+  penNameId: integer("pen_name_id").notNull().references(() => penNames.id),
+  month: text("month").notNull(), // Formato: 'YYYY-MM' ej: '2025-10'
+  totalKenpPages: integer("total_kenp_pages").notNull().default(0),
+  marketplaces: text("marketplaces").array().notNull(), // array de marketplaces donde se leyó
+  importedAt: timestamp("imported_at").defaultNow().notNull(), // Cuándo se importó este lote
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertKenpMonthlyDataSchema = createInsertSchema(kenpMonthlyData).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export type InsertKenpMonthlyData = z.infer<typeof insertKenpMonthlyDataSchema>;
+export type KenpMonthlyData = typeof kenpMonthlyData.$inferSelect;
