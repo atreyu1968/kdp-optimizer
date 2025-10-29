@@ -11,7 +11,7 @@ import {
   markPublicationAsPublished,
 } from "./services/publication-scheduler";
 import { createDefaultTasks, updateTaskDueDates } from "./services/default-tasks";
-import { importKdpXlsx } from "./services/kdp-importer";
+import { importKdpXlsx, importKenpMonthlyData } from "./services/kdp-importer";
 import { analyzeAllBooks, getEnrichedInsights } from "./services/book-analyzer";
 import multer from "multer";
 import { join } from "path";
@@ -999,6 +999,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching sales by pen name:", error);
       res.status(500).json({ error: "Failed to fetch sales by pen name" });
+    }
+  });
+
+  // ========== AURA UNLIMITED - KENP MONTHLY DATA ==========
+
+  // Importar archivo XLSX de KENP (Aura Unlimited)
+  app.post("/api/aura/import/kenp", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: "No file uploaded" });
+        return;
+      }
+
+      console.log(`[KENP Import] Procesando archivo: ${req.file.filename}`);
+      
+      const stats = await importKenpMonthlyData(req.file.path);
+      
+      res.json({
+        success: true,
+        message: "Importación KENP completada exitosamente. Datos anteriores reemplazados.",
+        stats
+      });
+    } catch (error) {
+      console.error("Error importing KENP file:", error);
+      res.status(500).json({ 
+        error: "Failed to import KENP file",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Obtener todos los datos KENP mensuales
+  app.get("/api/aura/kenp", async (req, res) => {
+    try {
+      const kenpData = await storage.getAllKenpMonthlyData();
+      res.json(kenpData);
+    } catch (error) {
+      console.error("Error fetching KENP data:", error);
+      res.status(500).json({ error: "Failed to fetch KENP data" });
+    }
+  });
+
+  // Obtener datos KENP por libro
+  app.get("/api/aura/kenp/book/:bookId", async (req, res) => {
+    try {
+      const bookId = parseInt(req.params.bookId);
+      if (isNaN(bookId)) {
+        res.status(400).json({ error: "Invalid book ID" });
+        return;
+      }
+
+      const kenpData = await storage.getKenpMonthlyDataByBook(bookId);
+      res.json(kenpData);
+    } catch (error) {
+      console.error("Error fetching KENP data by book:", error);
+      res.status(500).json({ error: "Failed to fetch KENP data by book" });
+    }
+  });
+
+  // Obtener datos KENP por ASIN
+  app.get("/api/aura/kenp/asin/:asin", async (req, res) => {
+    try {
+      const asin = req.params.asin;
+      const kenpData = await storage.getKenpMonthlyDataByAsin(asin);
+      res.json(kenpData);
+    } catch (error) {
+      console.error("Error fetching KENP data by ASIN:", error);
+      res.status(500).json({ error: "Failed to fetch KENP data by ASIN" });
     }
   });
 
