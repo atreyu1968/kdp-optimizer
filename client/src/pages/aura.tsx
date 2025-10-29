@@ -12,6 +12,7 @@ import AuraSeries from "@/pages/aura-series";
 import AuraBooks from "@/pages/aura-books";
 import AuraSales from "@/pages/aura-sales";
 import AuraInsights from "@/pages/aura-insights";
+import AuraUnlimited from "@/pages/aura-unlimited";
 
 export default function Aura() {
   const style = {
@@ -38,6 +39,7 @@ export default function Aura() {
               <Route path="/aura" component={AuraDashboard} />
               <Route path="/aura/import" component={AuraImportPage} />
               <Route path="/aura/insights" component={AuraInsights} />
+              <Route path="/aura/unlimited" component={AuraUnlimited} />
               <Route path="/aura/pen-names" component={AuraPenNames} />
               <Route path="/aura/series" component={AuraSeries} />
               <Route path="/aura/books" component={AuraBooks} />
