@@ -19,6 +19,7 @@ import { ResultsPanel } from "@/components/results-panel";
 import { CopyButton } from "@/components/copy-button";
 import { CodeViewer } from "@/components/code-viewer";
 import { KeywordFields } from "@/components/keyword-fields";
+import { FlagIcon } from "@/components/flag-icon";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { amazonMarkets, type Manuscript, type Optimization, type UploadProgress, type OptimizationResult, type MarketMetadata } from "@shared/schema";
@@ -520,8 +521,9 @@ export default function Library() {
                                               {optimization.targetMarkets.map((market) => {
                                                 const marketInfo = amazonMarkets[market as keyof typeof amazonMarkets];
                                                 return marketInfo ? (
-                                                  <Badge key={market} variant="outline" className="text-xs">
-                                                    {marketInfo.flag} {marketInfo.name}
+                                                  <Badge key={market} variant="outline" className="text-xs flex items-center gap-1.5">
+                                                    <FlagIcon countryCode={marketInfo.countryCode} size="sm" />
+                                                    {marketInfo.name}
                                                   </Badge>
                                                 ) : null;
                                               })}
@@ -590,7 +592,7 @@ export default function Library() {
                       htmlFor={key}
                       className="flex items-center gap-2 text-sm font-medium cursor-pointer flex-1"
                     >
-                      <span className="text-lg">{market.flag}</span>
+                      <FlagIcon countryCode={market.countryCode} size="md" />
                       <span className="text-foreground">{market.name}</span>
                     </label>
                   </div>
@@ -659,10 +661,10 @@ export default function Library() {
                         <TabsTrigger
                           key={market}
                           value={market}
-                          className="data-[state=active]:bg-background px-4 py-2"
+                          className="data-[state=active]:bg-background px-4 py-2 flex items-center gap-2"
                           data-testid={`tab-${market}`}
                         >
-                          <span className="text-xl mr-2">{m.flag}</span>
+                          <FlagIcon countryCode={m.countryCode} size="md" />
                           <span className="text-sm font-medium">{m.name}</span>
                         </TabsTrigger>
                       ) : null;
