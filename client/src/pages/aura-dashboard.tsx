@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarChart3, Users, BookOpen, TrendingUp } from "lucide-react";
+import { BarChart3, Users, BookOpen, TrendingUp, Zap, ArrowRight } from "lucide-react";
+import { Link } from "wouter";
 import {
   AreaChart,
   Area,
@@ -293,6 +295,31 @@ export default function AuraDashboard() {
         </Card>
       ) : (
         <>
+          {/* Aura Unlimited Promo Card */}
+          <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20">
+            <CardContent className="py-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Zap className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">Aura Unlimited - Análisis KENP</h3>
+                    <p className="text-sm text-muted-foreground">
+                      70% de tu facturación proviene de Amazon Unlimited. Analiza la evolución de tus páginas KENP.
+                    </p>
+                  </div>
+                </div>
+                <Link href="/aura/unlimited">
+                  <Button variant="default" data-testid="button-go-unlimited">
+                    Ver Análisis
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Charts Section */}
           <div className="grid gap-4 md:grid-cols-2">
             {/* Royalty by Date */}
