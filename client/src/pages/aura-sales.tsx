@@ -93,6 +93,18 @@ export default function AuraSales() {
 
   const isLoading = isLoadingSales || isLoadingBooks || isLoadingPenNames;
 
+  // Helper: Generar últimos 6 meses calendario en formato YYYY-MM
+  const getLast6Months = () => {
+    const months: string[] = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      months.push(monthStr);
+    }
+    return months;
+  };
+
   // Calcular tendencias por libro discriminando por tipo Y moneda
   const bookTrends = useMemo<BookSalesTrend[]>(() => {
     if (!salesData.length || !books.length || !penNames.length) return [];
@@ -109,6 +121,7 @@ export default function AuraSales() {
     });
 
     const trends: BookSalesTrend[] = [];
+    const last6MonthsCalendar = getLast6Months();
 
     bookMap.forEach((records, key) => {
       const [asin, bookType, currency] = key.split(":");
@@ -118,22 +131,30 @@ export default function AuraSales() {
       const penName = penNames.find((p) => p.id === book.penNameId);
       if (!penName) return;
 
-      // Ordenar por mes (más reciente primero)
-      const sortedRecords = [...records].sort((a, b) => b.month.localeCompare(a.month));
+      // Crear mapa de registros por mes
+      const recordsByMonth = new Map<string, SalesMonthlyData>();
+      records.forEach(r => recordsByMonth.set(r.month, r));
 
-      // Últimos 6 meses de datos
-      const last6Months = sortedRecords.slice(0, 6).reverse();
+      // Rellenar últimos 6 meses (con 0 si no hay datos)
+      const last6Months = last6MonthsCalendar.map(month => {
+        const record = recordsByMonth.get(month);
+        return {
+          month,
+          units: record?.totalUnits || 0,
+          royalty: record ? parseFloat(record.totalRoyalty) : 0,
+        };
+      });
 
       // Calcular totales
-      const totalUnitsLast6 = last6Months.reduce((sum, r) => sum + r.totalUnits, 0);
-      const totalRoyaltyLast6 = last6Months.reduce((sum, r) => sum + parseFloat(r.totalRoyalty), 0);
+      const totalUnitsLast6 = last6Months.reduce((sum, r) => sum + r.units, 0);
+      const totalRoyaltyLast6 = last6Months.reduce((sum, r) => sum + r.royalty, 0);
 
       // Calcular tendencia (comparar últimos 3 meses vs 3 anteriores)
       const last3 = last6Months.slice(3);
       const prev3 = last6Months.slice(0, 3);
 
-      const unitsLast3 = last3.reduce((sum, r) => sum + r.totalUnits, 0);
-      const unitsPrev3 = prev3.reduce((sum, r) => sum + r.totalUnits, 0);
+      const unitsLast3 = last3.reduce((sum, r) => sum + r.units, 0);
+      const unitsPrev3 = prev3.reduce((sum, r) => sum + r.units, 0);
 
       let trend = 0;
       if (unitsPrev3 > 0) {

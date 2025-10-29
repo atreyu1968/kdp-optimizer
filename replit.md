@@ -30,8 +30,8 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
 *   **Aura Analytics System**:
     *   **KDP XLSX Importer**: Parses KDP Dashboard XLSX files, identifies pseudonyms, and registers books with marketplace tracking. Automatically detects book types and filters printed books from KENP analyses.
     *   **AI Book Insights**: Uses GPT-4o-mini for intelligent book performance analysis, categorizing books for optimization, pricing, or hold strategies, and caching results.
-    *   **Aura Unlimited (KENP Analysis)**: Imports and aggregates monthly KENP data for trend analysis, providing book-level insights and recommendations (Boost, Optimize Metadata, Increase Promotion, Hold).
-    *   **Aura Ventas (Sales Analysis)**: Processes combined sales data, discriminating by book type and currency, and offering recommendations based on sales performance (Raise Price, Optimize, Increase Promotion, Hold).
+    *   **Aura Unlimited (KENP Analysis)**: Imports and aggregates monthly KENP data for trend analysis, providing book-level insights and recommendations (Boost, Optimize Metadata, Increase Promotion, Hold). Automatically fills missing months with 0 values to accurately detect declining trends.
+    *   **Aura Ventas (Sales Analysis)**: Processes combined sales data, discriminating by book type and currency, and offering recommendations based on sales performance (Raise Price, Optimize, Increase Promotion, Hold). Currency-segregated metrics prevent mixing royalties across USD/EUR/GBP. Integrated import button for convenience.
     *   **Aura Seudónimos**: Provides consolidated pseudonym management with grouped books, key metrics, and direct navigation to detailed analytics.
     *   **Book Events System**: Tracks promotional activities and optimizations to correlate with performance changes.
 

@@ -228,6 +228,18 @@ export default function AuraUnlimited() {
       .sort((a, b) => a.title.localeCompare(b.title));
   }, [books, kenpData, penNames]);
 
+  // Helper: Generar últimos 6 meses calendario en formato YYYY-MM
+  const getLast6MonthsCalendar = () => {
+    const months: string[] = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      months.push(monthStr);
+    }
+    return months;
+  };
+
   // Calcular tendencias por libro
   const bookTrends = useMemo<BookTrend[]>(() => {
     if (!kenpData || !books || !penNames) return [];
@@ -240,6 +252,7 @@ export default function AuraUnlimited() {
     });
 
     const trends: BookTrend[] = [];
+    const last6MonthsCalendar = getLast6MonthsCalendar();
 
     bookMap.forEach((records, asin) => {
       const book = books.find(b => b.asin === asin);
@@ -258,24 +271,28 @@ export default function AuraUnlimited() {
       const publishMonth = book.publishDate ? new Date(book.publishDate).toISOString().slice(0, 7) : null;
       const publishDay = book.publishDate ? new Date(book.publishDate).getDate() : 1;
       
-      // Ordenar por mes y tomar últimos 6
-      const sortedRecords = records
-        .sort((a, b) => a.month.localeCompare(b.month))
-        .slice(-6);
+      // Crear mapa de registros por mes
+      const recordsByMonth = new Map<string, KenpMonthlyData>();
+      records.forEach(r => recordsByMonth.set(r.month, r));
 
-      // Filtrar meses completos: excluir el mes de publicación si se publicó después del día 7
-      const completeMonthsRecords = sortedRecords.filter(r => {
+      // Rellenar últimos 6 meses (con 0 si no hay datos)
+      const last6Months = last6MonthsCalendar.map(month => {
+        const record = recordsByMonth.get(month);
+        return {
+          month,
+          pages: record?.totalKenpPages || 0,
+        };
+      });
+
+      // Filtrar meses completos para cálculo de tendencias
+      // excluir el mes de publicación si se publicó después del día 7
+      const completeMonthsRecords = last6Months.filter(r => {
         if (!publishMonth) return true; // Si no hay fecha de publicación, asumir todos completos
         if (r.month !== publishMonth) return true; // Meses diferentes al de publicación son completos
         return publishDay <= 7; // El mes de publicación es completo solo si se publicó antes del día 7
       });
 
-      const last6Months = sortedRecords.map(r => ({
-        month: r.month,
-        pages: r.totalKenpPages,
-      }));
-
-      const totalPages = sortedRecords.reduce((sum, r) => sum + r.totalKenpPages, 0);
+      const totalPages = last6Months.reduce((sum, r) => sum + r.pages, 0);
 
       // Calcular tendencia comparando últimos 3 meses vs anteriores 3 meses
       // IMPORTANTE: Usar solo meses completos para el cálculo de tendencias
@@ -288,8 +305,8 @@ export default function AuraUnlimited() {
         const previous3 = completeMonthsRecords.slice(-6, -3);
 
         // Sumar páginas de cada periodo
-        const recentTotal = recent3.reduce((sum, r) => sum + r.totalKenpPages, 0);
-        const previousTotal = previous3.reduce((sum, r) => sum + r.totalKenpPages, 0);
+        const recentTotal = recent3.reduce((sum, r) => sum + r.pages, 0);
+        const previousTotal = previous3.reduce((sum, r) => sum + r.pages, 0);
 
         if (previousTotal > 0) {
           trendPercentage = Math.round(((recentTotal - previousTotal) / previousTotal) * 100);
@@ -303,8 +320,8 @@ export default function AuraUnlimited() {
         const recent3 = completeMonthsRecords.slice(-3);
         const first3 = completeMonthsRecords.slice(0, 3);
         
-        const recentTotal = recent3.reduce((sum, r) => sum + r.totalKenpPages, 0);
-        const firstTotal = first3.reduce((sum, r) => sum + r.totalKenpPages, 0);
+        const recentTotal = recent3.reduce((sum, r) => sum + r.pages, 0);
+        const firstTotal = first3.reduce((sum, r) => sum + r.pages, 0);
         
         if (firstTotal > 0 && recent3.length === 3 && first3.length === 3) {
           trendPercentage = Math.round(((recentTotal - firstTotal) / firstTotal) * 100);
