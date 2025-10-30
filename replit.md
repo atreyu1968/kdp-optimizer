@@ -46,6 +46,15 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
     *   **Aura Unlimited (KENP Analysis)**: Imports and aggregates monthly KENP data for trend analysis, providing book-level insights and recommendations (Boost, Optimize Metadata, Increase Promotion, Hold). Automatically fills missing months with 0 values to accurately detect declining trends. Import dialog with dual callbacks: `onImportComplete` triggers explicit refetch of queries, `onClose` handles dialog dismissal.
     *   **Aura Ventas (Sales Analysis)**: Processes combined sales data, discriminating by book type and currency, and offering recommendations based on sales performance (Raise Price, Optimize, Increase Promotion, Hold). Currency-segregated metrics prevent mixing royalties across USD/EUR/GBP. Integrated import button with explicit data refresh after import completion.
     *   **Aura Seudónimos**: Provides consolidated pseudonym management with grouped books, key metrics, and direct navigation to detailed analytics. Implements ASIN-based deduplication with metadata merging (unique marketplaces, longest subtitle, earliest publish date) to prevent duplicate book listings.
+        - **Pen Name Consolidation System**: Detects and merges duplicate pen names that differ only in case or accidental variations. Features include:
+            - Automatic duplicate detection using case-insensitive grouping
+            - "Consolidar Duplicados" button shows count of duplicates detected
+            - Dialog displays all duplicate groups with their IDs and associated book counts
+            - Merges all data to the oldest ID (lowest ID number) and deletes duplicates
+            - Reassigns 5 types of related data: books, series, sales records, KENP data, and sales monthly data
+            - Sequential operations (Neon HTTP driver limitation - no transaction support)
+            - Success toast shows detailed statistics: duplicates removed, books/series/sales/KENP/sales data reassigned
+            - KDP importer now uses case-insensitive lookup to prevent future duplicates
     *   **Book Events System**: Tracks promotional activities and optimizations to correlate with performance changes. Uses `z.coerce.date()` in `insertBookEventSchema` to accept date strings from HTML input type="date" and convert them automatically to Date objects for PostgreSQL timestamp storage.
     *   **Calendar Integration**: Imported KDP books can be added to the publications calendar system. When a book is added, a "dummy" manuscript is created with status "published", and publication records are generated for each marketplace. Books already in the calendar are indicated with a "Ver en Calendario" button.
     *   **Search and Filter Capabilities**: All Aura management pages (Books, Series, Pen Names) feature comprehensive search and filtering:
@@ -70,3 +79,4 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
     - Series selection properly handles null values (no series assigned)
     - Round-trip data integrity: null → "Sin serie" display → null on save
     - Affected files: `client/src/pages/aura-books.tsx` (both create and edit forms)
+*   **Consolidation Toast Values**: Fixed "undefined" values in consolidation success toast. The `apiRequest` function returns a `Response` object, not parsed JSON. Added `.json()` call in mutation: `const res = await apiRequest(...); return await res.json();` to properly parse the response and display numeric statistics in the toast message.
