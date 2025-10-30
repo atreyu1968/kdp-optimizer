@@ -458,6 +458,7 @@ export const insertBookEventSchema = createInsertSchema(auraBookEvents).omit({
   updatedAt: true
 }).extend({
   eventType: z.enum(bookEventTypes),
+  eventDate: z.coerce.date(), // Acepta string o Date y lo convierte a Date
 });
 export type InsertBookEvent = z.infer<typeof insertBookEventSchema>;
 export type BookEvent = typeof auraBookEvents.$inferSelect;

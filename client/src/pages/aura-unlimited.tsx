@@ -156,7 +156,7 @@ export default function AuraUnlimited() {
 
   const createEventMutation = useMutation({
     mutationFn: async (eventData: any) => {
-      return await apiRequest('/api/aura/events', 'POST', eventData);
+      return await apiRequest('POST', '/api/aura/events', eventData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/aura/events'] });

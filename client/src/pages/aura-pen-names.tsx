@@ -257,7 +257,7 @@ export default function AuraPenNames() {
 
   const createEventMutation = useMutation({
     mutationFn: async (data: EventForm & { bookId: number; asin: string }) => {
-      return await apiRequest('/api/aura/events', 'POST', data);
+      return await apiRequest('POST', '/api/aura/events', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/aura/events'] });
@@ -329,7 +329,7 @@ export default function AuraPenNames() {
   const handleCreate = async (data: PenNameForm) => {
     setIsSubmitting(true);
     try {
-      await apiRequest('/api/aura/pen-names', 'POST', {
+      await apiRequest('POST', '/api/aura/pen-names', {
         name: data.name,
         description: data.description || null,
       });
@@ -359,7 +359,7 @@ export default function AuraPenNames() {
 
     setIsSubmitting(true);
     try {
-      await apiRequest(`/api/aura/pen-names/${selectedPenName.id}`, 'PUT', {
+      await apiRequest('PUT', `/api/aura/pen-names/${selectedPenName.id}`, {
         name: data.name,
         description: data.description || null,
       });
@@ -390,7 +390,7 @@ export default function AuraPenNames() {
 
     setIsSubmitting(true);
     try {
-      await apiRequest(`/api/aura/pen-names/${selectedPenName.id}`, 'DELETE');
+      await apiRequest('DELETE', `/api/aura/pen-names/${selectedPenName.id}`);
 
       await queryClient.invalidateQueries({ queryKey: ['/api/aura/pen-names'] });
       await queryClient.invalidateQueries({ queryKey: ['/api/aura/books'] });
