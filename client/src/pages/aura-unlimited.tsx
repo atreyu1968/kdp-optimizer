@@ -95,6 +95,7 @@ interface BookTrend {
   totalPages: number;
   trend: 'up' | 'down' | 'stable';
   trendPercentage: number;
+  hasIrregularPattern: boolean;
   recommendation: 'POTENCIAR' | 'MANTENER' | 'OPTIMIZAR_METADATOS' | 'AUMENTAR_PROMO';
   recommendationReason: string;
 }
@@ -322,41 +323,39 @@ export default function AuraUnlimited() {
 
       const totalPages = last6Months.reduce((sum, r) => sum + r.pages, 0);
 
-      // Calcular tendencia comparando últimos 3 meses vs anteriores 3 meses
-      // IMPORTANTE: Usar solo meses completos para el cálculo de tendencias
+      // Calcular tendencia comparando el último mes completo con el mes anterior
+      // Esto es más simple e intuitivo que promedios de 3 meses
       let trend: 'up' | 'down' | 'stable' = 'stable';
       let trendPercentage = 0;
+      let hasIrregularPattern = false;
 
-      // Solo calcular tendencia si hay al menos 6 meses completos (para comparar 3 vs 3)
-      if (completeMonthsRecords.length >= 6) {
-        const recent3 = completeMonthsRecords.slice(-3);
-        const previous3 = completeMonthsRecords.slice(-6, -3);
+      // Necesitamos al menos 2 meses completos para comparar
+      if (completeMonthsRecords.length >= 2) {
+        const lastMonth = completeMonthsRecords[completeMonthsRecords.length - 1];
+        const previousMonth = completeMonthsRecords[completeMonthsRecords.length - 2];
 
-        // Sumar páginas de cada periodo
-        const recentTotal = recent3.reduce((sum, r) => sum + r.pages, 0);
-        const previousTotal = previous3.reduce((sum, r) => sum + r.pages, 0);
+        const lastMonthPages = lastMonth.pages;
+        const previousMonthPages = previousMonth.pages;
 
-        if (previousTotal > 0) {
-          trendPercentage = Math.round(((recentTotal - previousTotal) / previousTotal) * 100);
+        if (previousMonthPages > 0) {
+          const rawPercentage = ((lastMonthPages - previousMonthPages) / previousMonthPages) * 100;
+          
+          // Detectar picos atípicos: si el cambio es extremo (>500%)
+          if (Math.abs(rawPercentage) > 500) {
+            hasIrregularPattern = true;
+          }
+          
+          // Limitar el porcentaje a ±999% para evitar valores extremos confusos
+          trendPercentage = Math.round(Math.max(-999, Math.min(999, rawPercentage)));
           
           if (trendPercentage > 15) trend = 'up';
           else if (trendPercentage < -15) trend = 'down';
           else trend = 'stable';
-        }
-      } else if (completeMonthsRecords.length >= 3) {
-        // Si hay menos de 6 meses completos pero al menos 3, comparar últimos 3 vs primeros 3
-        const recent3 = completeMonthsRecords.slice(-3);
-        const first3 = completeMonthsRecords.slice(0, 3);
-        
-        const recentTotal = recent3.reduce((sum, r) => sum + r.pages, 0);
-        const firstTotal = first3.reduce((sum, r) => sum + r.pages, 0);
-        
-        if (firstTotal > 0 && recent3.length === 3 && first3.length === 3) {
-          trendPercentage = Math.round(((recentTotal - firstTotal) / firstTotal) * 100);
-          
-          if (trendPercentage > 15) trend = 'up';
-          else if (trendPercentage < -15) trend = 'down';
-          else trend = 'stable';
+        } else if (lastMonthPages > 0) {
+          // Si el mes anterior tenía 0 páginas pero el último mes tiene datos
+          trendPercentage = 999; // Máximo
+          trend = 'up';
+          hasIrregularPattern = true;
         }
       }
 
@@ -364,7 +363,19 @@ export default function AuraUnlimited() {
       let recommendation: 'POTENCIAR' | 'MANTENER' | 'OPTIMIZAR_METADATOS' | 'AUMENTAR_PROMO' = 'MANTENER';
       let recommendationReason = '';
 
-      if (trend === 'up' && totalPages > 10000) {
+      // Si hay patrón irregular, priorizar volumen total sobre tendencia
+      if (hasIrregularPattern) {
+        if (totalPages < 5000) {
+          recommendation = 'AUMENTAR_PROMO';
+          recommendationReason = 'Bajo volumen de lecturas con patrón irregular (probablemente pico promocional). Aumenta visibilidad constante con Amazon Ads.';
+        } else if (totalPages > 10000) {
+          recommendation = 'MANTENER';
+          recommendationReason = 'Rendimiento variable con picos promocionales. Analiza qué acciones generaron los picos para replicarlas.';
+        } else {
+          recommendation = 'MANTENER';
+          recommendationReason = 'Patrón de lecturas irregular. Necesita más datos para evaluar tendencia real.';
+        }
+      } else if (trend === 'up' && totalPages > 10000) {
         recommendation = 'POTENCIAR';
         recommendationReason = 'Alto rendimiento y tendencia positiva. Considera subir precio o crear secuela.';
       } else if (trend === 'down') {
@@ -389,6 +400,7 @@ export default function AuraUnlimited() {
         totalPages,
         trend,
         trendPercentage,
+        hasIrregularPattern,
         recommendation,
         recommendationReason,
       });
@@ -779,6 +791,7 @@ export default function AuraUnlimited() {
                               )}
                               <p 
                                 className={`text-2xl font-bold ${
+                                  trend.hasIrregularPattern ? 'text-orange-600' :
                                   trend.trend === 'up' ? 'text-green-600' : 
                                   trend.trend === 'down' ? 'text-red-600' : 
                                   'text-muted-foreground'
@@ -789,7 +802,9 @@ export default function AuraUnlimited() {
                               </p>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              {trend.trendPercentage === 0 ? 'Datos insuficientes' : 'Tendencia (meses completos)'}
+                              {trend.trendPercentage === 0 ? 'Datos insuficientes' : 
+                               trend.hasIrregularPattern ? 'Patrón irregular' : 
+                               'Tendencia (vs mes anterior)'}
                             </p>
                           </div>
                           <div>
