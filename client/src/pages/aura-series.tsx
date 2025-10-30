@@ -119,11 +119,11 @@ export default function AuraSeries() {
     queryKey: ['/api/aura/pen-names'],
   });
 
-  const { data: series, isLoading } = useQuery<BookSeries[]>({
+  const { data: series, isLoading, refetch: refetchSeries } = useQuery<BookSeries[]>({
     queryKey: ['/api/aura/series'],
   });
 
-  const { data: books } = useQuery<AuraBook[]>({
+  const { data: books, refetch: refetchBooks } = useQuery<AuraBook[]>({
     queryKey: ['/api/aura/books'],
   });
 
@@ -172,6 +172,9 @@ export default function AuraSeries() {
 
       await queryClient.invalidateQueries({ queryKey: ['/api/aura/series'] });
       
+      // Refetch explícitamente debido a staleTime: Infinity
+      await refetchSeries();
+      
       toast({
         title: "Éxito",
         description: "Serie creada correctamente",
@@ -204,6 +207,9 @@ export default function AuraSeries() {
 
       await queryClient.invalidateQueries({ queryKey: ['/api/aura/series'] });
       
+      // Refetch explícitamente debido a staleTime: Infinity
+      await refetchSeries();
+      
       toast({
         title: "Éxito",
         description: "Serie actualizada correctamente",
@@ -232,6 +238,9 @@ export default function AuraSeries() {
 
       await queryClient.invalidateQueries({ queryKey: ['/api/aura/series'] });
       await queryClient.invalidateQueries({ queryKey: ['/api/aura/books'] });
+      
+      // Refetch explícitamente debido a staleTime: Infinity
+      await Promise.all([refetchSeries(), refetchBooks()]);
       
       toast({
         title: "Éxito",

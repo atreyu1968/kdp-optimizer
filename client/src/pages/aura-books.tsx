@@ -130,7 +130,7 @@ export default function AuraBooks() {
     queryKey: ['/api/aura/series'],
   });
 
-  const { data: books, isLoading } = useQuery<AuraBook[]>({
+  const { data: books, isLoading, refetch: refetchBooks } = useQuery<AuraBook[]>({
     queryKey: ['/api/aura/books'],
   });
 
@@ -183,6 +183,9 @@ export default function AuraBooks() {
 
       await queryClient.invalidateQueries({ queryKey: ['/api/aura/books'] });
       
+      // Refetch explícitamente debido a staleTime: Infinity
+      await refetchBooks();
+      
       toast({
         title: "Éxito",
         description: "Libro creado correctamente",
@@ -214,6 +217,9 @@ export default function AuraBooks() {
 
       await queryClient.invalidateQueries({ queryKey: ['/api/aura/books'] });
       
+      // Refetch explícitamente debido a staleTime: Infinity
+      await refetchBooks();
+      
       toast({
         title: "Éxito",
         description: "Libro actualizado correctamente",
@@ -241,6 +247,9 @@ export default function AuraBooks() {
       await apiRequest('DELETE', `/api/aura/books/${selectedBook.id}`);
 
       await queryClient.invalidateQueries({ queryKey: ['/api/aura/books'] });
+      
+      // Refetch explícitamente debido a staleTime: Infinity
+      await refetchBooks();
       
       toast({
         title: "Éxito",
