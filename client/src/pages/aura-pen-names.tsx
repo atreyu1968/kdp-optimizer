@@ -61,7 +61,8 @@ import {
   ShoppingCart,
   Calendar,
   Flag,
-  Globe
+  Globe,
+  Search
 } from "lucide-react";
 import { Link } from "wouter";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
@@ -141,6 +142,8 @@ export default function AuraPenNames() {
   const [isCreateEventDialogOpen, setIsCreateEventDialogOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<{ bookId: number; asin: string; title: string } | null>(null);
   const [isAddingAllToCalendar, setIsAddingAllToCalendar] = useState(false);
+  
+  const [searchQuery, setSearchQuery] = useState("");
 
   const createForm = useForm<PenNameForm>({
     resolver: zodResolver(penNameFormSchema),
@@ -203,12 +206,23 @@ export default function AuraPenNames() {
     return Array.from(nameMap.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [penNames]);
 
+  const filteredPenNames = useMemo(() => {
+    if (!consolidatedPenNames) return [];
+    
+    return consolidatedPenNames.filter(penName => {
+      const matchesSearch = searchQuery === "" || 
+        penName.name.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      return matchesSearch;
+    });
+  }, [consolidatedPenNames, searchQuery]);
+
   const booksByPenName = useMemo(() => {
-    if (!books || !consolidatedPenNames) return new Map();
+    if (!books || !filteredPenNames) return new Map();
     
     const map = new Map<string, AuraBook[]>();
     
-    consolidatedPenNames.forEach(penName => {
+    filteredPenNames.forEach(penName => {
       const penNameBooks = books.filter(book => 
         penName.ids.includes(book.penNameId)
       );
@@ -243,7 +257,7 @@ export default function AuraPenNames() {
     });
     
     return map;
-  }, [books, consolidatedPenNames]);
+  }, [books, filteredPenNames]);
 
   const togglePenName = (name: string) => {
     const newExpanded = new Set(expandedPenNames);
@@ -520,8 +534,33 @@ export default function AuraPenNames() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {consolidatedPenNames.map((penName) => {
+        <>
+          <Card>
+            <CardContent className="p-6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="Buscar seudónimo..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search-pennames"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {filteredPenNames.length === 0 ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <p className="text-muted-foreground">
+                  No se encontraron seudónimos que coincidan con la búsqueda.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {filteredPenNames.map((penName) => {
             const penNameBooks = booksByPenName.get(penName.name) || [];
             const isExpanded = expandedPenNames.has(penName.name);
             
@@ -687,7 +726,9 @@ export default function AuraPenNames() {
               </Card>
             );
           })}
-        </div>
+            </div>
+          )}
+        </>
       )}
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>

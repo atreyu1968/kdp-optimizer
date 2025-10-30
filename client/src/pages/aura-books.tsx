@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -50,7 +50,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const bookFormSchema = z.object({
@@ -95,6 +95,10 @@ export default function AuraBooks() {
   const [selectedBook, setSelectedBook] = useState<AuraBook | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterPenName, setFilterPenName] = useState("all");
+  const [filterSeries, setFilterSeries] = useState("all");
 
   const createForm = useForm<BookForm>({
     resolver: zodResolver(bookFormSchema),
@@ -130,9 +134,34 @@ export default function AuraBooks() {
     queryKey: ['/api/aura/books'],
   });
 
+  // Filter books
+  const filteredBooks = useMemo(() => {
+    if (!books) return [];
+    
+    return books.filter(book => {
+      const matchesSearch = searchQuery === "" || 
+        book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        book.asin.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesPenName = filterPenName === "all" || 
+        book.penNameId.toString() === filterPenName;
+      
+      const matchesSeries = filterSeries === "all" || 
+        (filterSeries === "none" && book.seriesId === null) ||
+        (book.seriesId !== null && book.seriesId.toString() === filterSeries);
+      
+      return matchesSearch && matchesPenName && matchesSeries;
+    });
+  }, [books, searchQuery, filterPenName, filterSeries]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterPenName, filterSeries]);
+
   // Pagination logic
-  const totalPages = Math.ceil((books?.length || 0) / ITEMS_PER_PAGE);
-  const paginatedBooks = books?.slice(
+  const totalPages = Math.ceil((filteredBooks?.length || 0) / ITEMS_PER_PAGE);
+  const paginatedBooks = filteredBooks?.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
@@ -285,6 +314,59 @@ export default function AuraBooks() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="flex gap-4 mb-6 flex-wrap">
+            <div className="flex-1 min-w-[200px]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="Buscar por título o ASIN..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search-books"
+                />
+              </div>
+            </div>
+            <div className="w-[200px]">
+              <Select
+                value={filterPenName}
+                onValueChange={setFilterPenName}
+              >
+                <SelectTrigger data-testid="select-filter-penname">
+                  <SelectValue placeholder="Todos los autores" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los autores</SelectItem>
+                  {penNames?.map((penName) => (
+                    <SelectItem key={penName.id} value={penName.id.toString()}>
+                      {penName.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-[200px]">
+              <Select
+                value={filterSeries}
+                onValueChange={setFilterSeries}
+              >
+                <SelectTrigger data-testid="select-filter-series">
+                  <SelectValue placeholder="Todas las series" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las series</SelectItem>
+                  <SelectItem value="none">Sin serie</SelectItem>
+                  {series?.map((s) => (
+                    <SelectItem key={s.id} value={s.id.toString()}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+        <CardContent>
           {isLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-10 w-full" />
@@ -295,6 +377,12 @@ export default function AuraBooks() {
             <div className="text-center py-8">
               <p className="text-muted-foreground">
                 No hay libros registrados. Crea uno para empezar.
+              </p>
+            </div>
+          ) : filteredBooks.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">
+                No se encontraron libros que coincidan con los filtros.
               </p>
             </div>
           ) : (
@@ -358,10 +446,10 @@ export default function AuraBooks() {
             </Table>
           )}
 
-          {books && books.length > ITEMS_PER_PAGE && (
+          {filteredBooks && filteredBooks.length > ITEMS_PER_PAGE && (
             <div className="flex items-center justify-between pt-4">
               <p className="text-sm text-muted-foreground">
-                Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, books.length)} de {books.length}
+                Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredBooks.length)} de {filteredBooks.length}
               </p>
               <div className="flex items-center gap-2">
                 <Button

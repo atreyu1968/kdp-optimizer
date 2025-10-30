@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -51,7 +51,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 const seriesFormSchema = z.object({
   penNameId: z.number({ required_error: "Selecciona un seudónimo" }),
@@ -93,6 +93,9 @@ export default function AuraSeries() {
   const [selectedSeries, setSelectedSeries] = useState<BookSeries | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterPenName, setFilterPenName] = useState("all");
 
   const createForm = useForm<SeriesForm>({
     resolver: zodResolver(seriesFormSchema),
@@ -124,9 +127,29 @@ export default function AuraSeries() {
     queryKey: ['/api/aura/books'],
   });
 
+  // Filter series
+  const filteredSeries = useMemo(() => {
+    if (!series) return [];
+    
+    return series.filter(s => {
+      const matchesSearch = searchQuery === "" || 
+        s.name.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesPenName = filterPenName === "all" || 
+        s.penNameId.toString() === filterPenName;
+      
+      return matchesSearch && matchesPenName;
+    });
+  }, [series, searchQuery, filterPenName]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterPenName]);
+
   // Pagination logic
-  const totalPages = Math.ceil((series?.length || 0) / ITEMS_PER_PAGE);
-  const paginatedSeries = series?.slice(
+  const totalPages = Math.ceil((filteredSeries?.length || 0) / ITEMS_PER_PAGE);
+  const paginatedSeries = filteredSeries?.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
@@ -274,6 +297,40 @@ export default function AuraSeries() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="flex gap-4 mb-6 flex-wrap">
+            <div className="flex-1 min-w-[200px]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="Buscar por nombre de serie..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search-series"
+                />
+              </div>
+            </div>
+            <div className="w-[200px]">
+              <Select
+                value={filterPenName}
+                onValueChange={setFilterPenName}
+              >
+                <SelectTrigger data-testid="select-filter-penname">
+                  <SelectValue placeholder="Todos los autores" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los autores</SelectItem>
+                  {penNames?.map((penName) => (
+                    <SelectItem key={penName.id} value={penName.id.toString()}>
+                      {penName.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+        <CardContent>
           {isLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-10 w-full" />
@@ -284,6 +341,12 @@ export default function AuraSeries() {
             <div className="text-center py-8">
               <p className="text-muted-foreground">
                 No hay series registradas. Crea una para empezar.
+              </p>
+            </div>
+          ) : filteredSeries.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">
+                No se encontraron series que coincidan con los filtros.
               </p>
             </div>
           ) : (
@@ -334,10 +397,10 @@ export default function AuraSeries() {
             </Table>
           )}
 
-          {series && series.length > ITEMS_PER_PAGE && (
+          {filteredSeries && filteredSeries.length > ITEMS_PER_PAGE && (
             <div className="flex items-center justify-between pt-4">
               <p className="text-sm text-muted-foreground">
-                Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, series.length)} de {series.length}
+                Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredSeries.length)} de {filteredSeries.length}
               </p>
               <div className="flex items-center gap-2">
                 <Button
