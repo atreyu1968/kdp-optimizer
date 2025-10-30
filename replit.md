@@ -48,6 +48,11 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
     *   **Aura Seudónimos**: Provides consolidated pseudonym management with grouped books, key metrics, and direct navigation to detailed analytics. Implements ASIN-based deduplication with metadata merging (unique marketplaces, longest subtitle, earliest publish date) to prevent duplicate book listings.
     *   **Book Events System**: Tracks promotional activities and optimizations to correlate with performance changes. Uses `z.coerce.date()` in `insertBookEventSchema` to accept date strings from HTML input type="date" and convert them automatically to Date objects for PostgreSQL timestamp storage.
     *   **Calendar Integration**: Imported KDP books can be added to the publications calendar system. When a book is added, a "dummy" manuscript is created with status "published", and publication records are generated for each marketplace. Books already in the calendar are indicated with a "Ver en Calendario" button.
+    *   **Search and Filter Capabilities**: All Aura management pages (Books, Series, Pen Names) feature comprehensive search and filtering:
+        - **Books Page**: Search by title/ASIN, filter by pen name and series (including "Sin serie" option). All filters work in combination with AND logic.
+        - **Series Page**: Search by series name, filter by pen name. Combined filtering with automatic pagination adjustment.
+        - **Pen Names Page**: Instant search by pen name with case-insensitive matching.
+        - All filters use `useMemo` for efficient data filtering, reset pagination to page 1 when changed, and display appropriate empty states when no results match.
 
 ## External Dependencies
 *   **AI Services**: OpenAI API (GPT-4o-mini).
@@ -60,3 +65,8 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
     - `client/src/pages/aura-pen-names.tsx`: Event creation, pseudonym create/update/delete
     - `client/src/pages/aura-unlimited.tsx`: Event creation
 *   **Event Date Validation**: Fixed date format incompatibility in book events. HTML `<input type="date">` returns strings in "YYYY-MM-DD" format, but the schema expected Date objects. Added `z.coerce.date()` to `insertBookEventSchema` in `shared/schema.ts` to automatically convert date strings to Date objects for PostgreSQL timestamp fields.
+*   **SelectItem Empty Value Bug**: Fixed crash when editing books caused by Shadcn/Radix UI's prohibition of empty string values in `<SelectItem>`. The "Sin serie" option used `value=""` which caused runtime errors. Changed to `value="none"` with special handling in `onValueChange` to convert "none" to `null` for database storage. This fix ensures:
+    - Book edit dialogs open correctly without crashes
+    - Series selection properly handles null values (no series assigned)
+    - Round-trip data integrity: null → "Sin serie" display → null on save
+    - Affected files: `client/src/pages/aura-books.tsx` (both create and edit forms)
