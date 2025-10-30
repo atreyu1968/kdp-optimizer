@@ -442,8 +442,8 @@ export default function AuraBooks() {
                     <FormItem>
                       <FormLabel>Serie (opcional)</FormLabel>
                       <Select
-                        onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
-                        value={field.value?.toString() || ""}
+                        onValueChange={(value) => field.onChange(value === "none" ? null : parseInt(value))}
+                        value={field.value?.toString() || "none"}
                         disabled={!createForm.watch('penNameId')}
                       >
                         <FormControl>
@@ -452,7 +452,7 @@ export default function AuraBooks() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Sin serie</SelectItem>
+                          <SelectItem value="none">Sin serie</SelectItem>
                           {getSeriesByPenName(createForm.watch('penNameId')).map((series) => (
                             <SelectItem key={series.id} value={series.id.toString()}>
                               {series.name}
@@ -570,8 +570,8 @@ export default function AuraBooks() {
                     <FormItem>
                       <FormLabel>Serie (opcional)</FormLabel>
                       <Select
-                        onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
-                        value={field.value?.toString() || ""}
+                        onValueChange={(value) => field.onChange(value === "none" ? null : parseInt(value))}
+                        value={field.value?.toString() || "none"}
                         disabled={!editForm.watch('penNameId')}
                       >
                         <FormControl>
@@ -580,7 +580,7 @@ export default function AuraBooks() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Sin serie</SelectItem>
+                          <SelectItem value="none">Sin serie</SelectItem>
                           {getSeriesByPenName(editForm.watch('penNameId')).map((series) => (
                             <SelectItem key={series.id} value={series.id.toString()}>
                               {series.name}
