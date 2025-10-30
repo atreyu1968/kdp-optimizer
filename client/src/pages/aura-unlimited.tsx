@@ -51,7 +51,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { AuraImport } from "@/components/aura-import";
+import { AuraKenpImport } from "@/components/aura-kenp-import";
 
 interface KenpMonthlyData {
   id: number;
@@ -528,7 +528,7 @@ export default function AuraUnlimited() {
               <DialogHeader>
                 <DialogTitle>Importar Datos de KDP</DialogTitle>
               </DialogHeader>
-              <AuraImport onImportComplete={handleImportComplete} onClose={handleCloseImportDialogHeader} />
+              <AuraKenpImport onImportComplete={handleImportComplete} onClose={handleCloseImportDialogHeader} />
             </DialogContent>
           </Dialog>
         </div>
@@ -560,7 +560,7 @@ export default function AuraUnlimited() {
                   <DialogHeader>
                     <DialogTitle>Importar Datos de KDP</DialogTitle>
                   </DialogHeader>
-                  <AuraImport onImportComplete={handleImportComplete} onClose={handleCloseImportDialogEmpty} />
+                  <AuraKenpImport onImportComplete={handleImportComplete} onClose={handleCloseImportDialogEmpty} />
                 </DialogContent>
               </Dialog>
             </div>
