@@ -27,6 +27,7 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
 *   **KDP Validation System**: Validates generated metadata against Amazon's rules.
 *   **Publication Scheduling**: Manages daily publication limits (3 per day) and market priorities, with functionality for blocking dates and rescheduling.
 *   **Task Checklist System**: Automated per-manuscript task management with dynamic due dates, inline editing, and visual urgency indicators.
+*   **Data Refresh System**: React Query configuration with `staleTime: Infinity` requires explicit `refetch()` calls after mutations. Import dialogs use dual callbacks: `onImportComplete` triggers `Promise.all([refetchKenp(), refetchBooks(), refetchPenNames()])` to force immediate data reload, while `onClose` handles dialog dismissal.
 *   **Aura Analytics System**:
     *   **KDP XLSX Importer**: Parses KDP Dashboard XLSX files across all sheets (Ventas combinadas, KENP leídas, Pedidos gratuitos), identifies pseudonyms, and registers books with marketplace tracking. Automatically detects book types from KDP's "Tipo de regalía" field using multiple detection methods:
         - Descriptive types: "Estándar" → ebook, "Promoción gratuita" → ebook, "Kindle Countdown Deals" → ebook, "KENP leídas" → ebook, "Estándar - Tapa blanda" → paperback, "Estándar - Tapa dura" → hardcover
@@ -45,7 +46,7 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
     *   **Aura Unlimited (KENP Analysis)**: Imports and aggregates monthly KENP data for trend analysis, providing book-level insights and recommendations (Boost, Optimize Metadata, Increase Promotion, Hold). Automatically fills missing months with 0 values to accurately detect declining trends. Import dialog with dual callbacks: `onImportComplete` triggers explicit refetch of queries, `onClose` handles dialog dismissal.
     *   **Aura Ventas (Sales Analysis)**: Processes combined sales data, discriminating by book type and currency, and offering recommendations based on sales performance (Raise Price, Optimize, Increase Promotion, Hold). Currency-segregated metrics prevent mixing royalties across USD/EUR/GBP. Integrated import button with explicit data refresh after import completion.
     *   **Aura Seudónimos**: Provides consolidated pseudonym management with grouped books, key metrics, and direct navigation to detailed analytics. Implements ASIN-based deduplication with metadata merging (unique marketplaces, longest subtitle, earliest publish date) to prevent duplicate book listings.
-    *   **Book Events System**: Tracks promotional activities and optimizations to correlate with performance changes.
+    *   **Book Events System**: Tracks promotional activities and optimizations to correlate with performance changes. Uses `z.coerce.date()` in `insertBookEventSchema` to accept date strings from HTML input type="date" and convert them automatically to Date objects for PostgreSQL timestamp storage.
     *   **Calendar Integration**: Imported KDP books can be added to the publications calendar system. When a book is added, a "dummy" manuscript is created with status "published", and publication records are generated for each marketplace. Books already in the calendar are indicated with a "Ver en Calendario" button.
 
 ## External Dependencies
@@ -53,3 +54,9 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
 *   **Database**: Neon Database (PostgreSQL).
 *   **Third-Party UI Libraries**: Radix UI, Embla Carousel, React Dropzone, Lucide React, date-fns, jspdf, Recharts, xlsx (SheetJS).
 *   **Font Services**: Google Fonts (Inter, JetBrains Mono).
+
+## Recent Bug Fixes (October 2025)
+*   **apiRequest Parameter Order**: Fixed incorrect parameter order in multiple locations. The `apiRequest` function signature is `(method, url, data)` but was being called as `(url, method, data)` in event creation, pseudonym CRUD operations, and other API calls. Corrected in:
+    - `client/src/pages/aura-pen-names.tsx`: Event creation, pseudonym create/update/delete
+    - `client/src/pages/aura-unlimited.tsx`: Event creation
+*   **Event Date Validation**: Fixed date format incompatibility in book events. HTML `<input type="date">` returns strings in "YYYY-MM-DD" format, but the schema expected Date objects. Added `z.coerce.date()` to `insertBookEventSchema` in `shared/schema.ts` to automatically convert date strings to Date objects for PostgreSQL timestamp fields.
