@@ -197,6 +197,9 @@ function detectBookType(royaltyType: string): string {
 /**
  * Obtiene o crea un seudónimo por nombre de autor
  * Retorna el seudónimo y una flag indicando si fue creado
+ * 
+ * IMPORTANTE: Primero busca si ya existe un seudónimo con ese nombre (case-insensitive)
+ * para evitar crear duplicados. Solo crea uno nuevo si no existe.
  */
 async function getOrCreatePenName(
   authorName: string,
@@ -210,7 +213,17 @@ async function getOrCreatePenName(
     return { penName: existing, wasCreated: false };
   }
   
-  // Crear nuevo seudónimo
+  // Buscar en base de datos si ya existe un seudónimo con ese nombre
+  const existingPenNames = await storage.getPenNamesByName(authorName);
+  
+  if (existingPenNames.length > 0) {
+    // Si existen duplicados, usar el más antiguo (menor ID)
+    const oldestPenName = existingPenNames[0];
+    penNamesCache.set(normalizedName, oldestPenName);
+    return { penName: oldestPenName, wasCreated: false };
+  }
+  
+  // Si no existe, crear nuevo seudónimo
   const newPenName = await storage.createPenName({
     name: authorName,
     description: `Creado automáticamente al importar datos de KDP`,

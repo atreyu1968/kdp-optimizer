@@ -772,6 +772,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Consolidar seudónimos duplicados
+  app.post("/api/aura/pen-names/consolidate", async (req, res) => {
+    try {
+      const { name } = req.body;
+      
+      if (!name || typeof name !== 'string' || name.trim() === '') {
+        res.status(400).json({ error: "El nombre del seudónimo es requerido" });
+        return;
+      }
+
+      const stats = await storage.consolidatePenNames(name.trim());
+      res.json(stats);
+    } catch (error) {
+      console.error("Error consolidating pen names:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : "Failed to consolidate pen names";
+      res.status(400).json({ error: errorMessage });
+    }
+  });
+
   // ========== SERIES ==========
 
   // Obtener todas las series

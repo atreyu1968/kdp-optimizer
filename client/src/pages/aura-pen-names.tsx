@@ -144,6 +144,8 @@ export default function AuraPenNames() {
   const [isAddingAllToCalendar, setIsAddingAllToCalendar] = useState(false);
   
   const [searchQuery, setSearchQuery] = useState("");
+  const [isConsolidationDialogOpen, setIsConsolidationDialogOpen] = useState(false);
+  const [consolidatingName, setConsolidatingName] = useState<string | null>(null);
 
   const createForm = useForm<PenNameForm>({
     resolver: zodResolver(penNameFormSchema),
@@ -291,6 +293,43 @@ export default function AuraPenNames() {
       });
     },
   });
+
+  const consolidateMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await apiRequest('POST', '/api/aura/pen-names/consolidate', { name });
+      return await res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/aura/pen-names'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/aura/books'] });
+      setConsolidatingName(null);
+      
+      toast({
+        title: "Consolidación exitosa",
+        description: `Se consolidaron ${data.duplicatesRemoved} duplicados. ` +
+          `Reasignados: ${data.booksReassigned} libros, ${data.seriesReassigned} series, ` +
+          `${data.salesReassigned} ventas, ${data.kenpDataReassigned} datos KENP, ` +
+          `${data.salesDataReassigned} datos de ventas.`,
+      });
+    },
+    onError: (error: any) => {
+      setConsolidatingName(null);
+      toast({
+        title: "Error al consolidar",
+        description: error.message || "No se pudo consolidar el seudónimo",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const duplicatePenNames = useMemo(() => {
+    return consolidatedPenNames.filter(penName => penName.ids.length > 1);
+  }, [consolidatedPenNames]);
+
+  const handleConsolidate = (name: string) => {
+    setConsolidatingName(name);
+    consolidateMutation.mutate(name);
+  };
 
   const handleAddAllToCalendar = async () => {
     console.log("[Add All to Calendar] Starting batch import...");
@@ -518,6 +557,16 @@ export default function AuraPenNames() {
             <Calendar className="w-4 h-4 mr-2" />
             {isAddingAllToCalendar ? "Agregando..." : "Agregar Todos al Calendario"}
           </Button>
+          {duplicatePenNames.length > 0 && (
+            <Button 
+              variant="outline" 
+              onClick={() => setIsConsolidationDialogOpen(true)}
+              data-testid="button-consolidate-duplicates"
+            >
+              <Flag className="w-4 h-4 mr-2" />
+              Consolidar Duplicados ({duplicatePenNames.length})
+            </Button>
+          )}
           <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-pen-name">
             <Plus className="w-4 h-4 mr-2" />
             Nuevo Seudónimo
@@ -1017,6 +1066,97 @@ export default function AuraPenNames() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isConsolidationDialogOpen} onOpenChange={setIsConsolidationDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto" data-testid="dialog-consolidate-duplicates">
+          <DialogHeader>
+            <DialogTitle>Consolidar Seudónimos Duplicados</DialogTitle>
+            <DialogDescription>
+              Se encontraron {duplicatePenNames.length} seudónimos con duplicados. 
+              Al consolidar, se mantendrá el seudónimo más antiguo (menor ID) y se reasignarán todos los datos de los duplicados.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {duplicatePenNames.map((penName) => {
+              const penNameBooks = booksByPenName.get(penName.name) || [];
+              const isConsolidating = consolidatingName === penName.name;
+
+              const bookCountByPenNameId = new Map<number, number>();
+              if (books) {
+                penName.ids.forEach(id => {
+                  const count = books.filter(book => book.penNameId === id).length;
+                  bookCountByPenNameId.set(id, count);
+                });
+              }
+
+              return (
+                <Card key={penName.name} data-testid={`card-duplicate-${penName.name}`}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg" data-testid={`text-duplicate-name-${penName.name}`}>
+                          {penName.name}
+                        </CardTitle>
+                        <CardDescription>
+                          {penName.ids.length} IDs duplicados • {penNameBooks.length} libros totales
+                        </CardDescription>
+                      </div>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleConsolidate(penName.name)}
+                        disabled={isConsolidating}
+                        data-testid={`button-consolidate-${penName.name}`}
+                      >
+                        {isConsolidating ? "Consolidando..." : "Consolidar"}
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">IDs encontrados:</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                        {penName.ids.map((id, index) => (
+                          <div
+                            key={id}
+                            className="flex items-center gap-2 p-2 border rounded-md"
+                            data-testid={`duplicate-id-${penName.name}-${id}`}
+                          >
+                            {index === 0 && (
+                              <Badge variant="default" className="text-xs">
+                                Principal
+                              </Badge>
+                            )}
+                            <span className="text-sm font-mono">ID: {id}</span>
+                            <span className="text-xs text-muted-foreground ml-auto">
+                              {bookCountByPenNameId.get(id) || 0} libros
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Se mantendrá el ID {penName.ids[0]} y se reasignarán todos los datos de los otros IDs.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsConsolidationDialogOpen(false)}
+              disabled={!!consolidatingName}
+              data-testid="button-close-consolidation"
+            >
+              Cerrar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

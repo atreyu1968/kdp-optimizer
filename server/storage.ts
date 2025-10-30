@@ -50,6 +50,17 @@ export interface TaskWithManuscript extends Task {
   manuscriptAuthor: string;
 }
 
+export interface ConsolidationStats {
+  penNameKept: PenName;
+  duplicatesRemoved: number;
+  duplicateIds: number[];
+  booksReassigned: number;
+  seriesReassigned: number;
+  salesReassigned: number;
+  kenpDataReassigned: number;
+  salesDataReassigned: number;
+}
+
 export interface IStorage {
   getOptimization(id: string): Promise<OptimizationResult | undefined>;
   getAllOptimizations(): Promise<OptimizationResult[]>;
@@ -99,9 +110,11 @@ export interface IStorage {
   // Pen Names (Seudónimos)
   getAllPenNames(): Promise<PenName[]>;
   getPenName(id: number): Promise<PenName | undefined>;
+  getPenNamesByName(name: string): Promise<PenName[]>;
   createPenName(data: InsertPenName): Promise<PenName>;
   updatePenName(id: number, data: Partial<InsertPenName>): Promise<PenName>;
   deletePenName(id: number): Promise<void>;
+  consolidatePenNames(name: string): Promise<ConsolidationStats>;
   
   // Book Series
   getAllBookSeries(): Promise<BookSeries[]>;
@@ -589,6 +602,106 @@ export class DbStorage implements IStorage {
     }
     
     await this.db.delete(penNames).where(eq(penNames.id, id));
+  }
+
+  async getPenNamesByName(name: string): Promise<PenName[]> {
+    return await this.db
+      .select()
+      .from(penNames)
+      .where(sql`LOWER(${penNames.name}) = LOWER(${name})`)
+      .orderBy(penNames.id);
+  }
+
+  async consolidatePenNames(name: string): Promise<ConsolidationStats> {
+    const duplicates = await this.getPenNamesByName(name);
+    
+    console.log(`[Consolidate] Found ${duplicates.length} pen names for "${name}":`, duplicates.map(d => d.id));
+    
+    if (duplicates.length === 0) {
+      throw new Error(`No se encontró ningún seudónimo con el nombre "${name}"`);
+    }
+    
+    if (duplicates.length === 1) {
+      throw new Error(`El seudónimo "${name}" no tiene duplicados`);
+    }
+    
+    const primaryPenName = duplicates[0];
+    const duplicateIds = duplicates.slice(1).map(p => p.id);
+    
+    console.log(`[Consolidate] Primary ID: ${primaryPenName.id}, Duplicates to remove: [${duplicateIds.join(', ')}]`);
+    
+    let booksReassigned = 0;
+    let seriesReassigned = 0;
+    let salesReassigned = 0;
+    let kenpDataReassigned = 0;
+    let salesDataReassigned = 0;
+    
+    // Neon HTTP driver doesn't support transactions, so we do sequential updates
+    // This is safe because we're only reassigning data, not deleting it yet
+    try {
+      for (const duplicateId of duplicateIds) {
+        // Reasignar libros
+        const booksResult = await this.db
+          .update(auraBooks)
+          .set({ penNameId: primaryPenName.id })
+          .where(eq(auraBooks.penNameId, duplicateId))
+          .returning({ id: auraBooks.id });
+        booksReassigned += booksResult.length;
+        
+        // Reasignar series
+        const seriesResult = await this.db
+          .update(bookSeries)
+          .set({ penNameId: primaryPenName.id })
+          .where(eq(bookSeries.penNameId, duplicateId))
+          .returning({ id: bookSeries.id });
+        seriesReassigned += seriesResult.length;
+        
+        // Reasignar ventas KDP
+        const salesResult = await this.db
+          .update(kdpSales)
+          .set({ penNameId: primaryPenName.id })
+          .where(eq(kdpSales.penNameId, duplicateId))
+          .returning({ id: kdpSales.id });
+        salesReassigned += salesResult.length;
+        
+        // Reasignar datos KENP
+        const kenpResult = await this.db
+          .update(kenpMonthlyData)
+          .set({ penNameId: primaryPenName.id })
+          .where(eq(kenpMonthlyData.penNameId, duplicateId))
+          .returning({ id: kenpMonthlyData.id });
+        kenpDataReassigned += kenpResult.length;
+        
+        // Reasignar datos de ventas mensuales
+        const salesDataResult = await this.db
+          .update(salesMonthlyData)
+          .set({ penNameId: primaryPenName.id })
+          .where(eq(salesMonthlyData.penNameId, duplicateId))
+          .returning({ id: salesMonthlyData.id });
+        salesDataReassigned += salesDataResult.length;
+        
+        // Eliminar el seudónimo duplicado ahora que está vacío
+        const deleteResult = await this.db
+          .delete(penNames)
+          .where(eq(penNames.id, duplicateId))
+          .returning({ id: penNames.id });
+        console.log(`[Consolidate] Deleted pen name ID ${duplicateId}, result:`, deleteResult);
+      }
+      
+      return {
+        penNameKept: primaryPenName,
+        duplicatesRemoved: duplicateIds.length,
+        duplicateIds,
+        booksReassigned,
+        seriesReassigned,
+        salesReassigned,
+        kenpDataReassigned,
+        salesDataReassigned,
+      };
+    } catch (error) {
+      console.error('Error consolidating pen names:', error);
+      throw new Error(`Error al consolidar seudónimos: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
   }
 
   // Book Series
@@ -1127,6 +1240,14 @@ export class MemStorage implements IStorage {
   }
 
   async deletePenName(id: number): Promise<void> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async getPenNamesByName(name: string): Promise<PenName[]> {
+    throw new Error("MemStorage does not support Aura operations");
+  }
+
+  async consolidatePenNames(name: string): Promise<ConsolidationStats> {
     throw new Error("MemStorage does not support Aura operations");
   }
 
