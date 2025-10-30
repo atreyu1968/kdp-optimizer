@@ -173,11 +173,11 @@ export default function AuraPenNames() {
     },
   });
 
-  const { data: penNames, isLoading: isLoadingPenNames } = useQuery<PenName[]>({
+  const { data: penNames, isLoading: isLoadingPenNames, refetch: refetchPenNames } = useQuery<PenName[]>({
     queryKey: ['/api/aura/pen-names'],
   });
 
-  const { data: books, isLoading: isLoadingBooks } = useQuery<AuraBook[]>({
+  const { data: books, isLoading: isLoadingBooks, refetch: refetchBooks } = useQuery<AuraBook[]>({
     queryKey: ['/api/aura/books'],
   });
 
@@ -299,9 +299,13 @@ export default function AuraPenNames() {
       const res = await apiRequest('POST', '/api/aura/pen-names/consolidate', { name });
       return await res.json();
     },
-    onSuccess: (data: any) => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/aura/pen-names'] });
       queryClient.invalidateQueries({ queryKey: ['/api/aura/books'] });
+      
+      // Refetch explícitamente debido a staleTime: Infinity
+      await Promise.all([refetchPenNames(), refetchBooks()]);
+      
       setConsolidatingName(null);
       
       toast({
