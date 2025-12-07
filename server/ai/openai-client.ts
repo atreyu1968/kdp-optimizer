@@ -295,9 +295,16 @@ REQUIREMENTS:
    
    FORMAT RULES:
    - Use ONLY: <b>, <i>, <u>, <br>, <p>, <h4>, <h5>, <h6>, <ul><li>, <ol><li>
-   - 3-4 paragraphs using <p></p>
-   - Maximum 4000 characters
+   - MINIMUM 3800 characters, MAXIMUM 4000 characters (YOU MUST USE 95%+ OF AVAILABLE SPACE)
+   - Amazon rewards longer, detailed descriptions - SHORT DESCRIPTIONS HURT SALES
+   - Include 5-7 paragraphs using <p></p>
+   - Add multiple <ul><li> lists with 4-6 items each
+   - Include reader testimonials or quotes from the book if appropriate
+   - Add a "Perfect for readers who love..." section
    - NEVER reveal the ending or major plot twists
+   
+   ⚠️ CRITICAL: If your description is under 3500 characters, you are FAILING. 
+   Expand with more emotional hooks, benefits, and compelling details.
 
 4. PROHIBITED TERMS (DO NOT use these anywhere):
    - "bestseller", "best-seller", "#1"
