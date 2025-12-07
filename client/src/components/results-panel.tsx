@@ -7,6 +7,7 @@ import { CodeViewer } from "./code-viewer";
 import { KeywordFields } from "./keyword-fields";
 import { PricingTable } from "./pricing-table";
 import { MarketingKitPanel } from "./marketing-kit-panel";
+import { SEOFieldsPanel } from "./seo-fields-panel";
 import { Separator } from "@/components/ui/separator";
 import { amazonMarkets, type OptimizationResult } from "@shared/schema";
 import { Download, Sparkles, AlertTriangle, CheckCircle2, Info } from "lucide-react";
@@ -282,6 +283,13 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
                 marketName={market.name}
               />
             </Card>
+
+            {marketResult.seo && (
+              <SEOFieldsPanel 
+                seo={marketResult.seo} 
+                marketName={amazonMarkets[marketResult.market as keyof typeof amazonMarkets]?.name || marketResult.market} 
+              />
+            )}
           </TabsContent>
         ))}
       </Tabs>
