@@ -84,7 +84,7 @@ export default function Home() {
             title: "Tiempo de espera agotado",
             description: "La optimización se detuvo inesperadamente. Por favor, intenta de nuevo o verifica tu conexión a internet.",
           });
-        }, 20000);
+        }, 180000); // 3 minutos entre eventos SSE para manuscritos largos
       };
       
       // Iniciar watchdog
