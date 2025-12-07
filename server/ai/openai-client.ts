@@ -640,19 +640,33 @@ Return JSON with:
       }));
   };
   
+  // Normalize string arrays to ensure they're actually strings (AI sometimes returns objects)
+  const normalizeStringArray = (arr: unknown): string[] => {
+    if (!Array.isArray(arr)) return [];
+    return arr.map((item: unknown) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object") {
+        // Handle objects with various possible text fields
+        const obj = item as Record<string, unknown>;
+        return obj.content || obj.text || obj.description || obj.post || 
+               obj.hook || obj.concept || obj.contentConcept || obj.captionHook ||
+               JSON.stringify(item);
+      }
+      return String(item);
+    }).filter((s): s is string => typeof s === "string" && s.length > 0);
+  };
+
   return {
-    tiktokHooks: result.tiktokHooks || [],
-    instagramPosts: result.instagramPosts || [],
-    pinterestDescriptions: result.pinterestDescriptions || [],
+    tiktokHooks: normalizeStringArray(result.tiktokHooks),
+    instagramPosts: normalizeStringArray(result.instagramPosts),
+    pinterestDescriptions: normalizeStringArray(result.pinterestDescriptions),
     hashtags: result.hashtags || { general: [], specific: [] },
-    leadMagnetIdeas: result.leadMagnetIdeas || [],
+    leadMagnetIdeas: normalizeStringArray(result.leadMagnetIdeas),
     reviewCTA: result.reviewCTA || "",
     freePromoStrategy: result.freePromoStrategy || "",
-    bookQuotes: result.bookQuotes || [],
+    bookQuotes: normalizeStringArray(result.bookQuotes),
     nicheCategories: normalizeNicheCategories(result.nicheCategories),
-    facebookGroupContent: Array.isArray(result.facebookGroupContent) 
-      ? result.facebookGroupContent.filter((s: unknown): s is string => typeof s === "string") 
-      : [],
+    facebookGroupContent: normalizeStringArray(result.facebookGroupContent),
     thirtyDayPlan: normalizeThirtyDayPlan(result.thirtyDayPlan),
   };
 }
