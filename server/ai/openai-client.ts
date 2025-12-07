@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { withRetry, delayBetweenCalls } from "./retry-utils.js";
+import { landingPageContentSchema } from "@shared/schema";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -770,7 +771,7 @@ Return JSON with:
     result = {};
   }
   
-  // Normalize array fields - ensure they are always arrays of strings
+  // Helper to normalize string arrays
   const normalizeStringArray = (value: unknown, defaults: string[] = []): string[] => {
     if (!Array.isArray(value)) return defaults;
     return value
@@ -778,8 +779,8 @@ Return JSON with:
       .map(item => item.trim());
   };
 
-  // Validate and normalize the response with safe defaults
-  const validated: LandingPageContent = {
+  // Pre-process data to ensure correct types before Zod validation
+  const preprocessed = {
     tagline: typeof result.tagline === "string" && result.tagline.trim() 
       ? result.tagline.trim() 
       : `Descubre "${bookTitle}"`,
@@ -796,5 +797,11 @@ Return JSON with:
       : `${bookTitle} de ${author} es una obra imprescindible para los amantes del género ${genre}.`,
   };
   
-  return validated;
+  // Use Zod safeParse for final validation
+  const parseResult = landingPageContentSchema.safeParse(preprocessed);
+  if (!parseResult.success) {
+    console.error("[Landing Page] Validation failed, using preprocessed defaults", parseResult.error.errors);
+  }
+  
+  return parseResult.success ? parseResult.data : preprocessed;
 }
