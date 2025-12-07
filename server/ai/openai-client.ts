@@ -659,3 +659,142 @@ Return JSON with:
     ogDescription: result.ogDescription,
   };
 }
+
+export interface LandingPageContent {
+  tagline: string;
+  extendedSynopsis: string;
+  featuredCharacteristics: string[];
+  memorableQuotes: string[];
+  pressNotes: string;
+}
+
+export async function generateLandingPageContent(
+  bookTitle: string,
+  author: string,
+  genre: string,
+  themes: string[],
+  description: string,
+  manuscriptSample: string,
+  language: string
+): Promise<LandingPageContent> {
+  const prompt = `Generate compelling landing page content for a book in ${language}.
+
+BOOK INFORMATION:
+- Title: "${bookTitle}"
+- Author: "${author}"
+- Genre: ${genre}
+- Themes: ${themes.join(", ")}
+- Description: ${description.slice(0, 800)}
+
+MANUSCRIPT EXCERPT (for extracting authentic quotes):
+${manuscriptSample.slice(0, 3000)}
+
+GENERATE THE FOLLOWING CONTENT:
+
+1. TAGLINE (10-15 words max):
+   - A powerful, memorable phrase that captures the book's essence
+   - Should evoke emotion and intrigue
+   - Think movie poster taglines or book jacket hooks
+   - Examples: "Donde termina la esperanza, comienza la supervivencia", "Un secreto que cambió el destino de una nación"
+
+2. EXTENDED SYNOPSIS (Markdown format, 400-600 words):
+   - Write in MARKDOWN with proper formatting (headers, bold, italics)
+   - Structure:
+     ## El Comienzo
+     [Hook and setting introduction]
+     
+     ## El Conflicto  
+     [Main tension and stakes]
+     
+     ## Lo Que Está en Juego
+     [Why readers should care]
+   - Use literary, evocative language
+   - Create desire without spoilers
+   - End with a compelling hook
+
+3. FEATURED CHARACTERISTICS (5-7 bullet points):
+   - Key selling points and unique features of the book
+   - What makes this book special
+   - Include: tone, style, themes, reader experience
+   - Examples: "Giros inesperados en cada capítulo", "Personajes complejos con motivaciones realistas", "Atmósfera envolvente que atrapa desde la primera página"
+
+4. MEMORABLE QUOTES (4-6 quotes):
+   - Extract or craft impactful quotes from the manuscript
+   - Should be standalone powerful sentences
+   - Can include dialogue or narrative passages
+   - Must sound authentic to the book's voice
+   - Format: Just the quote text, no attribution needed
+   - Examples: "La verdad no siempre libera; a veces, solo cambia las cadenas.", "En el silencio de la noche, los secretos hablan más fuerte."
+
+5. PRESS NOTES (Marketing materials, 200-300 words):
+   - Professional promotional material for media and press
+   - Include:
+     * Author positioning statement
+     * Comparable titles ("Perfecto para fans de...")
+     * Target reader description
+     * Unique selling proposition
+     * Potential endorsement-style quotes
+   - Write as if for a press kit
+
+LANGUAGE: Generate ALL content natively in ${language}. Do not translate - write originally in the target language.
+
+RESPONSE FORMAT:
+Return JSON with:
+- tagline: string (short, impactful phrase)
+- extendedSynopsis: string (markdown formatted, 400-600 words)
+- featuredCharacteristics: array of 5-7 strings
+- memorableQuotes: array of 4-6 strings
+- pressNotes: string (200-300 words)`;
+
+  const response = await withRetry(async () => {
+    return await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert book marketing copywriter and publishing professional. You craft compelling, emotionally resonant content that sells books. You understand reader psychology and what makes book marketing content convert. You write natively in any language with authentic cultural nuance. Your landing page content creates desire and urgency while maintaining literary quality.",
+        },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.75,
+    });
+  });
+
+  let result: Record<string, unknown>;
+  try {
+    result = JSON.parse(response.choices[0].message.content || "{}");
+  } catch (parseError) {
+    console.error("[Landing Page] Failed to parse AI response, using defaults");
+    result = {};
+  }
+  
+  // Normalize array fields - ensure they are always arrays of strings
+  const normalizeStringArray = (value: unknown, defaults: string[] = []): string[] => {
+    if (!Array.isArray(value)) return defaults;
+    return value
+      .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      .map(item => item.trim());
+  };
+
+  // Validate and normalize the response with safe defaults
+  const validated: LandingPageContent = {
+    tagline: typeof result.tagline === "string" && result.tagline.trim() 
+      ? result.tagline.trim() 
+      : `Descubre "${bookTitle}"`,
+    extendedSynopsis: typeof result.extendedSynopsis === "string" && result.extendedSynopsis.trim()
+      ? result.extendedSynopsis
+      : `## Sobre el libro\n\n*${bookTitle}* es una obra de ${genre} que cautiva desde la primera página.`,
+    featuredCharacteristics: normalizeStringArray(
+      result.featuredCharacteristics, 
+      ["Narrativa envolvente", "Personajes memorables", "Giros inesperados"]
+    ),
+    memorableQuotes: normalizeStringArray(result.memorableQuotes, []),
+    pressNotes: typeof result.pressNotes === "string" && result.pressNotes.trim()
+      ? result.pressNotes
+      : `${bookTitle} de ${author} es una obra imprescindible para los amantes del género ${genre}.`,
+  };
+  
+  return validated;
+}

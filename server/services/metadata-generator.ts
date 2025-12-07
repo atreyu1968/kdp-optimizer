@@ -4,6 +4,7 @@ import {
   optimizeKeywordsForMarket,
   generateMarketingKit,
   generateSEO,
+  generateLandingPageContent,
 } from "../ai/openai-client";
 import { delayBetweenCalls } from "../ai/retry-utils.js";
 import {
@@ -265,6 +266,22 @@ export async function generateOptimizationResult(
 
     await delayBetweenCalls(500);
 
+    onProgress?.("generating", "Generando contenido para Landing Page...", 92);
+
+    // Generar contenido para landing page
+    const firstMarketDescription = marketResults[0]?.description || "";
+    const landingPageContent = await generateLandingPageContent(
+      originalTitle,
+      author,
+      genre,
+      analysis.themes,
+      firstMarketDescription,
+      manuscriptText.slice(0, 5000), // Muestra del manuscrito para extraer citas
+      language
+    );
+
+    await delayBetweenCalls(400);
+
     onProgress?.("generating", "Finalizando resultados de optimización...", 95);
 
     return {
@@ -288,6 +305,8 @@ export async function generateOptimizationResult(
         emotionalHooks: analysis.emotionalHooks || [],
         isFiction: analysis.isFiction,
       },
+      // Contenido para landing page
+      landingPageContent,
     };
   } catch (error) {
     console.error("Error en generateOptimizationResult:", error);

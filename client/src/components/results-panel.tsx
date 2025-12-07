@@ -8,6 +8,7 @@ import { KeywordFields } from "./keyword-fields";
 import { PricingTable } from "./pricing-table";
 import { MarketingKitPanel } from "./marketing-kit-panel";
 import { SEOFieldsPanel } from "./seo-fields-panel";
+import { LandingPagePanel } from "./landing-page-panel";
 import { Separator } from "@/components/ui/separator";
 import { amazonMarkets, type OptimizationResult } from "@shared/schema";
 import { Download, Sparkles, AlertTriangle, CheckCircle2, Info } from "lucide-react";
@@ -296,6 +297,10 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
 
       {result.marketingKit && (
         <MarketingKitPanel marketingKit={result.marketingKit} />
+      )}
+
+      {result.landingPageContent && (
+        <LandingPagePanel landingPageContent={result.landingPageContent} />
       )}
 
       <Card className="p-6 bg-muted/30">

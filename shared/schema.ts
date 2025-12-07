@@ -155,6 +155,17 @@ export const manuscriptAnalysisSchema = z.object({
 
 export type ManuscriptAnalysis = z.infer<typeof manuscriptAnalysisSchema>;
 
+// Contenido para landing page del libro
+export const landingPageContentSchema = z.object({
+  tagline: z.string(), // Frase impactante corta que capture la esencia
+  extendedSynopsis: z.string(), // Sinopsis extendida en markdown
+  featuredCharacteristics: z.array(z.string()), // Características destacadas del libro
+  memorableQuotes: z.array(z.string()), // Citas o extractos impactantes del libro
+  pressNotes: z.string(), // Notas de prensa y materiales promocionales
+});
+
+export type LandingPageContent = z.infer<typeof landingPageContentSchema>;
+
 export const optimizationResultSchema = z.object({
   id: z.string(),
   originalTitle: z.string(),
@@ -168,6 +179,8 @@ export const optimizationResultSchema = z.object({
   // Nuevos campos para marketing orgánico
   marketingKit: marketingKitSchema.optional(),
   analysis: manuscriptAnalysisSchema.optional(),
+  // Contenido para landing page
+  landingPageContent: landingPageContentSchema.optional(),
 });
 
 export type OptimizationResult = z.infer<typeof optimizationResultSchema>;
