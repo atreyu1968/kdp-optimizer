@@ -434,6 +434,18 @@ Remember: Write for ${locale} native speakers. Think about how they ACTUALLY sea
   return result.keywords || keywords;
 }
 
+export interface NicheCategory {
+  category: string;
+  competitiveness: "baja" | "media" | "alta";
+  reason: string;
+}
+
+export interface ThirtyDayTask {
+  day: number;
+  task: string;
+  platform?: string;
+}
+
 export interface MarketingKit {
   tiktokHooks: string[];
   instagramPosts: string[];
@@ -446,6 +458,10 @@ export interface MarketingKit {
   reviewCTA: string;
   freePromoStrategy: string;
   bookQuotes: string[];
+  // Nuevos campos según Plan Maestro de Marketing Editorial
+  nicheCategories?: NicheCategory[];
+  facebookGroupContent?: string[];
+  thirtyDayPlan?: ThirtyDayTask[];
 }
 
 export async function generateMarketingKit(
@@ -527,6 +543,34 @@ GENERATE THE FOLLOWING MARKETING ASSETS:
    - If not, suggest the TYPE of quotes that would work well for sharing
    - These should be perfect for quote graphics on social media
 
+9. NICHE CATEGORIES (5 categories for Author Central):
+   - Amazon allows up to 10 categories but KDP only shows 2-3 initially
+   - These are ADDITIONAL categories to request via KDP Support or Author Central
+   - Focus on LESS COMPETITIVE categories where it's easier to become #1 Best Seller
+   - For each category provide:
+     * category: Full category path (e.g., "Kindle eBooks > Literature & Fiction > Women's Fiction > Domestic Life")
+     * competitiveness: "baja", "media", or "alta" (prefer low competition)
+     * reason: Why this category fits the book and why it's strategic
+   - Prioritize niche subcategories over broad categories
+
+10. FACEBOOK GROUP CONTENT (5 posts):
+   - Posts for reader-focused Facebook groups (not self-promo, add value first)
+   - Types: discussion starters, reading recommendations, genre appreciation posts
+   - Must be natural community participation, not obvious advertising
+   - Examples:
+     * "¿Alguien más se quedó despierto hasta las 3am por culpa de un libro?"
+     * "Busco recomendaciones de [genre] con protagonistas femeninas fuertes"
+   - These should naturally lead to mentioning the book when appropriate
+
+11. 30-DAY MARKETING PLAN (30 daily tasks):
+   - A complete calendar following the "Reto de 30 Días" strategy
+   - Week 1: Foundation (audit web, research keywords, set up tools)
+   - Week 2: Content creation (mockups, videos, posts)
+   - Week 3: Community building (engagement, outreach, networking)
+   - Week 4: Promotion campaign (KDP Select free promo if applicable)
+   - Each day has: day number, specific task, platform (optional)
+   - Tasks should be achievable in 15-30 minutes daily
+
 LANGUAGE: Generate ALL content natively in ${locale} with cultural relevance.
 
 RESPONSE FORMAT:
@@ -538,7 +582,10 @@ Return JSON with:
 - leadMagnetIdeas: array of 3 strings
 - reviewCTA: string (the full call-to-action text)
 - freePromoStrategy: string (complete strategy description)
-- bookQuotes: array of 5 strings (suggested quotable content)`;
+- bookQuotes: array of 5 strings (suggested quotable content)
+- nicheCategories: array of 5 objects { category: string, competitiveness: "baja"|"media"|"alta", reason: string }
+- facebookGroupContent: array of 5 strings (post concepts for reader groups)
+- thirtyDayPlan: array of 30 objects { day: number, task: string, platform: string (optional) }`;
 
   const response = await withRetry(async () => {
     return await openai.chat.completions.create({
@@ -557,6 +604,35 @@ Return JSON with:
   });
 
   const result = JSON.parse(response.choices[0].message.content || "{}");
+  
+  // Normalize nicheCategories to ensure proper structure
+  const normalizeNicheCategories = (categories: unknown): { category: string; competitiveness: "baja" | "media" | "alta"; reason: string }[] => {
+    if (!Array.isArray(categories)) return [];
+    return categories
+      .filter((c): c is { category: string; competitiveness: string; reason: string } => 
+        c && typeof c === "object" && "category" in c && "competitiveness" in c && "reason" in c
+      )
+      .map(c => ({
+        category: String(c.category || ""),
+        competitiveness: (["baja", "media", "alta"].includes(c.competitiveness) ? c.competitiveness : "media") as "baja" | "media" | "alta",
+        reason: String(c.reason || ""),
+      }));
+  };
+  
+  // Normalize thirtyDayPlan to ensure proper structure
+  const normalizeThirtyDayPlan = (plan: unknown): { day: number; task: string; platform?: string }[] => {
+    if (!Array.isArray(plan)) return [];
+    return plan
+      .filter((p): p is { day: number; task: string; platform?: string } => 
+        p && typeof p === "object" && "day" in p && "task" in p
+      )
+      .map(p => ({
+        day: Number(p.day) || 0,
+        task: String(p.task || ""),
+        platform: p.platform ? String(p.platform) : undefined,
+      }));
+  };
+  
   return {
     tiktokHooks: result.tiktokHooks || [],
     instagramPosts: result.instagramPosts || [],
@@ -566,6 +642,11 @@ Return JSON with:
     reviewCTA: result.reviewCTA || "",
     freePromoStrategy: result.freePromoStrategy || "",
     bookQuotes: result.bookQuotes || [],
+    nicheCategories: normalizeNicheCategories(result.nicheCategories),
+    facebookGroupContent: Array.isArray(result.facebookGroupContent) 
+      ? result.facebookGroupContent.filter((s: unknown): s is string => typeof s === "string") 
+      : [],
+    thirtyDayPlan: normalizeThirtyDayPlan(result.thirtyDayPlan),
   };
 }
 

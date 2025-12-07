@@ -241,7 +241,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
 
               <Separator />
 
-              <KeywordFields fields={marketResult.keywordFields} />
+              <KeywordFields fields={marketResult.keywordFields} isFiction={result.analysis?.isFiction ?? true} />
 
               <Separator />
 

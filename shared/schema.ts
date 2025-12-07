@@ -125,6 +125,15 @@ export const marketMetadataSchema = z.object({
 
 export type MarketMetadata = z.infer<typeof marketMetadataSchema>;
 
+// Categoría de nicho con indicador de competitividad
+export const nicheCategorySchema = z.object({
+  category: z.string(), // Nombre de la categoría
+  competitiveness: z.enum(["baja", "media", "alta"]), // Nivel de competitividad
+  reason: z.string(), // Por qué es buena opción
+});
+
+export type NicheCategory = z.infer<typeof nicheCategorySchema>;
+
 // Kit de Marketing Orgánico para promoción sin presupuesto
 export const marketingKitSchema = z.object({
   tiktokHooks: z.array(z.string()),
@@ -138,6 +147,16 @@ export const marketingKitSchema = z.object({
   reviewCTA: z.string(),
   freePromoStrategy: z.string(),
   bookQuotes: z.array(z.string()),
+  // Categorías adicionales de nicho para solicitar vía Author Central
+  nicheCategories: z.array(nicheCategorySchema).optional(),
+  // Contenido para grupos de Facebook de lectores
+  facebookGroupContent: z.array(z.string()).optional(),
+  // Plan de 30 días personalizado
+  thirtyDayPlan: z.array(z.object({
+    day: z.number(),
+    task: z.string(),
+    platform: z.string().optional(),
+  })).optional(),
 });
 
 export type MarketingKit = z.infer<typeof marketingKitSchema>;

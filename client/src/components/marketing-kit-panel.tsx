@@ -16,8 +16,15 @@ import {
   Camera,
   Image as ImageIcon,
   Sparkles,
+  Layers,
+  Users,
+  ListChecks,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  MinusCircle,
 } from "lucide-react";
-import { SiTiktok, SiInstagram, SiPinterest } from "react-icons/si";
+import { SiTiktok, SiInstagram, SiPinterest, SiFacebook } from "react-icons/si";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MarketingKitPanelProps {
   marketingKit: MarketingKit;
@@ -92,6 +99,30 @@ export function MarketingKitPanel({ marketingKit }: MarketingKitPanelProps) {
             >
               <Quote className="h-4 w-4 mr-2" />
               <span className="text-sm">Citas</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="categories"
+              className="data-[state=active]:bg-background px-3 py-2"
+              data-testid="tab-marketing-categories"
+            >
+              <Layers className="h-4 w-4 mr-2" />
+              <span className="text-sm">Categorías</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="facebook"
+              className="data-[state=active]:bg-background px-3 py-2"
+              data-testid="tab-marketing-facebook"
+            >
+              <SiFacebook className="h-4 w-4 mr-2" />
+              <span className="text-sm">Facebook</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="plan30"
+              className="data-[state=active]:bg-background px-3 py-2"
+              data-testid="tab-marketing-plan30"
+            >
+              <ListChecks className="h-4 w-4 mr-2" />
+              <span className="text-sm">Plan 30 Días</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -429,6 +460,230 @@ export function MarketingKitPanel({ marketingKit }: MarketingKitPanelProps) {
             <p className="text-xs text-muted-foreground">
               Combina estas citas con imágenes atractivas usando Canva o herramientas similares. 
               Son ideales para Instagram Stories, Pinterest pins y posts de Twitter/X.
+            </p>
+          </div>
+        </TabsContent>
+
+        {/* Categorías de Nicho para Author Central */}
+        <TabsContent value="categories" className="space-y-4 mt-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h4 className="text-sm font-medium text-foreground">Categorías Adicionales para Author Central</h4>
+              <p className="text-xs text-muted-foreground mt-1">
+                Categorías de nicho menos competitivas para solicitar vía KDP Support
+              </p>
+            </div>
+          </div>
+
+          {marketingKit.nicheCategories && marketingKit.nicheCategories.length > 0 ? (
+            <div className="grid gap-3">
+              {marketingKit.nicheCategories.map((cat, index) => {
+                const getCompetitivenessIcon = () => {
+                  switch (cat.competitiveness) {
+                    case "baja":
+                      return <ArrowDownCircle className="h-4 w-4 text-chart-2" />;
+                    case "media":
+                      return <MinusCircle className="h-4 w-4 text-yellow-500" />;
+                    case "alta":
+                      return <ArrowUpCircle className="h-4 w-4 text-destructive" />;
+                    default:
+                      return null;
+                  }
+                };
+                const getCompetitivenessColor = () => {
+                  switch (cat.competitiveness) {
+                    case "baja":
+                      return "bg-chart-2/10 text-chart-2 border-chart-2/30";
+                    case "media":
+                      return "bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/30";
+                    case "alta":
+                      return "bg-destructive/10 text-destructive border-destructive/30";
+                    default:
+                      return "";
+                  }
+                };
+
+                return (
+                  <Card
+                    key={index}
+                    className="p-4"
+                    data-testid={`niche-category-${index}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge
+                            variant="outline"
+                            className={`text-xs border ${getCompetitivenessColor()}`}
+                          >
+                            {getCompetitivenessIcon()}
+                            <span className="ml-1 capitalize">Competencia {cat.competitiveness}</span>
+                          </Badge>
+                        </div>
+                        <p className="text-sm font-medium text-foreground">
+                          {cat.category}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {cat.reason}
+                        </p>
+                      </div>
+                      <CopyButton text={cat.category} label="" size="icon" variant="ghost" />
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              Las categorías de nicho se generarán con futuras optimizaciones
+            </div>
+          )}
+
+          <div className="bg-muted/50 border border-border rounded-lg p-4 space-y-2">
+            <p className="text-xs font-medium text-foreground">
+              Cómo solicitar categorías adicionales
+            </p>
+            <ol className="text-xs text-muted-foreground space-y-1 ml-4 list-decimal">
+              <li>Accede a KDP y ve a "Contactar con nosotros" o usa Author Central</li>
+              <li>Solicita la inclusión en categorías adicionales (hasta 10 total)</li>
+              <li>Prioriza categorías de baja competencia para obtener la etiqueta "Best Seller" más fácilmente</li>
+            </ol>
+          </div>
+        </TabsContent>
+
+        {/* Contenido para Grupos de Facebook */}
+        <TabsContent value="facebook" className="space-y-4 mt-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h4 className="text-sm font-medium text-foreground">Posts para Grupos de Facebook</h4>
+              <p className="text-xs text-muted-foreground mt-1">
+                Contenido para participar en comunidades de lectores sin parecer spam
+              </p>
+            </div>
+            {marketingKit.facebookGroupContent && marketingKit.facebookGroupContent.length > 0 && (
+              <CopyButton
+                text={marketingKit.facebookGroupContent.join("\n\n")}
+                label="Copiar todos"
+                size="sm"
+              />
+            )}
+          </div>
+
+          {marketingKit.facebookGroupContent && marketingKit.facebookGroupContent.length > 0 ? (
+            <div className="grid gap-3">
+              {marketingKit.facebookGroupContent.map((post, index) => (
+                <div
+                  key={index}
+                  className="flex items-start justify-between gap-3 p-4 border border-border rounded-lg"
+                  data-testid={`facebook-post-${index}`}
+                >
+                  <div className="flex gap-3 flex-1 min-w-0">
+                    <div className="p-2 bg-blue-500/10 rounded-lg shrink-0">
+                      <SiFacebook className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <p className="text-sm text-foreground">{post}</p>
+                  </div>
+                  <CopyButton text={post} label="" size="icon" variant="ghost" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              El contenido para Facebook se generará con futuras optimizaciones
+            </div>
+          )}
+
+          <div className="bg-muted/50 border border-border rounded-lg p-4 space-y-2">
+            <p className="text-xs font-medium text-foreground">
+              Estrategia para Grupos de Facebook
+            </p>
+            <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
+              <li>Únete a grupos de tu género (ej: "Amantes del Thriller", "Lectores de Romance")</li>
+              <li>Participa genuinamente antes de promocionar</li>
+              <li>Comparte tu libro solo cuando sea apropiado (días de autopromoción)</li>
+              <li>Los grupos de "Libros Gratis Kindle" son ideales durante promociones gratuitas</li>
+            </ul>
+          </div>
+        </TabsContent>
+
+        {/* Plan de 30 Días */}
+        <TabsContent value="plan30" className="space-y-4 mt-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h4 className="text-sm font-medium text-foreground">Plan de Marketing de 30 Días</h4>
+              <p className="text-xs text-muted-foreground mt-1">
+                Calendario de acciones diarias (15-30 minutos al día)
+              </p>
+            </div>
+          </div>
+
+          {marketingKit.thirtyDayPlan && marketingKit.thirtyDayPlan.length > 0 ? (
+            <ScrollArea className="h-[400px] pr-4">
+              <div className="space-y-2">
+                {[1, 2, 3, 4].map((week) => {
+                  const weekTasks = marketingKit.thirtyDayPlan?.filter(
+                    (t) => t.day >= (week - 1) * 7 + 1 && t.day <= week * 7 + (week === 4 ? 2 : 0)
+                  ) || [];
+                  
+                  const weekLabels = [
+                    "Semana 1: Cimientos",
+                    "Semana 2: Creación de Contenido",
+                    "Semana 3: Comunidad",
+                    "Semana 4: Promoción",
+                  ];
+
+                  return (
+                    <Accordion key={week} type="single" collapsible defaultValue={week === 1 ? "week-1" : undefined}>
+                      <AccordionItem value={`week-${week}`} className="border rounded-lg px-4">
+                        <AccordionTrigger className="hover:no-underline" data-testid={`accordion-week-${week}`}>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4" />
+                            <span className="font-medium">{weekLabels[week - 1]}</span>
+                            <Badge variant="secondary" className="ml-2">{weekTasks.length} tareas</Badge>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-2 pt-2">
+                            {weekTasks.map((task, index) => (
+                              <div
+                                key={index}
+                                className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg"
+                                data-testid={`plan-day-${task.day}`}
+                              >
+                                <Badge variant="outline" className="shrink-0 min-w-[60px] justify-center">
+                                  Día {task.day}
+                                </Badge>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-foreground">{task.task}</p>
+                                  {task.platform && (
+                                    <Badge variant="secondary" className="mt-1 text-xs">
+                                      {task.platform}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              El plan de 30 días se generará con futuras optimizaciones
+            </div>
+          )}
+
+          <div className="bg-muted/50 border border-border rounded-lg p-4 space-y-2">
+            <p className="text-xs font-medium text-foreground">
+              Clave del éxito
+            </p>
+            <p className="text-xs text-muted-foreground">
+              La consistencia es más importante que la intensidad. Dedica 15-30 minutos diarios 
+              y verás resultados acumulativos. El marketing editorial es un maratón, no un sprint.
             </p>
           </div>
         </TabsContent>
