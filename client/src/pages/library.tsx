@@ -20,9 +20,11 @@ import { CopyButton } from "@/components/copy-button";
 import { CodeViewer } from "@/components/code-viewer";
 import { KeywordFields } from "@/components/keyword-fields";
 import { FlagIcon } from "@/components/flag-icon";
+import { MarketingKitPanel } from "@/components/marketing-kit-panel";
+import { LandingPagePanel } from "@/components/landing-page-panel";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { amazonMarkets, type Manuscript, type Optimization, type UploadProgress, type OptimizationResult, type MarketMetadata } from "@shared/schema";
+import { amazonMarkets, type Manuscript, type Optimization, type UploadProgress, type OptimizationResult, type MarketMetadata, type MarketingKit, type LandingPageContent } from "@shared/schema";
 import { BookOpen, RefreshCw, History, Calendar, FileText, Sparkles, Search, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -793,10 +795,104 @@ export default function Library() {
                           </Card>
                         </div>
                       </div>
+
+                      <Separator />
+
+                      {/* Categorías */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-foreground">
+                            Categorías
+                          </h3>
+                          <CopyButton text={marketResult.categories.join("\n")} />
+                        </div>
+                        <div className="space-y-2">
+                          {marketResult.categories.map((category, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                              <div className="flex items-center gap-2">
+                                <Badge variant={idx === 0 ? "default" : "secondary"} className="text-xs">
+                                  {idx === 0 ? "Principal" : `Nicho ${idx}`}
+                                </Badge>
+                                <span className="text-sm text-foreground">{category}</span>
+                              </div>
+                              <CopyButton text={category} label="" size="icon" variant="ghost" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* SEO */}
+                      {marketResult.seo && (
+                        <>
+                          <Separator />
+                          <div className="space-y-4">
+                            <h3 className="text-lg font-semibold text-foreground">
+                              SEO para Landing Page
+                            </h3>
+                            <div className="space-y-3">
+                              <div className="p-3 bg-muted/50 rounded-lg">
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                    Título SEO
+                                  </label>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={marketResult.seo.seoTitle.length <= 60 ? "outline" : "destructive"} className="text-xs">
+                                      {marketResult.seo.seoTitle.length}/60
+                                    </Badge>
+                                    <CopyButton text={marketResult.seo.seoTitle} label="" size="icon" variant="ghost" />
+                                  </div>
+                                </div>
+                                <p className="text-sm text-foreground">{marketResult.seo.seoTitle}</p>
+                              </div>
+
+                              <div className="p-3 bg-muted/50 rounded-lg">
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                    Meta Descripción
+                                  </label>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={marketResult.seo.seoDescription.length <= 160 ? "outline" : "destructive"} className="text-xs">
+                                      {marketResult.seo.seoDescription.length}/160
+                                    </Badge>
+                                    <CopyButton text={marketResult.seo.seoDescription} label="" size="icon" variant="ghost" />
+                                  </div>
+                                </div>
+                                <p className="text-sm text-foreground">{marketResult.seo.seoDescription}</p>
+                              </div>
+
+                              <div className="p-3 bg-muted/50 rounded-lg">
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                    Keywords SEO
+                                  </label>
+                                  <CopyButton text={marketResult.seo.seoKeywords.join(", ")} label="" size="icon" variant="ghost" />
+                                </div>
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {marketResult.seo.seoKeywords.map((kw, i) => (
+                                    <Badge key={i} variant="secondary" className="text-xs">{kw}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </Card>
                   </TabsContent>
                 ))}
               </Tabs>
+
+              {/* Marketing Kit */}
+              {viewingOptimization.marketingKit && (
+                <MarketingKitPanel marketingKit={viewingOptimization.marketingKit as MarketingKit} />
+              )}
+
+              {/* Landing Page Content */}
+              {viewingOptimization.landingPageContent && (
+                <LandingPagePanel 
+                  landingPageContent={viewingOptimization.landingPageContent as LandingPageContent} 
+                />
+              )}
             </div>
           )}
         </DialogContent>

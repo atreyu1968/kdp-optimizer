@@ -252,6 +252,9 @@ export const optimizations = pgTable("optimizations", {
   targetMarkets: text("target_markets").array().notNull(),
   seedKeywords: text("seed_keywords").array().notNull(),
   marketResults: jsonb("market_results").notNull(),
+  marketingKit: jsonb("marketing_kit"),
+  landingPageContent: jsonb("landing_page_content"),
+  analysis: jsonb("analysis"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

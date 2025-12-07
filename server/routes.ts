@@ -124,7 +124,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           result.id,
           validation.data.targetMarkets,
           result.seedKeywords,
-          result.marketResults
+          result.marketResults,
+          undefined, // existingManuscriptId
+          result.marketingKit,
+          result.landingPageContent,
+          result.analysis
         );
 
         // Crear tareas predeterminadas para el nuevo manuscrito
@@ -281,7 +285,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           targetMarkets,
           result.seedKeywords,
           result.marketResults,
-          id
+          id, // existingManuscriptId
+          result.marketingKit,
+          result.landingPageContent,
+          result.analysis
         );
 
         // Si el manuscrito no tiene tareas, crear las predeterminadas

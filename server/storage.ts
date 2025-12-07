@@ -510,7 +510,10 @@ export class DbStorage implements IStorage {
     targetMarkets: string[],
     seedKeywords: string[],
     marketResults: MarketMetadata[],
-    existingManuscriptId?: number
+    existingManuscriptId?: number,
+    marketingKit?: any,
+    landingPageContent?: any,
+    analysis?: any
   ): Promise<{ manuscript: Manuscript; optimization: Optimization }> {
     let manuscript: Manuscript;
     
@@ -531,6 +534,9 @@ export class DbStorage implements IStorage {
       targetMarkets,
       seedKeywords,
       marketResults: marketResults as any,
+      marketingKit: marketingKit as any,
+      landingPageContent: landingPageContent as any,
+      analysis: analysis as any,
     }).returning();
 
     return { manuscript, optimization };
