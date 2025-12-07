@@ -29,6 +29,7 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
 *   **Task Checklist System**: Automated per-manuscript task management with dynamic due dates and urgency indicators.
 *   **Aura Analytics System**: Imports and processes KDP sales and KENP data, offering multi-pseudonym analytics, AI-powered book insights (Boost, Optimize Metadata, Increase Promotion, Hold), and trend analysis. It includes a robust KDP XLSX importer, a pen name consolidation system, and a book events system for tracking promotional activities.
 *   **Organic Marketing Kit**: The system includes an **Organic Marketing Kit** providing AI-generated strategies and content such as TikTok Hooks, Instagram post ideas, Pinterest descriptions, hashtags, lead magnet ideas, review CTAs, and free promotion strategies, based on manuscript analysis (literary tropes, audience insights, emotional hooks). It also implements a 4-type keyword strategy and synopsis as copywriting.
+*   **SEO for Book Landing Pages**: Automatic generation of SEO metadata for each market including: SEO Title (50-60 chars), SEO Description (150-160 chars), SEO Keywords (8-12), and Open Graph tags for social sharing. Displayed in results panel with character count validation and copy buttons.
 *   **Search and Filter Capabilities**: Comprehensive search and filtering are available across all Aura management pages (Books, Series, Pen Names).
 
 ## External Dependencies
