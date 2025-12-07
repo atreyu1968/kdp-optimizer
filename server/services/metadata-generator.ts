@@ -2,6 +2,7 @@ import {
   analyzeManuscript,
   generateMetadata,
   optimizeKeywordsForMarket,
+  generateMarketingKit,
 } from "../ai/openai-client";
 import { delayBetweenCalls } from "../ai/retry-utils.js";
 import {
@@ -115,12 +116,20 @@ export async function generateOptimizationResult(
     
     const wordCount = manuscriptText.trim().split(/\s+/).length;
 
-    onProgress?.("analyzing", "Extrayendo temas y palabras clave con IA...", 15);
+    onProgress?.("analyzing", "Extrayendo temas, tropos y palabras clave con IA...", 15);
     const analysis = await analyzeManuscript(manuscriptText, language, genre);
     
     if (!analysis || !analysis.seedKeywords || analysis.seedKeywords.length === 0) {
       throw new Error("El análisis del manuscrito no produjo resultados válidos. Por favor, intenta de nuevo.");
     }
+
+    console.log(`[AI Analysis] Análisis completado:
+      - ${analysis.seedKeywords.length} keywords semilla
+      - ${analysis.themes.length} temas
+      - ${analysis.tropes?.length || 0} tropos literarios
+      - ${analysis.emotionalHooks?.length || 0} ganchos emocionales
+      - ${analysis.targetAudienceInsights?.length || 0} insights de audiencia
+      - Tipo: ${analysis.isFiction ? 'Ficción' : 'No ficción'}`);
 
   const marketResults: MarketMetadata[] = [];
   const totalMarkets = targetMarkets.length;
@@ -130,7 +139,7 @@ export async function generateOptimizationResult(
     const market = amazonMarkets[marketId as AmazonMarket];
     if (!market) continue;
 
-    const baseProgress = 25 + (marketIndex / totalMarkets) * 60;
+    const baseProgress = 25 + (marketIndex / totalMarkets) * 55;
     
     onProgress?.("researching", `Generando metadatos para ${market.name}...`, baseProgress, market.name);
 
@@ -141,7 +150,10 @@ export async function generateOptimizationResult(
       genre,
       targetAudience || "",
       market.name,
-      market.locale
+      market.locale,
+      analysis.tropes,
+      analysis.emotionalHooks,
+      analysis.isFiction
     );
 
     // Delay entre llamadas API del mismo mercado
@@ -221,6 +233,22 @@ export async function generateOptimizationResult(
     }
   }
 
+    onProgress?.("generating", "Generando Kit de Marketing Orgánico...", 88);
+    
+    // Generar kit de marketing orgánico
+    const marketingKit = await generateMarketingKit(
+      originalTitle,
+      genre,
+      analysis.themes,
+      analysis.tropes || [],
+      analysis.emotionalHooks || [],
+      analysis.targetAudienceInsights || [],
+      language,
+      analysis.isFiction
+    );
+
+    await delayBetweenCalls(500);
+
     onProgress?.("generating", "Finalizando resultados de optimización...", 95);
 
     return {
@@ -228,11 +256,22 @@ export async function generateOptimizationResult(
       originalTitle,
       author,
       manuscriptWordCount: wordCount,
-      seedKeywords: analysis.seedKeywords.slice(0, 20),
+      seedKeywords: analysis.seedKeywords.slice(0, 25),
       marketResults,
       createdAt: new Date().toISOString(),
       seriesName,
       seriesNumber,
+      // Nuevos campos para marketing orgánico
+      marketingKit,
+      analysis: {
+        seedKeywords: analysis.seedKeywords,
+        themes: analysis.themes,
+        entities: analysis.entities,
+        tropes: analysis.tropes || [],
+        targetAudienceInsights: analysis.targetAudienceInsights || [],
+        emotionalHooks: analysis.emotionalHooks || [],
+        isFiction: analysis.isFiction,
+      },
     };
   } catch (error) {
     console.error("Error en generateOptimizationResult:", error);

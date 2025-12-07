@@ -113,6 +113,36 @@ export const marketMetadataSchema = z.object({
 
 export type MarketMetadata = z.infer<typeof marketMetadataSchema>;
 
+// Kit de Marketing Orgánico para promoción sin presupuesto
+export const marketingKitSchema = z.object({
+  tiktokHooks: z.array(z.string()),
+  instagramPosts: z.array(z.string()),
+  pinterestDescriptions: z.array(z.string()),
+  hashtags: z.object({
+    general: z.array(z.string()),
+    specific: z.array(z.string()),
+  }),
+  leadMagnetIdeas: z.array(z.string()),
+  reviewCTA: z.string(),
+  freePromoStrategy: z.string(),
+  bookQuotes: z.array(z.string()),
+});
+
+export type MarketingKit = z.infer<typeof marketingKitSchema>;
+
+// Análisis extendido del manuscrito
+export const manuscriptAnalysisSchema = z.object({
+  seedKeywords: z.array(z.string()),
+  themes: z.array(z.string()),
+  entities: z.array(z.string()),
+  tropes: z.array(z.string()),
+  targetAudienceInsights: z.array(z.string()),
+  emotionalHooks: z.array(z.string()),
+  isFiction: z.boolean(),
+});
+
+export type ManuscriptAnalysis = z.infer<typeof manuscriptAnalysisSchema>;
+
 export const optimizationResultSchema = z.object({
   id: z.string(),
   originalTitle: z.string(),
@@ -123,6 +153,9 @@ export const optimizationResultSchema = z.object({
   createdAt: z.string(),
   seriesName: z.string().optional(),
   seriesNumber: z.number().optional(),
+  // Nuevos campos para marketing orgánico
+  marketingKit: marketingKitSchema.optional(),
+  analysis: manuscriptAnalysisSchema.optional(),
 });
 
 export type OptimizationResult = z.infer<typeof optimizationResultSchema>;

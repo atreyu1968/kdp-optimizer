@@ -6,6 +6,7 @@ import { CopyButton } from "./copy-button";
 import { CodeViewer } from "./code-viewer";
 import { KeywordFields } from "./keyword-fields";
 import { PricingTable } from "./pricing-table";
+import { MarketingKitPanel } from "./marketing-kit-panel";
 import { Separator } from "@/components/ui/separator";
 import { amazonMarkets, type OptimizationResult } from "@shared/schema";
 import { Download, Sparkles, AlertTriangle, CheckCircle2, Info } from "lucide-react";
@@ -113,7 +114,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
                   className="data-[state=active]:bg-background px-4 py-2"
                   data-testid={`tab-${marketResult.market}`}
                 >
-                  <span className="text-xl mr-2">{m.flag}</span>
+                  <span className={`fi fi-${m.countryCode} text-xl mr-2`}></span>
                   <span className="text-sm font-medium">{m.name}</span>
                 </TabsTrigger>
               );
@@ -284,6 +285,10 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
           </TabsContent>
         ))}
       </Tabs>
+
+      {result.marketingKit && (
+        <MarketingKitPanel marketingKit={result.marketingKit} />
+      )}
 
       <Card className="p-6 bg-muted/30">
         <div className="flex items-start gap-3">

@@ -86,48 +86,93 @@ export async function analyzeManuscript(
   seedKeywords: string[];
   themes: string[];
   entities: string[];
+  tropes: string[];
+  targetAudienceInsights: string[];
+  emotionalHooks: string[];
+  isFiction: boolean;
 }> {
   // Preparar manuscrito usando muestreo estratégico para optimizar consumo de tokens
   const manuscriptText = prepareManuscriptForAnalysis(text);
   
-  const prompt = `Analyze this ${genre} manuscript written in ${language} for Amazon KDP optimization.
+  // Determinar si es ficción o no ficción basado en el género
+  const fictionGenres = ['fiction', 'novel', 'romance', 'mystery', 'thriller', 'fantasy', 'sci-fi', 'horror', 'literary', 'historical fiction', 'novela', 'ficción', 'romántica', 'misterio', 'terror', 'fantasía'];
+  const isFiction = fictionGenres.some(fg => genre.toLowerCase().includes(fg));
+  
+  const prompt = `Analyze this ${genre} manuscript written in ${language} for Amazon KDP optimization using the A9 algorithm principles.
 
-CRITICAL: Amazon's A9 algorithm prioritizes CONVERSION and SALES, not just SEO relevance. Focus on identifying specific, niche elements that will attract HIGH-INTENT buyers.
+CRITICAL CONTEXT - Amazon's A9 Algorithm:
+- Prioritizes CONVERSION and SALES VELOCITY over traditional SEO
+- Books that convert searchers into buyers get promoted
+- Long-tail keywords (3-5 words) attract HIGH-INTENT buyers
+- Generic single words attract browsers, not buyers
 
 IMPORTANT: You are receiving STRATEGIC SAMPLES from the manuscript:
 - BEGINNING section (introduction, characters, initial conflict)
-- MIDDLE section (development, plot twists)
+- MIDDLE section (development, plot twists)  
 - ENDING section (climax, resolution)
 
-This sampling ensures you capture the complete narrative arc while optimizing token usage. Analyze these sections to identify comprehensive themes, character arcs, and plot elements.
+BOOK TYPE: ${isFiction ? 'FICTION' : 'NON-FICTION'}
 
-Extract the following:
+Extract the following with DEEP ANALYSIS:
 
-1. SEED KEYWORDS (20-30 diverse keywords):
-   - Prioritize LONG-TAIL keywords (3-5 word phrases) over generic single words
-   - Example: Instead of "mystery", use "cozy mystery small town detective"
-   - Include character archetypes (e.g., "reluctant hero", "strong female protagonist", "unlikely allies")
-   - Include specific subgenres and tropes (e.g., "enemies to lovers romance", "time travel adventure")
-   - Include setting descriptors (e.g., "Victorian London mystery", "post-apocalyptic survival")
-   - Include emotional hooks and reader promises (e.g., "heartwarming second chance", "edge-of-seat suspense")
-   - These should be diverse and cover different angles: plot elements, character types, themes, emotional tones, settings
-   - Consider the COMPLETE narrative arc from beginning to end
+1. SEED KEYWORDS (25-35 diverse LONG-TAIL phrases):
+   Apply the 4-TYPE KEYWORD STRATEGY from professional KDP marketing:
+   
+   TYPE A - GENRE KEYWORDS (6-8 phrases):
+   - Specific subgenre phrases, NOT generic genre words
+   - BAD: "Fantasy" | GOOD: "Fantasía urbana con brujas y romance"
+   - BAD: "Mystery" | GOOD: "Cozy mystery small town amateur detective"
+   
+   TYPE B - AUDIENCE KEYWORDS (5-7 phrases):
+   - Micro-segmented reader identity keywords
+   - BAD: "Para mujeres" | GOOD: "Libros para mujeres emprendedoras de 35+"
+   - BAD: "For teens" | GOOD: "Young adult readers who loved Hunger Games"
+   
+   TYPE C - TROPE/TONE KEYWORDS (6-8 phrases):
+   - Specific literary tropes readers actively search for
+   - Examples: "enemies to lovers slow burn", "found family adventure", "unreliable narrator psychological", "second chance romance"
+   
+   TYPE D - ${isFiction ? 'SETTING/ATMOSPHERE' : 'SOLUTION/BENEFIT'} KEYWORDS (6-8 phrases):
+   ${isFiction ? 
+   '- Setting and atmosphere descriptors\n   - Examples: "Victorian London gaslight mystery", "small coastal town secrets", "dystopian future rebellion"' :
+   '- Specific problems the book solves\n   - BAD: "Dieta" | GOOD: "Recetas bajas en carbohidratos para principiantes"\n   - BAD: "Business" | GOOD: "Passive income strategies for busy professionals"'}
 
-2. MAIN THEMES (3-5 specific themes):
-   - Go beyond generic themes like "love" or "redemption"
-   - Be specific: "overcoming childhood trauma", "navigating corporate corruption", "finding identity in a new culture"
-   - Focus on themes that resonate emotionally and indicate transformation/promise
-   - Consider how themes develop throughout the entire story
+2. LITERARY TROPES (5-8 specific tropes):
+   - Identify recognizable narrative patterns readers search for
+   - Fiction examples: "slow burn romance", "chosen one", "heist gone wrong", "fish out of water", "dark academia", "morally grey protagonist"
+   - Non-fiction examples: "step-by-step guide", "personal transformation journey", "contrarian advice", "myth-busting approach"
 
-3. NAMED ENTITIES (characters, places, important objects):
-   - Character names and types (including their complete development throughout the story)
-   - Specific locations or settings
-   - Important objects or symbols
+3. TARGET AUDIENCE INSIGHTS (4-6 specific reader profiles):
+   - WHO exactly would buy this book?
+   - Be SPECIFIC about demographics, psychographics, and reading preferences
+   - Examples: "Fans of Colleen Hoover seeking darker romance", "Middle-aged women rediscovering themselves after divorce", "History buffs interested in WWII resistance movements"
+
+4. EMOTIONAL HOOKS (4-6 emotional promises):
+   - What emotions does this book deliver?
+   - What transformation does the reader experience?
+   - Examples: "heart-wrenching redemption arc", "edge-of-seat suspense until last page", "cathartic emotional release", "empowering self-discovery journey"
+
+5. MAIN THEMES (3-5 SPECIFIC themes):
+   - Go beyond generic themes
+   - BAD: "love", "redemption" | GOOD: "healing from betrayal through unexpected friendship", "finding purpose after career collapse"
+
+6. NAMED ENTITIES:
+   - Character names with brief archetype description
+   - Key locations/settings
+   - Important objects/symbols
 
 Complete manuscript:
 ${manuscriptText}
 
-Return a JSON object with: seedKeywords (array of strings with long-tail phrases), themes (array of specific theme strings), entities (array of strings).`;
+RESPONSE FORMAT:
+Return JSON with:
+- seedKeywords: array of 25-35 long-tail keyword phrases
+- themes: array of 3-5 specific theme strings
+- entities: array of character/place/object strings
+- tropes: array of 5-8 literary trope strings
+- targetAudienceInsights: array of 4-6 specific reader profile strings
+- emotionalHooks: array of 4-6 emotional promise strings
+- isFiction: boolean (${isFiction})`;
 
   const response = await withRetry(async () => {
     return await openai.chat.completions.create({
@@ -150,6 +195,10 @@ Return a JSON object with: seedKeywords (array of strings with long-tail phrases
     seedKeywords: result.seedKeywords || [],
     themes: result.themes || [],
     entities: result.entities || [],
+    tropes: result.tropes || [],
+    targetAudienceInsights: result.targetAudienceInsights || [],
+    emotionalHooks: result.emotionalHooks || [],
+    isFiction: result.isFiction ?? isFiction,
   };
 }
 
@@ -160,7 +209,10 @@ export async function generateMetadata(
   genre: string,
   targetAudience: string,
   market: string,
-  locale: string
+  locale: string,
+  tropes?: string[],
+  emotionalHooks?: string[],
+  isFiction?: boolean
 ): Promise<{
   title: string;
   subtitle: string;
@@ -168,6 +220,8 @@ export async function generateMetadata(
   keywords: string[];
   categories: string[];
 }> {
+  const bookType = isFiction !== false ? 'FICTION' : 'NON-FICTION';
+  
   const prompt = `Generate conversion-optimized Amazon KDP metadata for a ${genre} book targeting ${market} (${locale}).
 
 CRITICAL CONTEXT - Amazon's A9 Algorithm:
@@ -176,10 +230,13 @@ CRITICAL CONTEXT - Amazon's A9 Algorithm:
 - First impressions drive click-through rate (CTR), which impacts ranking
 - Write ALL content natively in ${locale} - DO NOT translate from another language
 
+BOOK TYPE: ${bookType}
 Original Title: ${originalTitle}
 Target Audience: ${targetAudience || "General readers"}
-Seed Keywords: ${seedKeywords.slice(0, 15).join(", ")}
+Seed Keywords: ${seedKeywords.slice(0, 20).join(", ")}
 Themes: ${themes.join(", ")}
+${tropes?.length ? `Literary Tropes: ${tropes.join(", ")}` : ''}
+${emotionalHooks?.length ? `Emotional Hooks: ${emotionalHooks.join(", ")}` : ''}
 
 REQUIREMENTS:
 
@@ -191,23 +248,55 @@ REQUIREMENTS:
 2. SUBTITLE (CRITICAL for conversion):
    - Place the MOST IMPORTANT long-tail keyword phrase at the START
    - Include a clear PROMISE or TRANSFORMATION for the reader
+   ${bookType === 'NON-FICTION' ? 
+   `- For NON-FICTION: Promise a BENEFIT ("Cómo hacer X en Y tiempo", "Guía práctica para...")` :
+   `- For FICTION: Evoke the genre and emotional experience`}
    - Example structure: "[Main Long-tail Keyword]: [Clear Benefit/Promise]"
    - Good example: "A Cozy Mystery with Small-Town Secrets: Unravel the Truth in this Page-Turning Whodunit"
    - Bad example: "Book One in the Series" (no keyword, no promise)
    - MUST be persuasive and benefit-oriented, not just keyword stuffing
    - Combined title + subtitle MUST be under 200 characters total
 
-3. HTML DESCRIPTION (Optimize for CONVERSION, not just keywords):
-   - CRITICAL: First 150 characters are visible in search results - make them compelling!
-   - Start with a powerful hook using <b>bold text</b> in the first sentence
-   - Structure: Hook → Conflict/Stakes/Promise → Benefits/Features → Call to Action
-   - Use ONLY these HTML tags (others will break): <b>, <i>, <u>, <br>, <p>, <h4>, <h5>, <h6>, <ul><li>, <ol><li>
-   - Include 3-4 paragraphs using <p></p>
-   - Use <ul><li></li></ul> for key benefits or features (3-5 bullet points)
-   - Use <i>italics</i> for emotional emphasis
-   - End with a persuasive call to action (e.g., "Scroll up and click 'Buy Now' to start your journey today!")
+3. HTML DESCRIPTION - THIS IS COPYWRITING, NOT A PLOT SUMMARY:
+   
+   ⚠️ CRITICAL ERROR TO AVOID: Do NOT simply summarize the plot!
+   The description is a SALES PAGE, not a synopsis. Your goal is to SELL, not inform.
+   
+   COPYWRITING STRUCTURE (Hook → Conflict → Stakes → CTA):
+   
+   A) THE HOOK (First 150 chars - visible in search results):
+      - Start with <b>bold text</b> that GRABS attention
+      - Use a provocative question, shocking statement, or emotional trigger
+      - ${bookType === 'FICTION' ? 
+      'Fiction examples: "¿Qué harías si descubrieras que tu mejor amigo es un asesino?"' :
+      'Non-fiction examples: "El 90% de los emprendedores fracasan en su primer año. Este libro te enseña a ser del otro 10%."'}
+   
+   B) THE CONFLICT/PROBLEM:
+      - ${bookType === 'FICTION' ? 
+      'Present the central conflict without spoilers. Make readers FEEL the tension.' :
+      'Identify the reader\'s PAIN POINT. Make them feel understood.'}
+      - Use <i>italics</i> for emotional emphasis
+   
+   C) THE STAKES (What's at risk?):
+      - ${bookType === 'FICTION' ? 
+      '¿Qué pierde el protagonista si falla? Make readers CARE about the outcome.' :
+      '¿Qué pierde el lector si no actúa? Create urgency.'}
+   
+   D) BENEFITS/FEATURES (Use bullet list):
+      - <ul><li>3-5 compelling reasons to buy</li></ul>
+      - ${bookType === 'FICTION' ? 
+      'Examples: "Giros inesperados que te mantendrán despierto", "Personajes que nunca olvidarás"' :
+      'Examples: "Estrategias probadas por expertos", "Ejercicios prácticos paso a paso"'}
+   
+   E) CALL TO ACTION (Final paragraph):
+      - Create urgency and clear next step
+      - Example: "Desplaza hacia arriba y haz clic en 'Comprar ahora' para comenzar tu transformación hoy"
+   
+   FORMAT RULES:
+   - Use ONLY: <b>, <i>, <u>, <br>, <p>, <h4>, <h5>, <h6>, <ul><li>, <ol><li>
+   - 3-4 paragraphs using <p></p>
    - Maximum 4000 characters
-   - Write to SELL, not just to inform - persuasive copywriting is key
+   - NEVER reveal the ending or major plot twists
 
 4. PROHIBITED TERMS (DO NOT use these anywhere):
    - "bestseller", "best-seller", "#1"
@@ -217,24 +306,26 @@ REQUIREMENTS:
    - Trademarked terms you don't own
    - Subjective claims without proof
 
-5. BACKEND KEYWORDS (EXACTLY 7 keyword phrases):
-   - Generate EXACTLY 7 diverse, market-specific keyword phrases
-   - Each phrase MUST be maximum 50 characters
-   - Prioritize long-tail phrases (3-5 words) for each field
-   - Include variations, synonyms, and common misspellings relevant to ${locale}
-   - Mix of different types: subgenre terms, character types, settings, themes, emotional hooks
-   - Focus on high-intent buyer keywords, not casual browser terms
-   - Each field should be a complete, optimized phrase separated by commas if multiple keywords fit within 50 chars
+5. BACKEND KEYWORDS - Apply 4-TYPE STRATEGY:
+   Generate EXACTLY 7 keyword phrases (one per KDP field, max 50 chars each):
+   
+   - Field 1 (GENRE): Specific subgenre phrase (e.g., "cozy mystery amateur sleuth")
+   - Field 2 (AUDIENCE): Reader identity phrase (e.g., "libros para mujeres 40+")
+   - Field 3 (TROPES): Literary trope phrase (e.g., "enemies to lovers slow burn")
+   - Field 4 (${bookType === 'FICTION' ? 'SETTING' : 'SOLUTION'}): ${bookType === 'FICTION' ? 'Atmosphere/setting' : 'Problem solved'} phrase
+   - Field 5 (EMOTION): Emotional benefit phrase (e.g., "feel-good heartwarming")
+   - Field 6 (SYNONYMS): Variations and related terms
+   - Field 7 (COMP): Comparable books/authors readers search
 
 6. CATEGORIES (3 category suggestions):
    - 1 main broad category
-   - 2 niche/specific subcategories (less competitive)
+   - 2 niche/specific subcategories (less competitive, easier to rank #1)
    - Format: "Category > Subcategory > Sub-subcategory" where applicable
 
 RESPONSE FORMAT:
 Return JSON with: title (string), subtitle (string), description (HTML string), keywords (array of EXACTLY 7 strings, each max 50 characters), categories (array of 3 strings)
 
-Remember: Write natively in ${locale} with cultural relevance and local search patterns. Optimize for CONVERSION - every word should help turn a browser into a buyer.`;
+Remember: Write natively in ${locale} with cultural relevance. Every word should help turn a browser into a buyer.`;
 
   const response = await withRetry(async () => {
     return await openai.chat.completions.create({
@@ -340,4 +431,139 @@ Remember: Write for ${locale} native speakers. Think about how they ACTUALLY sea
 
   const result = JSON.parse(response.choices[0].message.content || "{}");
   return result.keywords || keywords;
+}
+
+export interface MarketingKit {
+  tiktokHooks: string[];
+  instagramPosts: string[];
+  pinterestDescriptions: string[];
+  hashtags: {
+    general: string[];
+    specific: string[];
+  };
+  leadMagnetIdeas: string[];
+  reviewCTA: string;
+  freePromoStrategy: string;
+  bookQuotes: string[];
+}
+
+export async function generateMarketingKit(
+  title: string,
+  genre: string,
+  themes: string[],
+  tropes: string[],
+  emotionalHooks: string[],
+  targetAudienceInsights: string[],
+  locale: string,
+  isFiction: boolean
+): Promise<MarketingKit> {
+  const bookType = isFiction ? 'FICTION' : 'NON-FICTION';
+  
+  const prompt = `Generate a comprehensive ORGANIC MARKETING KIT for a ${genre} book in ${locale}.
+
+CONTEXT - Zero-Budget Marketing Strategy:
+This kit is for independent publishers using organic (free) marketing strategies.
+The goal is to convert TIME + KNOWLEDGE into VISIBILITY without paid ads.
+
+BOOK INFORMATION:
+- Title: "${title}"
+- Type: ${bookType}
+- Themes: ${themes.join(", ")}
+${tropes?.length ? `- Literary Tropes: ${tropes.join(", ")}` : ''}
+${emotionalHooks?.length ? `- Emotional Hooks: ${emotionalHooks.join(", ")}` : ''}
+${targetAudienceInsights?.length ? `- Target Audience: ${targetAudienceInsights.join(", ")}` : ''}
+
+GENERATE THE FOLLOWING MARKETING ASSETS:
+
+1. TIKTOK HOOKS (5 viral-worthy hooks):
+   - First 3 seconds are CRITICAL - these must grab attention immediately
+   - Use provocative questions, bold statements, or pattern interrupts
+   - Format: Text that appears on screen in the first 3 seconds
+   - Examples: 
+     * "Si te gusta Stephen King, este libro te va a impedir dormir"
+     * "POV: Encontraste el libro perfecto para tu situación"
+     * "Este libro debería ser ilegal por lo adictivo que es"
+   - Make them specific to THIS book's themes and emotional hooks
+
+2. INSTAGRAM POST IDEAS (5 post concepts):
+   - Mix of formats: quote graphics, carousel ideas, reel concepts
+   - Each should include: Post type, Content concept, Caption hook
+   - Focus on aesthetic and shareable content
+   - Examples:
+     * "Carrusel: 5 frases que te harán replantearte todo - extraídas del libro"
+     * "Quote graphic: [frase impactante] sobre fondo de estética [género]"
+
+3. PINTEREST DESCRIPTIONS (3 SEO-optimized descriptions):
+   - Long-tail keywords for discoverability
+   - Descriptions that work as mini-sales pitches
+   - Include reader benefit/promise
+   - Pinterest content has long shelf life (months/years)
+
+4. HASHTAGS:
+   - General (10): Broad reach hashtags (#BookTokEspaña, #LibrosRecomendados, etc.)
+   - Specific (10): Niche hashtags related to this book's genre/themes
+
+5. LEAD MAGNET IDEAS (3 ideas):
+   - Free content to offer in exchange for email subscription
+   - Examples for fiction: "Primeros 3 capítulos gratis", "Final alternativo exclusivo", "Mapa del mundo del libro"
+   - Examples for non-fiction: "Checklist imprimible", "Mini-guía de 10 páginas", "Plantillas descargables"
+   - Make them specific to THIS book
+
+6. REVIEW REQUEST CTA:
+   - Text to include at the end of the ebook
+   - Warm, non-pushy request for honest review
+   - Include direct link instruction placeholder
+   - Should feel personal, not corporate
+
+7. FREE PROMO STRATEGY (KDP Select 5-Day Free):
+   - Step-by-step plan for the 5 free days promotion
+   - Where to promote (Facebook groups, forums, etc.)
+   - Timeline and messaging strategy
+   - Post-promotion follow-up
+
+8. QUOTABLE BOOK QUOTES (5 quotes):
+   - If you can infer memorable quotes from the themes/hooks, suggest them
+   - If not, suggest the TYPE of quotes that would work well for sharing
+   - These should be perfect for quote graphics on social media
+
+LANGUAGE: Generate ALL content natively in ${locale} with cultural relevance.
+
+RESPONSE FORMAT:
+Return JSON with:
+- tiktokHooks: array of 5 strings
+- instagramPosts: array of 5 strings (post concept descriptions)
+- pinterestDescriptions: array of 3 strings
+- hashtags: { general: array of 10 strings, specific: array of 10 strings }
+- leadMagnetIdeas: array of 3 strings
+- reviewCTA: string (the full call-to-action text)
+- freePromoStrategy: string (complete strategy description)
+- bookQuotes: array of 5 strings (suggested quotable content)`;
+
+  const response = await withRetry(async () => {
+    return await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert in organic book marketing and social media strategy for independent publishers. You understand BookTok, Bookstagram, and Pinterest algorithms. You create viral-worthy content hooks and engagement-driving strategies. You write natively in Spanish and understand the nuances of the Spanish-speaking book community. Your goal is to help authors build visibility without paid advertising.",
+        },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.8,
+    });
+  });
+
+  const result = JSON.parse(response.choices[0].message.content || "{}");
+  return {
+    tiktokHooks: result.tiktokHooks || [],
+    instagramPosts: result.instagramPosts || [],
+    pinterestDescriptions: result.pinterestDescriptions || [],
+    hashtags: result.hashtags || { general: [], specific: [] },
+    leadMagnetIdeas: result.leadMagnetIdeas || [],
+    reviewCTA: result.reviewCTA || "",
+    freePromoStrategy: result.freePromoStrategy || "",
+    bookQuotes: result.bookQuotes || [],
+  };
 }
