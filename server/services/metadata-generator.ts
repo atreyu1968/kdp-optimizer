@@ -3,6 +3,7 @@ import {
   generateMetadata,
   optimizeKeywordsForMarket,
   generateMarketingKit,
+  generateSEO,
 } from "../ai/openai-client";
 import { delayBetweenCalls } from "../ai/retry-utils.js";
 import {
@@ -211,6 +212,20 @@ export async function generateOptimizationResult(
 
     const pricing = calculatePrice(market.currency);
 
+    // Generar SEO para landing page del libro
+    onProgress?.("researching", `Generando SEO para ${market.name}...`, baseProgress + 20);
+    
+    const seoFields = await generateSEO(
+      finalTitle,
+      finalSubtitle,
+      genre,
+      analysis.themes,
+      finalDescription,
+      market.locale
+    );
+    
+    await delayBetweenCalls(400);
+
     marketResults.push({
       market: marketId,
       title: finalTitle,
@@ -223,6 +238,7 @@ export async function generateOptimizationResult(
       royaltyOption: pricing.royaltyOption,
       estimatedEarnings: pricing.earnings,
       validationWarnings: warnings.length > 0 ? warnings : undefined,
+      seo: seoFields,
     });
 
     marketIndex++;
