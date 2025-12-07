@@ -639,16 +639,14 @@ export default function Library() {
                   <History className="h-6 w-6 text-primary" />
                   Detalles de Optimización
                 </DialogTitle>
-                <DialogDescription className="text-base space-y-2">
-                  <div className="flex flex-wrap gap-4 text-sm">
-                    <span className="text-foreground font-medium">
-                      {format(new Date(viewingOptimization.createdAt), "d 'de' MMMM 'de' yyyy 'a las' HH:mm", { locale: es })}
-                    </span>
-                    <span>•</span>
-                    <span>{viewingOptimization.targetMarkets.length} mercado{viewingOptimization.targetMarkets.length !== 1 ? "s" : ""}</span>
-                    <span>•</span>
-                    <span>{viewingOptimization.seedKeywords.length} palabras clave</span>
-                  </div>
+                <DialogDescription className="text-base flex flex-wrap gap-4">
+                  <span className="text-foreground font-medium">
+                    {format(new Date(viewingOptimization.createdAt), "d 'de' MMMM 'de' yyyy 'a las' HH:mm", { locale: es })}
+                  </span>
+                  <span>•</span>
+                  <span>{viewingOptimization.targetMarkets.length} mercado{viewingOptimization.targetMarkets.length !== 1 ? "s" : ""}</span>
+                  <span>•</span>
+                  <span>{viewingOptimization.seedKeywords.length} palabras clave</span>
                 </DialogDescription>
               </DialogHeader>
 
