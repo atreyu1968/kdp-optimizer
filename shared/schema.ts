@@ -97,6 +97,17 @@ export const validationResultSchema = z.object({
 
 export type ValidationResult = z.infer<typeof validationResultSchema>;
 
+// Campos SEO para landing pages de libros
+export const seoFieldsSchema = z.object({
+  seoTitle: z.string(), // Título optimizado para Google (50-60 chars)
+  seoDescription: z.string(), // Meta description (150-160 chars)
+  seoKeywords: z.array(z.string()), // Palabras clave para SEO
+  ogTitle: z.string().optional(), // Open Graph title para redes sociales
+  ogDescription: z.string().optional(), // Open Graph description
+});
+
+export type SEOFields = z.infer<typeof seoFieldsSchema>;
+
 export const marketMetadataSchema = z.object({
   market: z.string(),
   title: z.string(),
@@ -109,6 +120,7 @@ export const marketMetadataSchema = z.object({
   royaltyOption: z.enum(["35%", "70%"]),
   estimatedEarnings: z.number(),
   validationWarnings: z.array(validationWarningSchema).optional(),
+  seo: seoFieldsSchema.optional(),
 });
 
 export type MarketMetadata = z.infer<typeof marketMetadataSchema>;

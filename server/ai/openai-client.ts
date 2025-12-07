@@ -567,3 +567,95 @@ Return JSON with:
     bookQuotes: result.bookQuotes || [],
   };
 }
+
+export interface SEOFields {
+  seoTitle: string;
+  seoDescription: string;
+  seoKeywords: string[];
+  ogTitle?: string;
+  ogDescription?: string;
+}
+
+export async function generateSEO(
+  bookTitle: string,
+  subtitle: string,
+  genre: string,
+  themes: string[],
+  description: string,
+  locale: string
+): Promise<SEOFields> {
+  const prompt = `Generate SEO metadata for a book landing page in ${locale}.
+
+BOOK INFORMATION:
+- Title: "${bookTitle}"
+- Subtitle: "${subtitle}"
+- Genre: ${genre}
+- Themes: ${themes.join(", ")}
+- Book Description (for context): ${description.slice(0, 500)}...
+
+GENERATE OPTIMIZED SEO METADATA:
+
+1. SEO TITLE (50-60 characters):
+   - Include main keyword (title + genre)
+   - Format: "[Book Title] - [Genre/Hook]" or "[Book Title]: [Compelling Promise]"
+   - Must be compelling for Google search results
+   - Example: "La Mente del Cautivo - Thriller Histórico que te Atrapa"
+
+2. SEO DESCRIPTION (150-160 characters):
+   - Meta description for Google search results
+   - Include primary keywords naturally
+   - End with a call to action or hook
+   - Must entice clicks from search results
+   - Example: "Descubre el thriller histórico que ha cautivado a miles de lectores. Una historia de suspenso que no podrás dejar. Lee el primer capítulo gratis."
+
+3. SEO KEYWORDS (8-12 keywords):
+   - Mix of head terms and long-tail keywords
+   - Include: book title, genre, author themes, reader searches
+   - Focus on what potential buyers would search
+   - Example: ["thriller histórico", "novela de suspenso", "libro cautivo", "mejor thriller español 2024"]
+
+4. OPEN GRAPH TITLE (60-70 characters):
+   - Title for social media shares (Facebook, LinkedIn)
+   - Can be slightly longer and more descriptive than SEO title
+   - Should be engaging and shareable
+
+5. OPEN GRAPH DESCRIPTION (100-150 characters):
+   - Description for social media previews
+   - More casual/emotional than SEO description
+   - Designed for social engagement
+
+LANGUAGE: Generate ALL content natively in ${locale}.
+
+RESPONSE FORMAT:
+Return JSON with:
+- seoTitle: string (50-60 chars)
+- seoDescription: string (150-160 chars)
+- seoKeywords: array of 8-12 strings
+- ogTitle: string (60-70 chars)
+- ogDescription: string (100-150 chars)`;
+
+  const response = await withRetry(async () => {
+    return await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert in SEO optimization for book landing pages and author websites. You understand Google's search algorithms, meta tag best practices, and Open Graph optimization for social sharing. You write compelling, keyword-rich meta content that ranks well and drives clicks. You write natively in the requested language.",
+        },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.6,
+    });
+  });
+
+  const result = JSON.parse(response.choices[0].message.content || "{}");
+  return {
+    seoTitle: result.seoTitle || `${bookTitle} - ${genre}`,
+    seoDescription: result.seoDescription || "",
+    seoKeywords: result.seoKeywords || [],
+    ogTitle: result.ogTitle,
+    ogDescription: result.ogDescription,
+  };
+}
