@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { withRetry, delayBetweenCalls } from "./retry-utils.js";
 import { landingPageContentSchema } from "@shared/schema";
+import { kdpFictionCategories, kdpNonfictionCategories, findMatchingCategories } from "../data/kdp-categories-list.js";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -328,7 +329,9 @@ REQUIREMENTS:
 6. CATEGORIES (3 category suggestions):
    - 1 main broad category
    - 2 niche/specific subcategories (less competitive, easier to rank #1)
-   - Format: "Category > Subcategory > Sub-subcategory" where applicable
+   - YOU MUST SELECT FROM THIS VALIDATED LIST OF KDP CATEGORIES:
+   ${isFiction ? kdpFictionCategories.slice(0, 50).join("\n   ") : kdpNonfictionCategories.slice(0, 50).join("\n   ")}
+   ... and more. Choose the most relevant categories from these official KDP paths.
 
 RESPONSE FORMAT:
 Return JSON with: title (string), subtitle (string), description (HTML string), keywords (array of EXACTLY 7 strings, each max 50 characters), categories (array of 3 strings)
@@ -555,10 +558,12 @@ GENERATE THE FOLLOWING MARKETING ASSETS:
    - These are ADDITIONAL categories to request via KDP Support or Author Central
    - Focus on LESS COMPETITIVE categories where it's easier to become #1 Best Seller
    - For each category provide:
-     * category: Full category path (e.g., "Kindle eBooks > Literature & Fiction > Women's Fiction > Domestic Life")
+     * category: Full category path from official KDP list
      * competitiveness: "baja", "media", or "alta" (prefer low competition)
      * reason: Why this category fits the book and why it's strategic
-   - Prioritize niche subcategories over broad categories
+   - YOU MUST SELECT FROM THIS VALIDATED LIST OF KDP CATEGORIES:
+   ${isFiction ? kdpFictionCategories.join(", ") : kdpNonfictionCategories.join(", ")}
+   - Prioritize niche subcategories (deeper paths like "Fiction > Romance > Historical > Regency")
 
 10. FACEBOOK GROUP CONTENT (5 posts):
    - Posts for reader-focused Facebook groups (not self-promo, add value first)
