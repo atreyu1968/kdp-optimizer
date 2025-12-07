@@ -1,0 +1,282 @@
+Plan Maestro de Marketing Editorial Orgánico para Sellos Independientes en KDP: Estrategias de Cero Inversión y Alto Impacto
+1. Introducción: El Paradigma del Marketing Editorial Sin Presupuesto
+En la era actual de la publicación digital, la barrera de entrada al mercado literario ha desaparecido prácticamente, lo que ha generado un ecosistema saturado donde la visibilidad se ha convertido en el activo más escaso y valioso. Para los sellos editoriales independientes que operan a través de Amazon Kindle Direct Publishing (KDP) y carecen de presupuesto para publicidad de pago (Amazon Ads, Facebook Ads), el desafío no es simplemente "estar" en la plataforma, sino destacar en un océano de millones de títulos. Este informe técnico despliega una estrategia integral diseñada específicamente para gestores de contenido sin experiencia previa en marketing ("dummies"), centrada en la maximización de recursos orgánicos, la ingeniería de metadatos y el apalancamiento de activos digitales existentes.
+La premisa fundamental de este análisis es la conversión de tiempo y conocimiento estratégico en capital de visibilidad. Cuando no se dispone de dinero para comprar la atención de los lectores, es imperativo ganársela mediante la relevancia algorítmica y la conexión emocional. El usuario, que ya posee un activo fundamental —páginas web dedicadas para cada sello editorial con enlaces a Amazon—, cuenta con la infraestructura base necesaria para construir un embudo de ventas efectivo. Este documento no solo aborda el "qué" hacer, sino que profundiza en el "por qué" y el "cómo", desglosando la psicología del consumidor, los mecanismos de los algoritmos de búsqueda y las tácticas de creación de contenido visual y textual que no requieren habilidades de diseño avanzadas.
+El marketing orgánico en 2025 no se trata de gritar más fuerte en redes sociales, sino de susurrar las palabras exactas al oído del algoritmo de Amazon y del lector potencial.1 A través de un enfoque disciplinado y basado en datos, un sello editorial puede competir con grandes conglomerados utilizando la agilidad y la autenticidad como sus principales armas.
+2. Fundamentos Estratégicos y Psicología del Lector Digital
+Antes de ejecutar cualquier táctica, es crucial comprender el terreno de juego. Amazon no es solo una tienda; es un motor de búsqueda transaccional. A diferencia de Google, donde la intención del usuario puede ser informativa ("cómo arreglar un grifo"), en Amazon la intención es casi siempre comercial ("comprar un libro de misterio"). Entender esto cambia radicalmente la forma en que optimizamos nuestros sellos editoriales.
+2.1. El Algoritmo A9 de Amazon: El Guardián de la Visibilidad
+El algoritmo de búsqueda de Amazon, conocido como A9, tiene un objetivo único: maximizar el ingreso por cliente (Revenue Per Customer). Para un editor sin presupuesto, entender las variables que A9 utiliza para clasificar los libros es la única forma de obtener tráfico gratuito.
+Las tres métricas fundamentales que el algoritmo evalúa son:
+Relevancia Textual: ¿Coincide el libro con lo que el usuario escribió en la barra de búsqueda? Esto depende de los metadatos (título, subtítulo, palabras clave, nombre del autor).
+Velocidad de Ventas (Sales Velocity): ¿Cuántas copias vende el libro en un periodo determinado en comparación con sus competidores? Un pico de ventas concentrado es más valioso que ventas goteadas a lo largo del tiempo.
+Tasa de Conversión (CVR): De cada 100 personas que ven la página del libro, ¿cuántas lo compran? Si mucha gente hace clic pero nadie compra, Amazon dejará de mostrar el libro, asumiendo que no es relevante o atractivo.
+Para el usuario novato, la implicación es clara: no se puede forzar la velocidad de ventas sin dinero, pero se puede optimizar la relevancia y la tasa de conversión hasta la perfección de manera gratuita.1
+2.2. La Psicología del Descubrimiento y la Segmentación por Sellos
+El usuario dispone de "una página de cada sello editorial con las obras publicadas". Esto es una ventaja estratégica significativa. En el marketing editorial, la claridad de marca (brand clarity) es vital. Los lectores suelen ser fieles a géneros específicos. Un lector de novela romántica rara vez compra ciencia ficción dura.
+Al tener sellos diferenciados, se puede aplicar una estrategia de "Silos de Audiencia". Cada sello debe tratarse como una marca independiente con su propio tono, estética y estrategia de palabras clave. Mezclar mensajes confunde tanto al lector como al algoritmo de recomendaciones de Amazon ("Los clientes que compraron esto también compraron..."). Si un sello publica terror y autoayuda, el algoritmo no sabrá a quién recomendar los libros. Mantener la pureza del género en cada sello maximiza la eficacia del marketing orgánico.1
+La página web de cada sello actúa como un "Hub" o centro de mando. En lugar de depender exclusivamente de Amazon (terreno alquilado), la web propia (terreno en propiedad) permite controlar la narrativa. Estratégicamente, el objetivo a largo plazo debe ser convertir el tráfico de Amazon en tráfico web y viceversa, creando un ciclo de retroalimentación positivo.
+3. Optimización Técnica del Producto en Amazon (Metadatos y SEO)
+El marketing invisible, aquel que ocurre en los entresijos de la configuración del libro en KDP, es el más potente para quienes no tienen presupuesto. Si el libro no es "encontrable" por las máquinas, no será leído por los humanos.
+3.1. Ingeniería de Palabras Clave: El Método del Autocompletado
+Para un principiante ("dummy"), la investigación de palabras clave puede parecer intimidante. Sin embargo, la herramienta más potente es gratuita y está justo delante de nosotros: la barra de búsqueda de Amazon.
+3.1.1. El Protocolo de Investigación en Modo Incógnito
+Es imperativo realizar estas búsquedas en una ventana de navegación privada (Modo Incógnito) para evitar que el historial de compras personal contamine los resultados.5 El proceso es mecánico y debe realizarse para cada libro de cada sello:
+Identificación de la Semilla: Comience con una palabra amplia que defina el género del sello (ej. "Novela negra").
+Expansión Alfabética: Escriba la palabra semilla seguida de la letra 'a' (ej. "Novela negra a..."). Amazon desplegará una lista de sugerencias. Estas sugerencias no son aleatorias; están ordenadas por volumen de búsqueda. Si aparece "Novela negra ambientada en Galicia", significa que hay una demanda real y activa por ese término.6
+Recolección de Datos: Anote todas las frases sugeridas que sean relevantes para su libro. Repita el proceso con todas las letras del abecedario.
+Análisis de Competencia (Método Visual): Haga clic en las sugerencias más prometedoras. Observe cuántos resultados arroja la búsqueda. Si hay más de 10,000 resultados, la competencia es demasiado alta para un libro sin publicidad. Busque términos con entre 200 y 3,000 resultados; ese es el "punto dulce" donde un sello pequeño puede destacar.8
+3.1.2. Selección Estratégica de las 7 Palabras Clave de Backend
+KDP permite introducir 7 campos de palabras clave. Un error común de principiantes es usar palabras sueltas ("amor", "misterio"). La estrategia correcta es usar "frases de cola larga" (long-tail keywords).
+
+Tipo de Palabra Clave
+Ejemplo Incorrecto (Saturado)
+Ejemplo Estratégico (Nicho)
+Por qué funciona
+Género
+"Fantasía"
+"Fantasía urbana con brujas y romance"
+Menos competencia, intención de compra más específica.
+Público
+"Para mujeres"
+"Libros para mujeres de 40 años divorciadas"
+Apela a la identidad del lector (Micro-segmentación).
+Tono/Tropos
+"Emocionante"
+"Enemies to lovers slow burn" (De enemigos a amantes)
+Los lectores de género buscan tropos específicos.9
+Solución (No Ficción)
+"Dieta"
+"Recetas bajas en carbohidratos para principiantes"
+Resuelve un problema concreto.
+
+Nota Técnica: No repita palabras que ya están en el título o subtítulo. Amazon ya las indexa. Use los 7 espacios para sinónimos y variaciones.10
+3.2. Optimización de la Página de Venta (Listing)
+Una vez que el usuario encuentra el libro, la página de venta debe convencerlo.
+El Título y Subtítulo: Deben ser claros antes que poéticos. En no ficción, el subtítulo debe prometer un beneficio ("Cómo hacer X en Y tiempo"). En ficción, debe evocar el género.
+La Sinopsis (Descripción): El error del principiante es resumir la trama. La sinopsis es un texto de venta (copywriting). Debe seguir la estructura: Gancho (Hook) -> Conflicto -> Estacas (¿Qué pierde el protagonista si falla?) -> Llamada a la Acción. Utilice formato HTML permitido por Amazon (negritas, listas) para hacer el texto escaneable.12
+Categorías: No se limite a las dos categorías que KDP ofrece en la configuración inicial. Utilice la herramienta de "Contacto" en KDP o Author Central para solicitar la inclusión en hasta 10 categorías adicionales que sean relevantes y menos competitivas, aumentando las posibilidades de obtener la etiqueta de "Best Seller" en un nicho pequeño.1
+4. Estrategia de Contenido Visual: Diseño para No Diseñadores
+El usuario ha indicado no saber nada de marketing, lo que usualmente implica una falta de habilidades de diseño gráfico. Sin embargo, la venta de libros es visual. La portada es el primer vendedor. Para promocionar los sellos en redes sociales y en la propia web, necesitamos activos visuales.
+4.1. Dominando Canva: La Herramienta del Editor Independiente
+Canva es la navaja suiza gratuita para este propósito. No es necesario "diseñar" desde cero; la clave está en "adaptar" plantillas profesionales.
+Flujo de trabajo para Dummies:
+Identidad de Marca: Defina una paleta de 3 colores y 2 fuentes para cada sello editorial y no se desvíe de ellas. Esto crea coherencia visual. Si el sello es de novela negra, use negros, rojos y blancos con fuentes serif fuertes. Si es romance, pasteles y fuentes script.14
+Creación de Mockups 3D: Un "mockup" es una imagen digital que simula el libro físico en un entorno real (ej. un libro sobre una mesa de café junto a unas gafas). Esto eleva la percepción de valor inmensamente.
+Herramientas Gratuitas: Utilice sitios como DIYBookCovers o la integración de Smartmockups dentro de Canva. Suba la imagen plana de la portada y descargue la versión 3D. Úsela en la web del sello y en todas las redes sociales.16
+Plantillas Esenciales:
+Post de Cita: Fondo de color sólido o textura suave + Frase impactante del libro + Portada 3D pequeña en la esquina.
+Post de Novedad: "Ya disponible" + Portada grande + Enlace en la bio.
+Carrusel Educativo (No ficción): "3 Consejos para..." extraídos del libro.20
+4.2. Estética y "Faceless Marketing" (Marketing Sin Rostro)
+Muchos autores y editores temen mostrar su cara en vídeo. La buena noticia es que la tendencia actual en comunidades literarias (BookTok, Bookstagram) favorece el contenido centrado en el libro, no en la persona.
+Bancos de Imágenes: Utilice sitios gratuitos como Unsplash, Pexels o Pixabay para encontrar imágenes de alta calidad que representen el "ambiente" (aesthetic) de sus libros. Busque "biblioteca oscura", "pareja en la playa", "crimen escena".22
+Vídeos de Ambiente: Grabe clips sencillos con el móvil: pasando las páginas del libro, el libro junto a una ventana con lluvia, o subrayando una frase. Estos activos son oro para TikTok y Reels.24
+5. Ecosistema de Redes Sociales: Plan de Ataque para Principiantes
+El usuario no sabe nada de redes sociales. Intentar estar en todas partes es una receta para el fracaso. La estrategia debe ser de profundidad mínima viable. Seleccionaremos las plataformas con mayor retorno de inversión orgánico para libros.
+5.1. TikTok (BookTok): El Motor de Viralidad Actual
+BookTok es, sin duda, la fuerza más disruptiva en la venta de libros hoy en día. Su algoritmo no se basa en cuántos seguidores tienes, sino en la retención del vídeo. Un usuario con 0 seguidores puede tener un vídeo viral con 1 millón de vistas si el contenido es bueno.
+Estrategia para Dummies:
+El Gancho (The Hook): Los primeros 3 segundos son vitales. Use texto en pantalla que plantee una pregunta o una afirmación audaz. Ej: "Si te gusta Stephen King, este libro te va a impedir dormir".
+Sonidos en Tendencia: TikTok es una plataforma de audio. Use las canciones o audios que estén marcados como "Tendencia" (flecha azul) y ajústelos a su vídeo. El algoritmo empuja los vídeos que usan audios populares.26
+Contenido Estático en Vídeo: No necesita bailar. Puede hacer un "slideshow" (pase de diapositivas) con fotos de la estética del libro y la portada al final. Esto es extremadamente fácil de hacer y muy efectivo en el nicho de libros.27
+Hashtags: Use una mezcla de hashtags generales (#BookTokEspaña, #LibrosRecomendados) y específicos (#NovelaPoliciaca, #RomanceDark).29
+5.2. Instagram (Bookstagram): La Vitrina Digital
+Instagram requiere un enfoque más estético. Aquí es donde la "Página de cada sello editorial" que el usuario ya posee se vuelve crítica.
+El Enlace en la Biografía (Link in Bio):
+Instagram no permite enlaces en las publicaciones (captions). Solo hay un enlace clicable: en la biografía.
+Herramientas de Agregación: No ponga solo el enlace a Amazon. Use herramientas gratuitas como Linktree, Lnk.bio o Hopp by Wix. Estas crean una mini-página donde puede poner botones para: "Comprar en Amazon", "Visitar Web del Sello", "Suscribirse a la Newsletter".30
+Estrategia de Stories: Use las Historias (duran 24h) para poner enlaces directos (el sticker de "Enlace") a la web del sello. Publique aquí las actualizaciones diarias, preguntas a los lectores y comparta contenido de otros autores.33
+5.3. Pinterest: El Tráfico a Largo Plazo
+Pinterest no es una red social, es un buscador visual. El contenido aquí tiene una vida útil de meses o años, a diferencia de las horas de Instagram.
+Estrategia: Suba las portadas y los diseños de Canva como "Pines".
+Enlazado: Cada Pin debe tener un enlace de destino. Enlace directamente a la página del libro en su web (para capturar tráfico propio) o a Amazon (para venta directa).
+SEO en Pinterest: Las descripciones de los Pines deben estar llenas de palabras clave, igual que en Amazon. "Libro de misterio para leer en vacaciones", "Mejores novelas románticas 2025".4
+6. La Web del Sello Editorial: Activación del Activo Propio
+El usuario mencionó tener "una página de cada sello editorial con las obras publicadas". Este es un activo subutilizado. Muchos autores cometen el error de enviar todo el tráfico de redes sociales directamente a Amazon.
+6.1. El Puente de Marketing (Bridge Page)
+Enviar tráfico directamente a Amazon tiene un riesgo: no sabemos quiénes son esas personas. Si visitan y no compran, los perdemos para siempre. Además, si enviamos tráfico "frío" (gente que no está lista para comprar) a Amazon y rebotan, nuestra tasa de conversión (CVR) baja y el algoritmo A9 nos penaliza.
+La Estrategia del Puente:
+Redes Sociales -> Web del Sello -> Amazon
+Cualificación: En la web, el usuario lee más, ve el booktrailer o lee el primer capítulo. Si hace clic en el botón de "Comprar en Amazon" desde la web, es un usuario con alta intención de compra. Esto dispara la conversión en Amazon y mejora el ranking.36
+Captura de Leads: La web debe tener un formulario visible para suscribirse a una lista de correo (Newsletter) a cambio de un regalo (Lead Magnet).
+6.2. Optimización SEO Básica para la Web
+Asegúrese de que las páginas de los sellos tengan títulos y metadescripciones claras.
+Título de la Página: "Nombre del Libro - Sello Editorial - Género".
+Contenido: Publique artículos sencillos o entradas de blog sobre los temas de los libros. Si el sello publica novelas históricas, escriba artículos sobre las curiosidades de la época. Esto atrae tráfico de Google que luego puede convertirse en lectores.37
+7. Estrategias de Promoción Específicas "Zero-Budget"
+Sin dinero para anuncios, debemos utilizar el tiempo y la astucia.
+7.1. KDP Select y la Estrategia de "Gratis"
+Si los libros están inscritos en KDP Select (exclusividad con Amazon), tiene acceso a 5 días de promoción gratuita cada 90 días.
+El Objetivo no es Ingreso, es Rango: Al poner el libro gratis, se disparan las descargas. Esto sube el libro en las listas de "Top 100 Gratuito". Al terminar la promoción y volver al precio de pago, el libro conserva parte de esa inercia algorítmica y visibilidad.40
+Coordinación: No lance la promoción en el vacío. Avise en grupos de Facebook específicos como "Libros Gratis Kindle" o "Pasión por la Lectura". Estos grupos permiten la autopromoción de libros gratuitos porque es contenido de valor para sus miembros.43
+7.2. Construcción de una Lista de Correo (Newsletter)
+El activo más valioso de un editor es la lista de emails de sus lectores. Amazon no le da los emails de sus clientes; usted debe conseguirlos.
+Lead Magnet (Imán de Lectores): Ofrezca algo gratuito a cambio del email. No necesita escribir un libro nuevo. Puede ser:
+Los primeros 3 capítulos del libro en PDF.
+Un final alternativo.
+Una guía relacionada con el tema del libro (No ficción).45
+Plataformas Gratuitas:
+Substack: Ideal para escritores. Totalmente gratis, permite enviar newsletters y publicar contenido como un blog. Muy fácil de usar para "dummies".47
+Mailchimp: Plan gratuito hasta 500 contactos. Más complejo pero con más opciones de diseño visual.50
+Recomendación: Para un principiante absoluto, Substack es superior por su simplicidad y enfoque en el texto.52
+7.3. Obtención de Reseñas (Social Proof)
+Un libro sin reseñas es un libro invisible. La prueba social es crítica.
+Equipo ARC (Advanced Reader Copy): Busque lectores en Instagram (#LectoresCero) dispuestos a leer el libro gratis a cambio de una reseña honesta.
+Llamada a la Acción Interna: Asegúrese de que la última página de cada ebook tenga un enlace directo a la página de reseñas en Amazon con un texto amable: "Como sello independiente, tu opinión nos ayuda a seguir publicando. ¿Podrías dejar una reseña?".53
+8. Plan de Ejecución Paso a Paso: El Reto de 30 Días
+Para evitar la parálisis por análisis, aquí se presenta un calendario operativo diseñado para alguien con tiempo limitado (rutina de 15-30 minutos diarios inspirada en Anthony Trollope 55).
+Semana 1: Cimientos y Activos (Preparación)
+Día 1: Auditar las páginas web de los sellos. Asegurar que los botones a Amazon funcionen. Instalar enlaces a redes sociales.
+Día 2: Investigación de Palabras Clave (Modo Incógnito) para el libro principal del Sello A. Actualizar en KDP.
+Día 3: Investigación de Palabras Clave para el libro principal del Sello B. Actualizar en KDP.
+Día 4: Crear cuenta en Canva. Diseñar una plantilla maestra para Instagram y una para Pinterest.
+Día 5: Crear cuenta en Linktree (o similar) y añadir los enlaces de las webs de los sellos. Poner este enlace en las bios de Instagram/TikTok.
+Día 6: Abrir cuenta en Substack. Escribir el primer post de bienvenida ("Quiénes somos y qué libros publicamos").
+Día 7: Planificar una promoción de "5 Días Gratis" en KDP para dentro de 3 semanas.
+Semana 2: Creación de Contenido (Producción)
+Día 8: Generar 5 Mockups 3D de los libros usando herramientas gratuitas.
+Día 9: Crear 3 vídeos sencillos para TikTok (sin cara): mostrando la portada y una cita con música de tendencia.
+Día 10: Publicar el primer TikTok y el primer post en Instagram. Usar hashtags investigados.
+Día 11: Buscar 5 grupos de Facebook de lectores del género. Unirse y presentarse (sin vender, solo socializar).
+Día 12: Subir las imágenes de los libros a Pinterest con enlaces a la web del sello.
+Día 13: Escribir un correo en Substack ofreciendo un avance gratuito de un libro a cambio de suscribirse.
+Día 14: Interactuar en redes: comentar en 10 cuentas de autores similares o lectores (Bookstagrammers).
+Semana 3: Visibilidad y Comunidad (Expansión)
+Día 15: Publicar vídeo en TikTok: "3 libros para leer si te gusta [Género]". Incluir el propio al final.
+Día 16: Compartir una historia personal sobre el sello en el blog/web y enlazarla en redes.
+Día 17: Participar en hilos de Reddit (r/libros, r/escritores) aportando valor, no spam.56
+Día 18: Contactar a 3 cuentas pequeñas de Bookstagram para ofrecerles una copia digital gratuita a cambio de reseña.
+Día 19: Publicar en Pinterest una infografía o cita visual.
+Día 20: Preparar los materiales gráficos para la promoción gratuita de la semana siguiente ("¡Mañana Gratis!").
+Día 21: Revisar estadísticas. ¿Qué contenido tuvo más vistas? Repetir ese formato.
+Semana 4: La Campaña de Promoción (Venta)
+Día 22 (Inicio Promo Gratis en KDP): Publicar en TODAS las redes y grupos de Facebook permitidos. Enviar email en Substack.
+Día 23: Publicar TikTok mostrando que el libro está gratis ("Corre antes de que acabe").
+Día 24: Pedir a amigos/familiares que descarguen y dejen reseña.
+Día 25: Recordatorio en Stories de Instagram con enlace directo.
+Día 26 (Fin Promo): Post de "Últimas horas".
+Día 27: Post de agradecimiento y bienvenida a nuevos lectores.
+Día 28: Analizar descargas y subida en ranking.
+Día 29: Actualizar la web con cualquier reseña nueva positiva ("Lo que dicen los lectores").
+Día 30: Descanso y planificación del siguiente mes.58
+9. Análisis Comparativo de Herramientas Gratuitas
+Para facilitar la ejecución, se presenta un desglose de las herramientas recomendadas.
+Tabla 9.1: Selección de Herramientas de Email Marketing para Autores
+
+Característica
+Mailchimp (Free Plan)
+Substack (Free)
+Veredicto para Dummies
+Límite de Suscriptores
+500 contactos 50
+Ilimitado 48
+Substack gana por escalabilidad sin coste.
+Envío de Correos
+1,000 envíos/mes
+Ilimitado
+Substack permite comunicación constante.
+Facilidad de Uso
+Media (Drag & Drop complejo)
+Alta (Editor de texto simple)
+Substack es más intuitivo para escribir.
+Capacidad de Blog
+Limitada (Landing pages)
+Nativa (Cada email es un post web)
+Substack mata dos pájaros de un tiro (Blog + Email).
+Monetización Futura
+Ecommerce integrado
+Suscripciones de pago directas
+Substack facilita monetizar contenido exclusivo.
+
+Tabla 9.2: Comparativa de Redes Sociales para Libros
+Red Social
+Formato Principal
+Esfuerzo de Creación
+Vida Útil del Post
+Potencial Viral
+TikTok (BookTok)
+Vídeo Vertical
+Medio (Edición móvil)
+Corta (Días)
+Muy Alto (Explosivo)
+Instagram
+Imagen / Reel
+Alto (Estética cuidada)
+Media (Perfil)
+Alto (Reels) / Bajo (Feed)
+Pinterest
+Imagen Vertical
+Bajo (Reutilizar Canva)
+Muy Larga (Meses)
+Medio (Tráfico constante)
+Facebook
+Texto / Link
+Bajo (Compartir)
+Muy Corta (Horas)
+Bajo (Segmentado en grupos)
+
+10. Conclusión
+La promoción de sellos editoriales en KDP sin dinero es un ejercicio de ingeniería de activos. Al carecer de capital financiero, el editor debe invertir capital intelectual en comprender al algoritmo de Amazon y capital emocional en conectar con los lectores a través de contenido orgánico.
+El plan presentado no requiere genialidad creativa, sino consistencia mecánica. La optimización de palabras clave asegura que el libro sea encontrado; la portada profesional (vía mockups) asegura el clic; y el contenido en redes sociales y la lista de correo aseguran la retención. Al seguir este plan de 30 días y utilizar las herramientas gratuitas descritas, un sello editorial puede construir una base sólida y sostenible, transformando visitantes casuales en una comunidad de lectores leales. El éxito en KDP es una maratón, no un sprint, y con estas estrategias, usted está equipado para correrla.
+Nota sobre Citaciones: Este informe integra datos y estrategias de múltiples fuentes especializadas en el ecosistema de autopublicación y marketing digital.1
+Obras citadas
+Autopublicar en Amazon KDP: Guía Estratégica 2025 - Alavante, fecha de acceso: diciembre 7, 2025, https://www.alavante.com/es/blog/self-publishing-on-amazon-kdp-strategic-guide-2025
+How to Sell Books on Amazon KDP without Investment: The 7 Keys to Position Yourself Organically - YouTube, fecha de acceso: diciembre 7, 2025, https://www.youtube.com/watch?v=_ryCujUZCiI
+Cómo ganar dinero en Amazon en 2025 (sin vender productos físicos) - Repricer.com, fecha de acceso: diciembre 7, 2025, https://www.repricer.com/es/blog/como-ganar-dinero-en-amazon-en-2025-sin-vender-productos-fisicos/
+Pinterest for Authors: A Guide to Marketing Your Book on Pinterest - Spines, fecha de acceso: diciembre 7, 2025, https://spines.com/pinterest-for-authors/
+Amazon KDP Keywords - The Comprehensive Tutorial | SelfPublishingwithDale.com, fecha de acceso: diciembre 7, 2025, https://selfpublishingwithdale.com/index.php/2022/07/11/amazon-kdp-keywords/
+Make Your Book More Discoverable with Keywords - Kindle Direct Publishing, fecha de acceso: diciembre 7, 2025, https://kdp.amazon.com/help/topic/G201298500
+Amazon KDP Keyword Research For Beginners Tutorial 2: Amazon Auto Suggestion, fecha de acceso: diciembre 7, 2025, https://www.youtube.com/watch?v=28zYjqD8PmQ
+Como Rellenar las 7 Palabras Clave para Amazon KDP - YouTube, fecha de acceso: diciembre 7, 2025, https://www.youtube.com/watch?v=FzdO-1WMapE
+No estás aprovechando las categorías y palabras clave de Amazon - Gabriella Literaria, fecha de acceso: diciembre 7, 2025, https://gabriellaliteraria.com/palabras-clave-de-amazon/
+Cómo Llenar las 7 PALABRAS CLAVE para tu LIBRO en Amazon kdp: GRATIS - YouTube, fecha de acceso: diciembre 7, 2025, https://www.youtube.com/watch?v=PBH4lxPx_Y0
+Mejore la visibilidad de su libro utilizando palabras clave relevantes - Kindle Direct Publishing, fecha de acceso: diciembre 7, 2025, https://kdp.amazon.com/es_ES/help/topic/G201298500
+Cómo promocionar su libro - Kindle Direct Publishing - Amazon.com, fecha de acceso: diciembre 7, 2025, https://kdp.amazon.com/es_ES/help/topic/GQSKV8L8EM6APYHN
+Ventajas de KDP Selec - Amazon.com, fecha de acceso: diciembre 7, 2025, https://kdp.amazon.com/es_ES/help/topic/GEZBMTMYGN9EBTLG
+Canva para Instagram: la guía definitiva | Minh Ngoc Nguyen - Skillshare, fecha de acceso: diciembre 7, 2025, https://www.skillshare.com/es/classes/canva-para-instagram-la-guia-definitiva/816042679
+CURSO GRATIS DE CANVA PARA ESCRITORES (PARTE 1) Diseña posts para Instagram, Stories, Memes y más. - YouTube, fecha de acceso: diciembre 7, 2025, https://www.youtube.com/watch?v=jMmcjicMC8c
+Generador de Maquetas de Libros 3D Gratis en Línea - Pacdora, fecha de acceso: diciembre 7, 2025, https://www.pacdora.com/es/tools/3d-book-mockup-generator
+Generador gratuito de mockups | Crear mockups de libro en 3D - Renderforest, fecha de acceso: diciembre 7, 2025, https://www.renderforest.com/es/book-mockup-generator
+Generador gratuito de mockups de libros online - Canva, fecha de acceso: diciembre 7, 2025, https://www.canva.com/es_mx/crear/mockups-libros/
+The 3D Book Cover Creator You'll Love to Use, fecha de acceso: diciembre 7, 2025, https://diybookcovers.com/3Dmockups/
+Crea un post de Instagram personalizado - Canva, fecha de acceso: diciembre 7, 2025, https://www.canva.com/es_mx/crear/post-instagram/
+Cómo crear POST PARA INSTAGRAM con CANVA ❤️️ (Curso Canva - Parte 2) - YouTube, fecha de acceso: diciembre 7, 2025, https://www.youtube.com/watch?v=B8kw9GNYCA4
+Imágenes libres de regalías de Portadas libros de historia - Shutterstock, fecha de acceso: diciembre 7, 2025, https://www.shutterstock.com/es/search/portadas-libros-de-historia
+330.100+ Portada De Libro Fotografías de stock, fotos e imágenes libres de derechos - iStock | Libros, Libro cerrado, Portada de revista, fecha de acceso: diciembre 7, 2025, https://www.istockphoto.com/es/fotos/portada-de-libro
+10 ideas para Instagram sin rostro Reels - Iconosquare, fecha de acceso: diciembre 7, 2025, https://www.iconosquare.com/es/blog/10-ideas-para-los-Reels-de-instagram-sin-rostro
+CLASIFICANDO +30 LIBROS VIRALES DE TIKTOK: ¿Merecen la pena? - YouTube, fecha de acceso: diciembre 7, 2025, https://www.youtube.com/watch?v=xoMBk0qtTCM
+3 libros que debes leer para ser viral en Tiktok - EDteam, fecha de acceso: diciembre 7, 2025, https://ed.team/blog/3-libros-que-debes-leer-para-ser-viral-en-tiktok
+6 consejos para ser un BookToker - ExLibric, fecha de acceso: diciembre 7, 2025, https://www.exlibric.com/promocionar/6-consejos-convertirte-booktoker/
+CÓMO ESCRIBIR Y PUBLICAR TU LIBRO DESDE CERO EN 2025 (PARTE 1/4) | 🖊️CAPÍTULO 1: ESCRITURA - YouTube, fecha de acceso: diciembre 7, 2025, https://www.youtube.com/watch?v=VS-GQnxxFPw
+Los libros más comentados del mes en BookTok - Audible.es, fecha de acceso: diciembre 7, 2025, https://www.audible.es/blog/articulo-audiolibros-de-booktok-espanol
+11 Best Link In Bio Tools for 2025 - Wix.com, fecha de acceso: diciembre 7, 2025, https://www.wix.com/blog/link-in-bio-tools
+The best link in bio tools in 2025 (Free and Paid) - Wisery, fecha de acceso: diciembre 7, 2025, https://wisery.io/blog/best-link-in-bio-tools/
+8 Best Free Link-in-Bio Tools for Instagram and TikTok - The Leap, fecha de acceso: diciembre 7, 2025, https://www.theleap.co/blog/free-link-in-bio/
+30 ideas para cuentas de Instagram de escritor, ¡inspírate!, fecha de acceso: diciembre 7, 2025, https://www.cafedelescritor.com/30-ideas-para-instagram-de-escritores/
+The ultimate Pinterest Book marketing guide for authors - Creativindie, fecha de acceso: diciembre 7, 2025, https://www.creativindie.com/the-ultimate-pinterest-book-marketing-guide/
+Why Pinterest Is Still a Hidden Goldmine for Indie Authors - IngramSpark, fecha de acceso: diciembre 7, 2025, https://www.ingramspark.com/blog/why-pinterest-is-still-a-hidden-goldmine-for-indie-authors
+Book Marketing Plan Template (Free Download) + Examples for Indie Authors, fecha de acceso: diciembre 7, 2025, https://manuscriptreport.com/blog/book-marketing-plan-template
+La checklist de SEO que necesitas: las 41 mejores prácticas - Semrush, fecha de acceso: diciembre 7, 2025, https://es.semrush.com/blog/checklist-para-seo/
+Checklist SEO: 40 buenas prácticas para poner tu web a punto - SE Ranking, fecha de acceso: diciembre 7, 2025, https://seranking.com/es/blog/checklist-seo/
+Checklist SEO para redactores online: lista sencilla y comprobada - Sotelo Marketing, fecha de acceso: diciembre 7, 2025, https://sotelomarketing.com/checklist-seo-redactores-online-copywriting/
+Qué es KDP Select: ¿Me conviene inscribirme? - YouTube, fecha de acceso: diciembre 7, 2025, https://www.youtube.com/watch?v=BwQ5ADKGJvE
+Promociones de libros gratuitos - Kindle Direct Publishing, fecha de acceso: diciembre 7, 2025, https://kdp.amazon.com/es_ES/help/topic/G201298240
+Promoción libros gratuitos amazon KDP tutorial fácil para poner gratis tu ebook en Amazon, fecha de acceso: diciembre 7, 2025, https://www.youtube.com/watch?v=4qnKdQ6PNi4
+Efectividad y estrategias de promociones de libros gratis en Amazon : r/selfpublish - Reddit, fecha de acceso: diciembre 7, 2025, https://www.reddit.com/r/selfpublish/comments/1fmf3a4/amazon_free_book_promotion_effectiveness_and/?tl=es-419
+8 grupos de Facebook para escritores que no te querrás perder - Simplemente MJ, fecha de acceso: diciembre 7, 2025, https://simplementemj.com/grupos-de-facebook-para-escritores/
+Lead magnets: cómo conseguir tus primeros 100 suscriptores., fecha de acceso: diciembre 7, 2025, https://marketingonlineparaescritores.com/lead-magnets/
+35 Tipos de Lead Magnet más efectivos [EJEMPLOS] - Rubén Máñez, fecha de acceso: diciembre 7, 2025, https://rubenmanez.com/lead-magnet-ejemplos/
+Mailchimp vs. Substack – Best email platform for nonprofits (2025) | Zeffy, fecha de acceso: diciembre 7, 2025, https://www.zeffy.com/compare/mailchimp-vs-substack
+11 Best Substack Alternatives to Grow Your Newsletter (2025) - Email Tool Tester, fecha de acceso: diciembre 7, 2025, https://www.emailtooltester.com/en/blog/substack-alternatives/
+¿Mailchimp a Substack - lo bueno, lo malo y lo feo? - Reddit, fecha de acceso: diciembre 7, 2025, https://www.reddit.com/r/Substack/comments/1mk9c0a/mailchimp_to_substack_the_good_bad_and_ugly/?tl=es-419
+About Mailchimp Pricing Plans, fecha de acceso: diciembre 7, 2025, https://mailchimp.com/help/about-mailchimp-pricing-plans/
+Mailchimp Pricing 2025: Watch Out for These Extra Costs, fecha de acceso: diciembre 7, 2025, https://www.emailtooltester.com/en/reviews/mailchimp/pricing/
+Substack or Mailchimp: Which One Should You Choose?, fecha de acceso: diciembre 7, 2025, https://www.substacktools.com/blog/substack-or-mailchimp-which-one-should-you-choose
+How to Get Reviews on Amazon KDP Legally - YouTube, fecha de acceso: diciembre 7, 2025, https://www.youtube.com/watch?v=yedeNgDzKxM
+7 consejos para conseguir más reseñas en Amazon en 2025 - Repricer.com, fecha de acceso: diciembre 7, 2025, https://www.repricer.com/es/blog/obtener-mas-opiniones-en-amazon/
+Rutinas de 15 minutos: La estrategia de Anthony Trollope para escribir más de 40 libros, fecha de acceso: diciembre 7, 2025, https://rebujitomarketing.com/productividad/rutinas-15-minutos-estrategia-anthony-trollope
+Una Guía Práctica de Comunidades de Reddit para Promocionar Libros : r/selfpublish, fecha de acceso: diciembre 7, 2025, https://www.reddit.com/r/selfpublish/comments/1nquot8/a_handy_guide_to_reddit_communities_for_book/?tl=es-419
+Recomendaciones 2025 libros : r/libros - Reddit, fecha de acceso: diciembre 7, 2025, https://www.reddit.com/r/libros/comments/1hocsb3/recomendaciones_2025_libros/
+Reto: “Empieza tu negocio en 30 días” - GoDaddy Resources - Spain, fecha de acceso: diciembre 7, 2025, https://www.godaddy.com/resources/es/emprender/reto-empieza-tu-negocio-en-30-dias
+Ultimate Book Marketing Plan Template for Authors - Rob Eagar, fecha de acceso: diciembre 7, 2025, https://www.startawildfire.com/free-resources/book-marketing-plan-template
