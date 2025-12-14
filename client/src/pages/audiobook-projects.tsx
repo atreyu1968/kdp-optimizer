@@ -18,8 +18,18 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   Plus, Headphones, FileAudio, Clock, CheckCircle2, AlertCircle, Loader2, 
   Upload, FileText, Play, Download, Trash2, ArrowLeft, Volume2, XCircle,
-  RefreshCw, ChevronRight
+  RefreshCw, ChevronRight, AlertTriangle
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { AudiobookProject, AudiobookChapter, SynthesisJob } from "@shared/schema";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: any }> = {
@@ -58,6 +68,7 @@ interface ProjectDetailProps {
 
 function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
   const { toast } = useToast();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { data: project, isLoading: loadingProject } = useQuery<AudiobookProject>({
     queryKey: ["/api/audiobooks/projects", projectId],
@@ -171,7 +182,7 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
           <Button 
             variant="destructive" 
             size="icon" 
-            onClick={() => deleteMutation.mutate()}
+            onClick={() => setShowDeleteDialog(true)}
             disabled={deleteMutation.isPending || isProcessing}
             data-testid="button-delete-project"
           >
@@ -179,6 +190,33 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
           </Button>
         </div>
       </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              ¿Eliminar proyecto?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Se eliminará permanentemente el proyecto 
+              "<span className="font-medium">{project.title}</span>" junto con todos sus 
+              capítulos y archivos de audio generados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteMutation.mutate()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {project.errorMessage && (
         <Alert variant="destructive">
@@ -569,9 +607,25 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
 
 export default function AudiobookProjects() {
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<AudiobookProject | null>(null);
+  const { toast } = useToast();
   
   const { data: projects, isLoading } = useQuery<AudiobookProject[]>({
     queryKey: ["/api/audiobooks/projects"],
+  });
+
+  const deleteFromListMutation = useMutation({
+    mutationFn: async (projectId: number) => {
+      await apiRequest("DELETE", `/api/audiobooks/projects/${projectId}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Proyecto eliminado" });
+      queryClient.invalidateQueries({ queryKey: ["/api/audiobooks/projects"] });
+      setProjectToDelete(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "No se pudo eliminar el proyecto", variant: "destructive" });
+    },
   });
 
   if (selectedProjectId !== null) {
@@ -654,7 +708,22 @@ export default function AudiobookProjects() {
                 <CardFooter className="pt-0">
                   <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
                     <span>{project.sourceFileName}</span>
-                    <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProjectToDelete(project);
+                        }}
+                        disabled={isProcessing}
+                        data-testid={`button-delete-project-${project.id}`}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                      <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
                   </div>
                 </CardFooter>
               </Card>
@@ -673,6 +742,33 @@ export default function AudiobookProjects() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              ¿Eliminar proyecto?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Se eliminará permanentemente el proyecto 
+              "<span className="font-medium">{projectToDelete?.title}</span>" junto con todos sus 
+              capítulos y archivos de audio generados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-list">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => projectToDelete && deleteFromListMutation.mutate(projectToDelete.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-list"
+            >
+              {deleteFromListMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

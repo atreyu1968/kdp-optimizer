@@ -291,6 +291,20 @@ export async function getAudioDownloadUrl(s3Uri: string, expiresIn: number = 360
 }
 
 /**
+ * Sanitize a chapter title for use as filename
+ */
+function sanitizeFilename(title: string): string {
+  return title
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove accents
+    .replace(/[^a-z0-9\s-]/g, "") // Remove special chars
+    .replace(/\s+/g, "_") // Spaces to underscores
+    .replace(/_+/g, "_") // Multiple underscores to single
+    .replace(/^_|_$/g, "") // Trim underscores
+    .slice(0, 50); // Limit length
+}
+
+/**
  * Synthesize a full chapter (handles chunking for long texts)
  */
 export async function synthesizeChapter(
@@ -299,7 +313,8 @@ export async function synthesizeChapter(
   text: string,
   voiceId: string,
   engine: string = "neural",
-  speechRate: string = "medium"
+  speechRate: string = "medium",
+  chapterTitle: string = ""
 ): Promise<void> {
   // Preprocess text for better TTS quality
   let processedText = preprocessTextForTTS(text);
@@ -384,7 +399,9 @@ export async function synthesizeChapter(
       fs.mkdirSync(masteringDir, { recursive: true });
     }
     
-    const masteredPath = path.join(masteringDir, `chapter_${chapterId}_${Date.now()}.mp3`);
+    // Use chapter title for filename, with fallback to chapter ID
+    const safeFilename = chapterTitle ? sanitizeFilename(chapterTitle) : `chapter_${chapterId}`;
+    const masteredPath = path.join(masteringDir, `${safeFilename}.mp3`);
     
     const masteringOptions: MasteringOptions = {
       targetLoudness: -20,    // ACX target: -20 LUFS
@@ -470,7 +487,8 @@ export async function synthesizeProject(
         chapter.contentText,
         project.voiceId,
         project.engine,
-        speechRate
+        speechRate,
+        chapter.title
       );
       
       completed++;
@@ -671,7 +689,9 @@ async function synthesizeProjectFromChapter(
         projectId,
         chapter.contentText,
         project.voiceId,
-        project.engine
+        project.engine,
+        project.speechRate || "90%",
+        chapter.title
       );
       
       completed++;
