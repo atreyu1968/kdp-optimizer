@@ -570,6 +570,7 @@ export const synthesisJobStatuses = [
   "synthesizing", // Polly está procesando
   "downloaded",   // Audio descargado de S3
   "mastering",    // FFmpeg procesando
+  "mastered",     // Audio masterizado con éxito (ACX compliant)
   "completed",    // Audio final listo
   "failed"        // Error en el proceso
 ] as const;
@@ -615,6 +616,7 @@ export const audiobookProjects = pgTable("audiobook_projects", {
   voiceId: text("voice_id").notNull().default("Lucia"),
   voiceLocale: text("voice_locale").notNull().default("es-ES"),
   engine: text("engine").notNull().default("neural"), // "neural", "long-form", "standard"
+  speechRate: text("speech_rate").notNull().default("90%"), // Velocidad de narración (ACX recomienda 90%)
   status: text("status").notNull().default("draft"),
   totalChapters: integer("total_chapters").default(0),
   completedChapters: integer("completed_chapters").default(0),

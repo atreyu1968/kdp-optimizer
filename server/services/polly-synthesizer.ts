@@ -22,8 +22,12 @@ import {
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
 import { storage } from "../storage";
 import { preprocessTextForTTS, wrapInSSML } from "./text-preprocessor";
+import { masterAudioFromUrl, type MasteringOptions } from "./audio-mastering";
 
 // Polly text limit per request (for neural voices, actual limit is 3000 chars)
 const MAX_CHARS_PER_REQUEST = 2800;
@@ -358,19 +362,64 @@ export async function synthesizeChapter(
     // Wait for completion (async polling)
     const completedTask = await waitForTaskCompletion(result.taskId);
     
-    // Get the download URL
-    const audioUrl = completedTask.OutputUri 
+    // Get the download URL for the raw Polly audio
+    const rawAudioUrl = completedTask.OutputUri 
       ? await getAudioDownloadUrl(completedTask.OutputUri)
       : null;
     
+    if (!rawAudioUrl) {
+      throw new Error("No audio URL received from Polly");
+    }
+    
     await storage.updateSynthesisJob(job.id, {
-      status: "completed",
+      status: "mastering",
       s3OutputUri: completedTask.OutputUri || null,
-      finalAudioUrl: audioUrl,
-      completedAt: new Date(),
     });
     
-    console.log(`[Polly] Completed synthesis for chapter ${chapterId}`);
+    console.log(`[Polly] Synthesis complete for chapter ${chapterId}, starting mastering...`);
+    
+    // Apply ACX-compliant mastering (2-pass loudnorm + room tone)
+    const masteringDir = path.join(os.tmpdir(), "audiobook-mastered");
+    if (!fs.existsSync(masteringDir)) {
+      fs.mkdirSync(masteringDir, { recursive: true });
+    }
+    
+    const masteredPath = path.join(masteringDir, `chapter_${chapterId}_${Date.now()}.mp3`);
+    
+    const masteringOptions: MasteringOptions = {
+      targetLoudness: -20,    // ACX target: -20 LUFS
+      targetPeak: -3,          // ACX max peak: -3 dB
+      targetLRA: 11,           // Loudness range
+      silenceStart: 1000,      // 1s room tone at start
+      silenceEnd: 3000,        // 3s room tone at end
+      sampleRate: 44100,       // 44.1 kHz for ACX
+      bitrate: "192k",         // 192 kbps CBR for ACX
+    };
+    
+    const masteringResult = await masterAudioFromUrl(rawAudioUrl, masteredPath, masteringOptions);
+    
+    if (!masteringResult.success) {
+      console.error(`[Mastering] Failed for chapter ${chapterId}:`, masteringResult.error);
+      // Fall back to raw audio if mastering fails
+      await storage.updateSynthesisJob(job.id, {
+        status: "completed",
+        finalAudioUrl: rawAudioUrl,
+        errorMessage: `Mastering failed: ${masteringResult.error}`,
+        completedAt: new Date(),
+      });
+    } else {
+      console.log(`[Mastering] Success for chapter ${chapterId}: ${masteredPath}`);
+      console.log(`[Mastering] Analysis: I=${masteringResult.analysis?.input_i} LUFS -> ${masteringResult.analysis?.output_i} LUFS`);
+      
+      await storage.updateSynthesisJob(job.id, {
+        status: "mastered",
+        localAudioPath: masteredPath,
+        finalAudioUrl: rawAudioUrl, // Keep S3 URL for fallback
+        completedAt: new Date(),
+      });
+    }
+    
+    console.log(`[Polly] Completed synthesis and mastering for chapter ${chapterId}`);
     
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -409,7 +458,7 @@ export async function synthesizeProject(
   let completed = 0;
   
   // Use speech rate from project or default to 90% for ACX audiobooks
-  const speechRate = (project as any).speechRate || "90%";
+  const speechRate = project.speechRate || "90%";
   
   try {
     for (const chapter of chapters) {

@@ -340,6 +340,7 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
   const [author, setAuthor] = useState("");
   const [engine, setEngine] = useState<string>("");
   const [voiceId, setVoiceId] = useState("");
+  const [speechRate, setSpeechRate] = useState("90%"); // ACX default: 90% for better comprehension
   const [uploading, setUploading] = useState(false);
 
   const { data: voices, isLoading: loadingVoices } = useQuery<Voice[]>({
@@ -390,6 +391,7 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
         formData.append("voiceLocale", selectedVoice.languageCode);
         formData.append("engine", selectedVoice.engine);
       }
+      formData.append("speechRate", speechRate);
 
       const response = await fetch("/api/audiobooks/upload", {
         method: "POST",
@@ -409,6 +411,7 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
       setAuthor("");
       setEngine("");
       setVoiceId("");
+      setSpeechRate("90%");
       onSuccess();
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -526,6 +529,27 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
                 Idioma: {selectedVoice.languageCode}
               </p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="speechRate">Velocidad de narración</Label>
+            <Select value={speechRate} onValueChange={setSpeechRate}>
+              <SelectTrigger data-testid="select-speech-rate-trigger">
+                <SelectValue placeholder="Selecciona velocidad" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="80%" data-testid="rate-option-80">80% - Muy lenta (pausada)</SelectItem>
+                <SelectItem value="85%" data-testid="rate-option-85">85% - Lenta</SelectItem>
+                <SelectItem value="90%" data-testid="rate-option-90">90% - Recomendada para audiolibros (ACX)</SelectItem>
+                <SelectItem value="95%" data-testid="rate-option-95">95% - Normal-lenta</SelectItem>
+                <SelectItem value="100%" data-testid="rate-option-100">100% - Normal</SelectItem>
+                <SelectItem value="110%" data-testid="rate-option-110">110% - Rápida</SelectItem>
+                <SelectItem value="120%" data-testid="rate-option-120">120% - Muy rápida</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              ACX recomienda 90% para mejor comprensión. Más lento = más fácil de seguir para el oyente.
+            </p>
           </div>
         </div>
 

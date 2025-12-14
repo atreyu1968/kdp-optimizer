@@ -1492,7 +1492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      const { voiceId, voiceLocale, engine, author } = req.body;
+      const { voiceId, voiceLocale, engine, author, speechRate } = req.body;
 
       // Leer el archivo y parsearlo
       const fileBuffer = readFileSync(req.file.path);
@@ -1506,6 +1506,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         voiceId: voiceId || "Lucia",
         voiceLocale: voiceLocale || "es-ES",
         engine: engine || "neural",
+        speechRate: speechRate || "90%", // ACX default: 90% for better comprehension
         status: "ready",
         totalChapters: parsed.chapters.length,
         completedChapters: 0,
