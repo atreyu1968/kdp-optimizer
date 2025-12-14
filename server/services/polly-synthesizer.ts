@@ -23,6 +23,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { storage } from "../storage";
+import { preprocessTextForTTS, wrapInSSML } from "./text-preprocessor";
 
 // Polly text limit per request (for neural voices, actual limit is 3000 chars)
 const MAX_CHARS_PER_REQUEST = 2800;
@@ -166,7 +167,8 @@ export async function startSynthesisTask(
   text: string,
   voiceId: VoiceId,
   engine: Engine = Engine.NEURAL,
-  outputFormat: OutputFormat = OutputFormat.MP3
+  outputFormat: OutputFormat = OutputFormat.MP3,
+  useSSML: boolean = false
 ): Promise<SynthesisResult> {
   const client = getPollyClient();
   const bucket = process.env.S3_BUCKET_NAME;
@@ -180,7 +182,7 @@ export async function startSynthesisTask(
     OutputS3BucketName: bucket,
     OutputS3KeyPrefix: "audiobooks/",
     Text: text,
-    TextType: TextType.TEXT,
+    TextType: useSSML ? TextType.SSML : TextType.TEXT,
     VoiceId: voiceId,
     Engine: engine,
     SampleRate: engine === Engine.STANDARD ? "22050" : "24000",
@@ -292,14 +294,22 @@ export async function synthesizeChapter(
   projectId: number,
   text: string,
   voiceId: string,
-  engine: string = "neural"
+  engine: string = "neural",
+  speechRate: string = "medium"
 ): Promise<void> {
-  // For now, we'll use a single task per chapter
-  // Long texts will be handled with SSML marks in a future update
+  // Preprocess text for better TTS quality
+  let processedText = preprocessTextForTTS(text);
   
   // Check text length and truncate if needed (Polly's hard limit is 100k chars for StartSpeechSynthesisTask)
-  const maxLength = 100000;
-  const processedText = text.length > maxLength ? text.slice(0, maxLength) : text;
+  const maxLength = 90000; // Leave room for SSML tags
+  if (processedText.length > maxLength) {
+    processedText = processedText.slice(0, maxLength);
+  }
+  
+  // Wrap in SSML with speech rate control
+  const ssmlText = wrapInSSML(processedText, speechRate);
+  
+  console.log(`[Polly] Preprocessed text for chapter ${chapterId}: ${text.length} -> ${processedText.length} chars, rate: ${speechRate}`);
   
   // Create synthesis job record
   const job = await storage.createSynthesisJob({
@@ -335,7 +345,7 @@ export async function synthesizeChapter(
       default:
         pollyEngine = Engine.STANDARD;
     }
-    const result = await startSynthesisTask(processedText, voiceId as VoiceId, pollyEngine);
+    const result = await startSynthesisTask(ssmlText, voiceId as VoiceId, pollyEngine, OutputFormat.MP3, true);
     
     await storage.updateSynthesisJob(job.id, {
       pollyTaskId: result.taskId,
@@ -398,6 +408,9 @@ export async function synthesizeProject(
   
   let completed = 0;
   
+  // Use speech rate from project or default to 'slow' for audiobooks
+  const speechRate = (project as any).speechRate || "slow";
+  
   try {
     for (const chapter of chapters) {
       onProgress?.(completed, chapters.length, chapter.title);
@@ -407,7 +420,8 @@ export async function synthesizeProject(
         projectId,
         chapter.contentText,
         project.voiceId,
-        project.engine
+        project.engine,
+        speechRate
       );
       
       completed++;
