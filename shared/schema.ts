@@ -542,3 +542,156 @@ export const insertBookEventSchema = createInsertSchema(auraBookEvents).omit({
 });
 export type InsertBookEvent = z.infer<typeof insertBookEventSchema>;
 export type BookEvent = typeof auraBookEvents.$inferSelect;
+
+// ============================================================================
+// AUDIOBOOKFORGE SYSTEM - Producción automatizada de audiolibros
+// ============================================================================
+
+// Motores de síntesis de Amazon Polly
+export const pollyEngines = ["neural", "long-form", "standard"] as const;
+export type PollyEngine = typeof pollyEngines[number];
+
+// Estados de proyectos de audiolibros
+export const audiobookProjectStatuses = [
+  "draft",        // Proyecto creado, sin procesar
+  "parsing",      // Extrayendo capítulos del documento
+  "ready",        // Capítulos extraídos, listo para sintetizar
+  "synthesizing", // En proceso de síntesis
+  "mastering",    // En proceso de masterización
+  "completed",    // Todos los capítulos completados
+  "failed"        // Error en el proceso
+] as const;
+export type AudiobookProjectStatus = typeof audiobookProjectStatuses[number];
+
+// Estados de trabajos de síntesis individuales
+export const synthesisJobStatuses = [
+  "pending",      // En cola para síntesis
+  "submitted",    // Enviado a Amazon Polly
+  "synthesizing", // Polly está procesando
+  "downloaded",   // Audio descargado de S3
+  "mastering",    // FFmpeg procesando
+  "completed",    // Audio final listo
+  "failed"        // Error en el proceso
+] as const;
+export type SynthesisJobStatus = typeof synthesisJobStatuses[number];
+
+// Voces disponibles de Amazon Polly (español e inglés principales)
+export const pollyVoices = {
+  "es-ES": [
+    { id: "Lucia", name: "Lucia (Mujer)", engine: ["neural", "standard"] },
+    { id: "Sergio", name: "Sergio (Hombre)", engine: ["neural", "long-form"] },
+    { id: "Conchita", name: "Conchita (Mujer)", engine: ["standard"] },
+    { id: "Enrique", name: "Enrique (Hombre)", engine: ["standard"] },
+  ],
+  "es-MX": [
+    { id: "Mia", name: "Mia (Mujer)", engine: ["neural", "standard"] },
+    { id: "Andres", name: "Andrés (Hombre)", engine: ["neural"] },
+  ],
+  "es-US": [
+    { id: "Lupe", name: "Lupe (Mujer)", engine: ["neural", "standard"] },
+    { id: "Pedro", name: "Pedro (Hombre)", engine: ["neural"] },
+  ],
+  "en-US": [
+    { id: "Joanna", name: "Joanna (Mujer)", engine: ["neural", "long-form"] },
+    { id: "Matthew", name: "Matthew (Hombre)", engine: ["neural", "long-form"] },
+    { id: "Ruth", name: "Ruth (Mujer)", engine: ["neural", "long-form"] },
+    { id: "Stephen", name: "Stephen (Hombre)", engine: ["neural", "long-form"] },
+    { id: "Danielle", name: "Danielle (Mujer)", engine: ["neural", "long-form"] },
+    { id: "Gregory", name: "Gregory (Hombre)", engine: ["neural", "long-form"] },
+  ],
+  "en-GB": [
+    { id: "Amy", name: "Amy (Mujer)", engine: ["neural", "long-form"] },
+    { id: "Brian", name: "Brian (Hombre)", engine: ["neural"] },
+    { id: "Emma", name: "Emma (Mujer)", engine: ["neural"] },
+  ],
+} as const;
+
+// Tabla de proyectos de audiolibros
+export const audiobookProjects = pgTable("audiobook_projects", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  author: text("author").notNull(),
+  sourceFileName: text("source_file_name"), // Nombre del archivo .docx original
+  voiceId: text("voice_id").notNull().default("Lucia"),
+  voiceLocale: text("voice_locale").notNull().default("es-ES"),
+  engine: text("engine").notNull().default("neural"), // "neural", "long-form", "standard"
+  status: text("status").notNull().default("draft"),
+  totalChapters: integer("total_chapters").default(0),
+  completedChapters: integer("completed_chapters").default(0),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Tabla de capítulos extraídos
+export const audiobookChapters = pgTable("audiobook_chapters", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => audiobookProjects.id),
+  sequenceNumber: integer("sequence_number").notNull(), // Orden del capítulo
+  title: text("title").notNull(), // Título extraído del H1
+  contentText: text("content_text").notNull(), // Texto plano del capítulo
+  contentSsml: text("content_ssml"), // Texto con marcas SSML
+  characterCount: integer("character_count").notNull().default(0),
+  estimatedDurationSeconds: integer("estimated_duration_seconds"), // ~150 palabras/min
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Tabla de trabajos de síntesis (cola de procesamiento)
+export const audiobookSynthesisJobs = pgTable("audiobook_synthesis_jobs", {
+  id: serial("id").primaryKey(),
+  chapterId: integer("chapter_id").notNull().references(() => audiobookChapters.id),
+  projectId: integer("project_id").notNull().references(() => audiobookProjects.id),
+  pollyTaskId: text("polly_task_id"), // ID de la tarea de Polly
+  s3OutputUri: text("s3_output_uri"), // URI del archivo en S3 (temporal)
+  localAudioPath: text("local_audio_path"), // Ruta local temporal
+  finalAudioUrl: text("final_audio_url"), // URL del audio masterizado final
+  status: text("status").notNull().default("pending"),
+  errorMessage: text("error_message"),
+  retryCount: integer("retry_count").default(0),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Tabla de configuración de AudiobookForge (NO incluye credenciales - esas van en secrets)
+export const audiobookSettings = pgTable("audiobook_settings", {
+  id: serial("id").primaryKey(),
+  settingKey: text("setting_key").notNull().unique(), // Clave de configuración
+  settingValue: text("setting_value").notNull(), // Valor
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Tipos de inserción y selección para AudiobookForge
+export const insertAudiobookProjectSchema = createInsertSchema(audiobookProjects).omit({ 
+  id: true, 
+  createdAt: true,
+  updatedAt: true 
+}).extend({
+  engine: z.enum(pollyEngines).default("neural"),
+  status: z.enum(audiobookProjectStatuses).default("draft"),
+});
+export type InsertAudiobookProject = z.infer<typeof insertAudiobookProjectSchema>;
+export type AudiobookProject = typeof audiobookProjects.$inferSelect;
+
+export const insertAudiobookChapterSchema = createInsertSchema(audiobookChapters).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export type InsertAudiobookChapter = z.infer<typeof insertAudiobookChapterSchema>;
+export type AudiobookChapter = typeof audiobookChapters.$inferSelect;
+
+export const insertSynthesisJobSchema = createInsertSchema(audiobookSynthesisJobs).omit({ 
+  id: true, 
+  createdAt: true 
+}).extend({
+  status: z.enum(synthesisJobStatuses).default("pending"),
+});
+export type InsertSynthesisJob = z.infer<typeof insertSynthesisJobSchema>;
+export type SynthesisJob = typeof audiobookSynthesisJobs.$inferSelect;
+
+export const insertAudiobookSettingSchema = createInsertSchema(audiobookSettings).omit({ 
+  id: true, 
+  updatedAt: true 
+});
+export type InsertAudiobookSetting = z.infer<typeof insertAudiobookSettingSchema>;
+export type AudiobookSetting = typeof audiobookSettings.$inferSelect;
