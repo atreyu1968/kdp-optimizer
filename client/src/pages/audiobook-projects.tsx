@@ -338,6 +338,7 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
+  const [engine, setEngine] = useState<string>("");
   const [voiceId, setVoiceId] = useState("");
   const [uploading, setUploading] = useState(false);
 
@@ -345,6 +346,12 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
     queryKey: ["/api/audiobooks/voices"],
     enabled: open,
   });
+
+  const availableEngines = voices 
+    ? Array.from(new Set(voices.map(v => v.engine))).sort()
+    : [];
+
+  const filteredVoices = voices?.filter(v => !engine || v.engine === engine) || [];
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -400,6 +407,7 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
       setFile(null);
       setTitle("");
       setAuthor("");
+      setEngine("");
       setVoiceId("");
       onSuccess();
     } catch (error: any) {
@@ -476,13 +484,37 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="voice">Voz de Amazon Polly</Label>
-            <Select value={voiceId} onValueChange={setVoiceId}>
-              <SelectTrigger data-testid="select-voice-trigger">
-                <SelectValue placeholder={loadingVoices ? "Cargando voces..." : "Selecciona una voz"} />
+            <Label htmlFor="engine">Motor de síntesis</Label>
+            <Select value={engine} onValueChange={(val) => { setEngine(val); setVoiceId(""); }}>
+              <SelectTrigger data-testid="select-engine-trigger">
+                <SelectValue placeholder={loadingVoices ? "Cargando..." : "Selecciona un motor"} />
               </SelectTrigger>
               <SelectContent>
-                {voices?.map((voice) => (
+                {availableEngines.map((eng) => (
+                  <SelectItem key={eng} value={eng} data-testid={`engine-option-${eng}`}>
+                    {eng === "long-form" ? "Long-form (audiolibros)" : 
+                     eng === "neural" ? "Neural (alta calidad)" : 
+                     eng === "standard" ? "Standard (básico)" : eng}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {engine === "long-form" ? "Ideal para contenido narrativo largo. Solo us-east-1." :
+               engine === "neural" ? "Voces de alta calidad para contenido general." :
+               engine === "standard" ? "Voces básicas, menor costo." :
+               "Selecciona un motor para ver las voces disponibles."}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="voice">Voz de Amazon Polly</Label>
+            <Select value={voiceId} onValueChange={setVoiceId} disabled={!engine}>
+              <SelectTrigger data-testid="select-voice-trigger">
+                <SelectValue placeholder={!engine ? "Primero selecciona un motor" : "Selecciona una voz"} />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredVoices.map((voice) => (
                   <SelectItem key={voice.id} value={voice.id} data-testid={`voice-option-${voice.id}`}>
                     {voice.name} ({voice.languageName}) - {voice.gender}
                   </SelectItem>
@@ -491,7 +523,7 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
             </Select>
             {selectedVoice && (
               <p className="text-xs text-muted-foreground">
-                Motor: {selectedVoice.engine} | Idioma: {selectedVoice.languageCode}
+                Idioma: {selectedVoice.languageCode}
               </p>
             )}
           </div>
