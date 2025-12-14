@@ -20,6 +20,7 @@ import {
 import {
   S3Client,
   GetObjectCommand,
+  PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import * as fs from "fs";
@@ -305,6 +306,31 @@ function sanitizeFilename(title: string): string {
 }
 
 /**
+ * Upload a local file to S3 and return the S3 URI
+ */
+async function uploadToS3(localPath: string, s3Key: string): Promise<string> {
+  const client = getS3Client();
+  const bucket = process.env.S3_BUCKET_NAME;
+  
+  if (!bucket) {
+    throw new Error("S3_BUCKET_NAME no está configurado");
+  }
+  
+  const fileBuffer = fs.readFileSync(localPath);
+  
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: s3Key,
+    Body: fileBuffer,
+    ContentType: "audio/mpeg",
+  });
+  
+  await client.send(command);
+  
+  return `s3://${bucket}/${s3Key}`;
+}
+
+/**
  * Synthesize a full chapter (handles chunking for long texts)
  */
 export async function synthesizeChapter(
@@ -428,12 +454,34 @@ export async function synthesizeChapter(
       console.log(`[Mastering] Success for chapter ${chapterId}: ${masteredPath}`);
       console.log(`[Mastering] Analysis: I=${masteringResult.analysis?.input_i} LUFS -> ${masteringResult.analysis?.output_i} LUFS`);
       
-      await storage.updateSynthesisJob(job.id, {
-        status: "mastered",
-        localAudioPath: masteredPath,
-        finalAudioUrl: rawAudioUrl, // Keep S3 URL for fallback
-        completedAt: new Date(),
-      });
+      // Upload mastered audio to S3
+      const s3Key = `audiobooks/mastered/project_${projectId}/${safeFilename}.mp3`;
+      try {
+        const masteredS3Uri = await uploadToS3(masteredPath, s3Key);
+        const masteredDownloadUrl = await getAudioDownloadUrl(masteredS3Uri);
+        
+        console.log(`[S3] Uploaded mastered audio: ${masteredS3Uri}`);
+        
+        await storage.updateSynthesisJob(job.id, {
+          status: "mastered",
+          localAudioPath: masteredPath,
+          s3OutputUri: masteredS3Uri,
+          finalAudioUrl: masteredDownloadUrl,
+          completedAt: new Date(),
+        });
+        
+        // Clean up local temp file
+        fs.unlinkSync(masteredPath);
+      } catch (uploadError) {
+        console.error(`[S3] Failed to upload mastered audio:`, uploadError);
+        // Fall back to keeping local file
+        await storage.updateSynthesisJob(job.id, {
+          status: "mastered",
+          localAudioPath: masteredPath,
+          finalAudioUrl: rawAudioUrl,
+          completedAt: new Date(),
+        });
+      }
     }
     
     console.log(`[Polly] Completed synthesis and mastering for chapter ${chapterId}`);
