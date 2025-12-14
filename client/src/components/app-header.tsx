@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Library, PlusCircle, Calendar, BarChart3 } from "lucide-react";
+import { Library, PlusCircle, Calendar, BarChart3, Headphones } from "lucide-react";
 import logoImage from "@/assets/logo.png";
 
 export function AppHeader() {
@@ -72,6 +72,18 @@ export function AppHeader() {
                 <BarChart3 className="h-4 w-4" />
                 <span className="hidden sm:inline">Aura</span>
                 <span className="sm:hidden">Aura</span>
+              </Link>
+            </Button>
+            <Button
+              variant={location.startsWith("/audiobooks") ? "default" : "ghost"}
+              size="sm"
+              className="gap-2"
+              asChild
+            >
+              <Link href="/audiobooks" data-testid="link-audiobooks">
+                <Headphones className="h-4 w-4" />
+                <span className="hidden sm:inline">Audiolibros</span>
+                <span className="sm:hidden">Audio</span>
               </Link>
             </Button>
           </nav>

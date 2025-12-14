@@ -8,6 +8,7 @@ import Home from "@/pages/home";
 import Library from "@/pages/library";
 import Publications from "@/pages/publications";
 import Aura from "@/pages/aura";
+import AudiobookForge from "@/pages/audiobook-forge";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -18,6 +19,8 @@ function Router() {
       <Route path="/publications" component={Publications} />
       <Route path="/aura" component={Aura} />
       <Route path="/aura/:rest*" component={Aura} />
+      <Route path="/audiobooks" component={AudiobookForge} />
+      <Route path="/audiobooks/:rest*" component={AudiobookForge} />
       <Route component={NotFound} />
     </Switch>
   );

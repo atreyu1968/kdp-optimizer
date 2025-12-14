@@ -15,6 +15,10 @@ import {
   kenpMonthlyData,
   salesMonthlyData,
   auraBookEvents,
+  audiobookProjects,
+  audiobookChapters,
+  audiobookSynthesisJobs,
+  audiobookSettings,
   type Manuscript, 
   type Optimization,
   type Publication,
@@ -28,6 +32,10 @@ import {
   type KenpMonthlyData,
   type SalesMonthlyData,
   type BookEvent,
+  type AudiobookProject,
+  type AudiobookChapter,
+  type SynthesisJob,
+  type AudiobookSetting,
   type InsertManuscript,
   type InsertPublication,
   type InsertTask,
@@ -40,6 +48,10 @@ import {
   type InsertKenpMonthlyData,
   type InsertSalesMonthlyData,
   type InsertBookEvent,
+  type InsertAudiobookProject,
+  type InsertAudiobookChapter,
+  type InsertSynthesisJob,
+  type InsertAudiobookSetting,
   type OptimizationResult,
   type MarketMetadata,
   amazonMarkets,
@@ -177,6 +189,33 @@ export interface IStorage {
   addAuraBookToCalendar(auraBookId: number): Promise<{ manuscriptId: number; publications: Publication[] }>;
   checkIfAuraBookInCalendar(auraBookId: number): Promise<number | null>;
   addAllAuraBooksToCalendar(): Promise<{ added: number; skipped: number; errors: string[] }>;
+  
+  // ============================================================================
+  // AUDIOBOOKFORGE SYSTEM - Audiobook Projects, Chapters, Synthesis Jobs
+  // ============================================================================
+  
+  // Audiobook Projects
+  getAllAudiobookProjects(): Promise<AudiobookProject[]>;
+  getAudiobookProject(id: number): Promise<AudiobookProject | undefined>;
+  createAudiobookProject(data: InsertAudiobookProject): Promise<AudiobookProject>;
+  updateAudiobookProject(id: number, data: Partial<InsertAudiobookProject>): Promise<AudiobookProject>;
+  deleteAudiobookProject(id: number): Promise<void>;
+  
+  // Audiobook Chapters
+  getChaptersByProject(projectId: number): Promise<AudiobookChapter[]>;
+  createAudiobookChapter(data: InsertAudiobookChapter): Promise<AudiobookChapter>;
+  updateAudiobookChapter(id: number, data: Partial<InsertAudiobookChapter>): Promise<AudiobookChapter>;
+  deleteChaptersByProject(projectId: number): Promise<void>;
+  
+  // Synthesis Jobs
+  getSynthesisJobsByProject(projectId: number): Promise<SynthesisJob[]>;
+  getSynthesisJobsByChapter(chapterId: number): Promise<SynthesisJob[]>;
+  createSynthesisJob(data: InsertSynthesisJob): Promise<SynthesisJob>;
+  updateSynthesisJob(id: number, data: Partial<InsertSynthesisJob>): Promise<SynthesisJob>;
+  
+  // Audiobook Settings
+  getAudiobookSetting(key: string): Promise<AudiobookSetting | undefined>;
+  setAudiobookSetting(key: string, value: string): Promise<AudiobookSetting>;
 }
 
 export class DbStorage implements IStorage {
@@ -1111,6 +1150,129 @@ export class DbStorage implements IStorage {
       throw error;
     }
   }
+
+  // ============================================================================
+  // AUDIOBOOKFORGE SYSTEM - Implementation
+  // ============================================================================
+
+  // Audiobook Projects
+  async getAllAudiobookProjects(): Promise<AudiobookProject[]> {
+    return await this.db.select().from(audiobookProjects).orderBy(desc(audiobookProjects.createdAt));
+  }
+
+  async getAudiobookProject(id: number): Promise<AudiobookProject | undefined> {
+    const [project] = await this.db.select().from(audiobookProjects).where(eq(audiobookProjects.id, id));
+    return project;
+  }
+
+  async createAudiobookProject(data: InsertAudiobookProject): Promise<AudiobookProject> {
+    const [project] = await this.db.insert(audiobookProjects).values(data).returning();
+    return project;
+  }
+
+  async updateAudiobookProject(id: number, data: Partial<InsertAudiobookProject>): Promise<AudiobookProject> {
+    const [project] = await this.db
+      .update(audiobookProjects)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(audiobookProjects.id, id))
+      .returning();
+    return project;
+  }
+
+  async deleteAudiobookProject(id: number): Promise<void> {
+    // Delete related synthesis jobs first
+    await this.db.delete(audiobookSynthesisJobs).where(eq(audiobookSynthesisJobs.projectId, id));
+    // Delete related chapters
+    await this.db.delete(audiobookChapters).where(eq(audiobookChapters.projectId, id));
+    // Delete the project
+    await this.db.delete(audiobookProjects).where(eq(audiobookProjects.id, id));
+  }
+
+  // Audiobook Chapters
+  async getChaptersByProject(projectId: number): Promise<AudiobookChapter[]> {
+    return await this.db
+      .select()
+      .from(audiobookChapters)
+      .where(eq(audiobookChapters.projectId, projectId))
+      .orderBy(audiobookChapters.sequenceNumber);
+  }
+
+  async createAudiobookChapter(data: InsertAudiobookChapter): Promise<AudiobookChapter> {
+    const [chapter] = await this.db.insert(audiobookChapters).values(data).returning();
+    return chapter;
+  }
+
+  async updateAudiobookChapter(id: number, data: Partial<InsertAudiobookChapter>): Promise<AudiobookChapter> {
+    const [chapter] = await this.db
+      .update(audiobookChapters)
+      .set(data)
+      .where(eq(audiobookChapters.id, id))
+      .returning();
+    return chapter;
+  }
+
+  async deleteChaptersByProject(projectId: number): Promise<void> {
+    await this.db.delete(audiobookChapters).where(eq(audiobookChapters.projectId, projectId));
+  }
+
+  // Synthesis Jobs
+  async getSynthesisJobsByProject(projectId: number): Promise<SynthesisJob[]> {
+    return await this.db
+      .select()
+      .from(audiobookSynthesisJobs)
+      .where(eq(audiobookSynthesisJobs.projectId, projectId))
+      .orderBy(audiobookSynthesisJobs.createdAt);
+  }
+
+  async getSynthesisJobsByChapter(chapterId: number): Promise<SynthesisJob[]> {
+    return await this.db
+      .select()
+      .from(audiobookSynthesisJobs)
+      .where(eq(audiobookSynthesisJobs.chapterId, chapterId))
+      .orderBy(desc(audiobookSynthesisJobs.createdAt));
+  }
+
+  async createSynthesisJob(data: InsertSynthesisJob): Promise<SynthesisJob> {
+    const [job] = await this.db.insert(audiobookSynthesisJobs).values(data).returning();
+    return job;
+  }
+
+  async updateSynthesisJob(id: number, data: Partial<InsertSynthesisJob>): Promise<SynthesisJob> {
+    const [job] = await this.db
+      .update(audiobookSynthesisJobs)
+      .set(data)
+      .where(eq(audiobookSynthesisJobs.id, id))
+      .returning();
+    return job;
+  }
+
+  // Audiobook Settings
+  async getAudiobookSetting(key: string): Promise<AudiobookSetting | undefined> {
+    const [setting] = await this.db
+      .select()
+      .from(audiobookSettings)
+      .where(eq(audiobookSettings.settingKey, key));
+    return setting;
+  }
+
+  async setAudiobookSetting(key: string, value: string): Promise<AudiobookSetting> {
+    // Upsert: try to update, insert if not exists
+    const existing = await this.getAudiobookSetting(key);
+    if (existing) {
+      const [updated] = await this.db
+        .update(audiobookSettings)
+        .set({ settingValue: value, updatedAt: new Date() })
+        .where(eq(audiobookSettings.settingKey, key))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await this.db
+        .insert(audiobookSettings)
+        .values({ settingKey: key, settingValue: value })
+        .returning();
+      return created;
+    }
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -1439,6 +1601,67 @@ export class MemStorage implements IStorage {
   
   async addAllAuraBooksToCalendar(): Promise<{ added: number; skipped: number; errors: string[] }> {
     throw new Error("MemStorage does not support Aura operations");
+  }
+
+  // AudiobookForge stubs
+  async getAllAudiobookProjects(): Promise<AudiobookProject[]> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async getAudiobookProject(id: number): Promise<AudiobookProject | undefined> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async createAudiobookProject(data: InsertAudiobookProject): Promise<AudiobookProject> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async updateAudiobookProject(id: number, data: Partial<InsertAudiobookProject>): Promise<AudiobookProject> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async deleteAudiobookProject(id: number): Promise<void> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async getChaptersByProject(projectId: number): Promise<AudiobookChapter[]> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async createAudiobookChapter(data: InsertAudiobookChapter): Promise<AudiobookChapter> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async updateAudiobookChapter(id: number, data: Partial<InsertAudiobookChapter>): Promise<AudiobookChapter> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async deleteChaptersByProject(projectId: number): Promise<void> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async getSynthesisJobsByProject(projectId: number): Promise<SynthesisJob[]> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async getSynthesisJobsByChapter(chapterId: number): Promise<SynthesisJob[]> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async createSynthesisJob(data: InsertSynthesisJob): Promise<SynthesisJob> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async updateSynthesisJob(id: number, data: Partial<InsertSynthesisJob>): Promise<SynthesisJob> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async getAudiobookSetting(key: string): Promise<AudiobookSetting | undefined> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async setAudiobookSetting(key: string, value: string): Promise<AudiobookSetting> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
   }
 }
 

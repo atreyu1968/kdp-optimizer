@@ -14,9 +14,11 @@ import {
 import { createDefaultTasks, updateTaskDueDates } from "./services/default-tasks";
 import { importKdpXlsx, importKenpMonthlyData, processSalesMonthlyData } from "./services/kdp-importer";
 import { analyzeAllBooks, getEnrichedInsights } from "./services/book-analyzer";
+import { parseWordDocument } from "./services/word-parser";
+import { synthesizeProject, getAvailableVoices, validateAwsCredentials } from "./services/polly-synthesizer";
 import multer from "multer";
 import { join } from "path";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync } from "fs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const progressEmitters = new Map<string, ProgressEmitter>();
@@ -45,6 +47,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
     limits: {
       fileSize: 15 * 1024 * 1024 // 15MB límite
+    }
+  });
+
+  // Multer para Word documents (AudiobookForge)
+  const uploadWord = multer({
+    storage: multer.diskStorage({
+      destination: uploadsDir,
+      filename: (req, file, cb) => {
+        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+        const ext = file.originalname.split('.').pop() || 'docx';
+        cb(null, `manuscript-${uniqueSuffix}.${ext}`);
+      }
+    }),
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+          file.mimetype === 'application/msword') {
+        cb(null, true);
+      } else {
+        cb(new Error('Solo se permiten archivos Word (.doc, .docx)'));
+      }
+    },
+    limits: {
+      fileSize: 50 * 1024 * 1024 // 50MB límite para manuscritos largos
     }
   });
 
@@ -1337,6 +1362,266 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error starting book analysis:", error);
       res.status(500).json({ error: "Failed to start book analysis" });
+    }
+  });
+
+  // ============ AUDIOBOOKFORGE ENDPOINTS ============
+
+  // Obtener todos los proyectos de audiolibro
+  app.get("/api/audiobooks/projects", async (req, res) => {
+    try {
+      const projects = await storage.getAllAudiobookProjects();
+      res.json(projects);
+    } catch (error) {
+      console.error("Error fetching audiobook projects:", error);
+      res.status(500).json({ error: "Failed to fetch audiobook projects" });
+    }
+  });
+
+  // Obtener un proyecto específico
+  app.get("/api/audiobooks/projects/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid project ID" });
+        return;
+      }
+
+      const project = await storage.getAudiobookProject(id);
+      if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+      }
+
+      res.json(project);
+    } catch (error) {
+      console.error("Error fetching audiobook project:", error);
+      res.status(500).json({ error: "Failed to fetch audiobook project" });
+    }
+  });
+
+  // Crear un nuevo proyecto de audiolibro
+  app.post("/api/audiobooks/projects", async (req, res) => {
+    try {
+      const project = await storage.createAudiobookProject(req.body);
+      res.json(project);
+    } catch (error) {
+      console.error("Error creating audiobook project:", error);
+      res.status(500).json({ error: "Failed to create audiobook project" });
+    }
+  });
+
+  // Actualizar un proyecto
+  app.put("/api/audiobooks/projects/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid project ID" });
+        return;
+      }
+
+      const project = await storage.updateAudiobookProject(id, req.body);
+      res.json(project);
+    } catch (error) {
+      console.error("Error updating audiobook project:", error);
+      res.status(500).json({ error: "Failed to update audiobook project" });
+    }
+  });
+
+  // Eliminar un proyecto
+  app.delete("/api/audiobooks/projects/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid project ID" });
+        return;
+      }
+
+      await storage.deleteAudiobookProject(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting audiobook project:", error);
+      res.status(500).json({ error: "Failed to delete audiobook project" });
+    }
+  });
+
+  // Obtener capítulos de un proyecto
+  app.get("/api/audiobooks/projects/:id/chapters", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid project ID" });
+        return;
+      }
+
+      const chapters = await storage.getChaptersByProject(id);
+      res.json(chapters);
+    } catch (error) {
+      console.error("Error fetching chapters:", error);
+      res.status(500).json({ error: "Failed to fetch chapters" });
+    }
+  });
+
+  // Verificar estado de credenciales AWS
+  app.get("/api/audiobooks/settings/status", async (req, res) => {
+    try {
+      const hasAccessKeyId = !!process.env.AWS_ACCESS_KEY_ID;
+      const hasSecretAccessKey = !!process.env.AWS_SECRET_ACCESS_KEY;
+      const hasRegion = !!process.env.AWS_REGION;
+      const hasBucketName = !!process.env.S3_BUCKET_NAME;
+      const allConfigured = hasAccessKeyId && hasSecretAccessKey && hasRegion && hasBucketName;
+
+      res.json({
+        hasAccessKeyId,
+        hasSecretAccessKey,
+        hasRegion,
+        hasBucketName,
+        allConfigured,
+      });
+    } catch (error) {
+      console.error("Error checking AWS status:", error);
+      res.status(500).json({ error: "Failed to check AWS status" });
+    }
+  });
+
+  // Upload documento Word y crear proyecto con capítulos
+  app.post("/api/audiobooks/upload", uploadWord.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: "No se recibió ningún archivo" });
+        return;
+      }
+
+      const { voiceId, voiceLocale, engine, author } = req.body;
+
+      // Leer el archivo y parsearlo
+      const fileBuffer = readFileSync(req.file.path);
+      const parsed = await parseWordDocument(fileBuffer, req.file.originalname);
+
+      // Crear el proyecto con status "ready" para que esté listo para sintetizar
+      const project = await storage.createAudiobookProject({
+        title: parsed.title,
+        author: author || null,
+        sourceFileName: req.file.originalname,
+        voiceId: voiceId || "Lucia",
+        voiceLocale: voiceLocale || "es-ES",
+        engine: engine || "neural",
+        status: "ready",
+        totalChapters: parsed.chapters.length,
+        completedChapters: 0,
+        errorMessage: null,
+      });
+
+      // Crear los capítulos
+      for (const chapter of parsed.chapters) {
+        await storage.createAudiobookChapter({
+          projectId: project.id,
+          sequenceNumber: chapter.sequenceNumber,
+          title: chapter.title,
+          contentText: chapter.contentText,
+          contentSsml: null,
+          characterCount: chapter.characterCount,
+          estimatedDurationSeconds: chapter.estimatedDurationSeconds,
+        });
+      }
+
+      // Limpiar archivo temporal
+      try {
+        unlinkSync(req.file.path);
+      } catch (e) {
+        console.warn("[AudiobookForge] Could not delete temp file:", e);
+      }
+
+      // Obtener capítulos creados
+      const chapters = await storage.getChaptersByProject(project.id);
+
+      res.json({
+        project,
+        chapters,
+        summary: {
+          totalChapters: parsed.chapters.length,
+          totalCharacters: parsed.totalCharacters,
+          estimatedDurationMinutes: Math.round(parsed.totalEstimatedDuration / 60),
+        },
+      });
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to upload document" 
+      });
+    }
+  });
+
+  // Iniciar síntesis de un proyecto
+  app.post("/api/audiobooks/projects/:id/synthesize", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid project ID" });
+        return;
+      }
+
+      // Verificar que el proyecto existe
+      const project = await storage.getAudiobookProject(id);
+      if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+      }
+
+      // Iniciar síntesis en segundo plano
+      synthesizeProject(id, (completed, total, currentChapter) => {
+        console.log(`[Synthesis] Project ${id}: ${completed}/${total} - ${currentChapter}`);
+      }).catch(err => {
+        console.error(`[Synthesis] Project ${id} failed:`, err);
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Síntesis iniciada. El proceso puede tardar varios minutos." 
+      });
+    } catch (error) {
+      console.error("Error starting synthesis:", error);
+      res.status(500).json({ error: "Failed to start synthesis" });
+    }
+  });
+
+  // Obtener voces disponibles
+  app.get("/api/audiobooks/voices", async (req, res) => {
+    try {
+      const { languageCode } = req.query;
+      const voices = await getAvailableVoices(languageCode as any);
+      res.json(voices);
+    } catch (error) {
+      console.error("Error fetching voices:", error);
+      res.status(500).json({ error: "Failed to fetch voices" });
+    }
+  });
+
+  // Validar credenciales AWS
+  app.get("/api/audiobooks/validate-credentials", async (req, res) => {
+    try {
+      const result = await validateAwsCredentials();
+      res.json(result);
+    } catch (error) {
+      console.error("Error validating credentials:", error);
+      res.status(500).json({ valid: false, error: "Failed to validate credentials" });
+    }
+  });
+
+  // Obtener jobs de síntesis de un proyecto
+  app.get("/api/audiobooks/projects/:id/jobs", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid project ID" });
+        return;
+      }
+
+      const jobs = await storage.getSynthesisJobsByProject(id);
+      res.json(jobs);
+    } catch (error) {
+      console.error("Error fetching synthesis jobs:", error);
+      res.status(500).json({ error: "Failed to fetch synthesis jobs" });
     }
   });
 
