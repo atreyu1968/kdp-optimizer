@@ -408,8 +408,8 @@ export async function synthesizeProject(
   
   let completed = 0;
   
-  // Use speech rate from project or default to 'slow' for audiobooks
-  const speechRate = (project as any).speechRate || "slow";
+  // Use speech rate from project or default to 90% for ACX audiobooks
+  const speechRate = (project as any).speechRate || "90%";
   
   try {
     for (const chapter of chapters) {
