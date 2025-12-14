@@ -296,8 +296,9 @@ export function preprocessTextForTTS(text: string, options: PreprocessOptions = 
 }
 
 /**
- * Wrap text in SSML with prosody controls and auto-breaths for natural narration
+ * Wrap text in SSML with prosody controls for natural narration
  * Following ACX/Audible audiobook standards
+ * Note: amazon:auto-breaths is NOT supported by Neural voices
  */
 export function wrapInSSML(text: string, rate: string = 'medium'): string {
   // Rate options: x-slow, slow, medium, fast, x-fast, or percentage like 90%
@@ -317,7 +318,7 @@ export function wrapInSSML(text: string, rate: string = 'medium'): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
   
-  // Wrap with amazon:auto-breaths for natural breathing pauses (ACX requirement)
-  // and prosody for speed control
-  return `<speak><amazon:auto-breaths><prosody rate="${prosodyRate}">${escapedText}</prosody></amazon:auto-breaths></speak>`;
+  // Wrap with prosody for speed control
+  // Note: amazon:auto-breaths is only supported by Standard voices, not Neural
+  return `<speak><prosody rate="${prosodyRate}">${escapedText}</prosody></speak>`;
 }
