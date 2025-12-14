@@ -78,6 +78,7 @@ function getS3Client(): S3Client {
 
 /**
  * Get available Polly voices for a language
+ * Returns one entry per voice/engine combination
  */
 export async function getAvailableVoices(languageCode?: LanguageCode): Promise<VoiceOption[]> {
   const client = getPollyClient();
@@ -89,14 +90,23 @@ export async function getAvailableVoices(languageCode?: LanguageCode): Promise<V
   
   const response = await client.send(command);
   
-  return (response.Voices || []).map((voice: Voice) => ({
-    id: voice.Id || "",
-    name: voice.Name || "",
-    languageCode: voice.LanguageCode || "",
-    languageName: voice.LanguageName || "",
-    gender: voice.Gender || "",
-    engine: voice.SupportedEngines?.[0] || "standard",
-  }));
+  const voiceOptions: VoiceOption[] = [];
+  
+  for (const voice of response.Voices || []) {
+    const engines = voice.SupportedEngines || ["standard"];
+    for (const engine of engines) {
+      voiceOptions.push({
+        id: voice.Id || "",
+        name: voice.Name || "",
+        languageCode: voice.LanguageCode || "",
+        languageName: voice.LanguageName || "",
+        gender: voice.Gender || "",
+        engine: engine,
+      });
+    }
+  }
+  
+  return voiceOptions;
 }
 
 /**

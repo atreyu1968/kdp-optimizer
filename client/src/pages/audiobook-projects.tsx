@@ -514,8 +514,8 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
                 <SelectValue placeholder={!engine ? "Primero selecciona un motor" : "Selecciona una voz"} />
               </SelectTrigger>
               <SelectContent>
-                {filteredVoices.map((voice) => (
-                  <SelectItem key={voice.id} value={voice.id} data-testid={`voice-option-${voice.id}`}>
+                {filteredVoices.map((voice, index) => (
+                  <SelectItem key={`${voice.id}-${voice.engine}-${index}`} value={voice.id} data-testid={`voice-option-${voice.id}`}>
                     {voice.name} ({voice.languageName}) - {voice.gender}
                   </SelectItem>
                 ))}
