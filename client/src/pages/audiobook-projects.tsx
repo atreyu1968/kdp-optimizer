@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useDropzone } from "react-dropzone";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -18,7 +18,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   Plus, Headphones, FileAudio, Clock, CheckCircle2, AlertCircle, Loader2, 
   Upload, FileText, Play, Download, Trash2, ArrowLeft, Volume2, XCircle,
-  RefreshCw, ChevronRight, AlertTriangle
+  RefreshCw, ChevronRight, AlertTriangle, Pause, RotateCcw, Archive, Square
 } from "lucide-react";
 import {
   AlertDialog,
@@ -38,6 +38,7 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
   ready: { label: "Listo", variant: "default", icon: CheckCircle2 },
   synthesizing: { label: "Sintetizando", variant: "outline", icon: Loader2 },
   mastering: { label: "Masterizando", variant: "outline", icon: Loader2 },
+  paused: { label: "Pausado", variant: "secondary", icon: Pause },
   completed: { label: "Completado", variant: "default", icon: CheckCircle2 },
   failed: { label: "Error", variant: "destructive", icon: AlertCircle },
 };
@@ -76,6 +77,20 @@ interface ProjectDetailProps {
 function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
   const { toast } = useToast();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [playingJobId, setPlayingJobId] = useState<number | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Cleanup audio on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   const { data: project, isLoading: loadingProject } = useQuery<AudiobookProject>({
     queryKey: ["/api/audiobooks/projects", projectId],
@@ -118,6 +133,90 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
       toast({ title: "Error", description: error.message || "No se pudo eliminar el proyecto", variant: "destructive" });
     },
   });
+
+  const pauseSynthesisMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/audiobooks/projects/${projectId}/pause`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Síntesis pausada", description: "El proceso se ha detenido." });
+      queryClient.invalidateQueries({ queryKey: ["/api/audiobooks/projects", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/audiobooks/projects", projectId, "jobs"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "No se pudo pausar", variant: "destructive" });
+    },
+  });
+
+  const resumeSynthesisMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/audiobooks/projects/${projectId}/resume`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Síntesis reanudada", description: "El proceso continúa." });
+      queryClient.invalidateQueries({ queryKey: ["/api/audiobooks/projects", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/audiobooks/projects", projectId, "jobs"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "No se pudo reanudar", variant: "destructive" });
+    },
+  });
+
+  const resynthesizeChapterMutation = useMutation({
+    mutationFn: async (chapterId: number) => {
+      const res = await apiRequest("POST", `/api/audiobooks/chapters/${chapterId}/resynthesize`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Re-síntesis iniciada", description: "El capítulo se está regenerando." });
+      queryClient.invalidateQueries({ queryKey: ["/api/audiobooks/projects", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/audiobooks/projects", projectId, "jobs"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "No se pudo re-sintetizar", variant: "destructive" });
+    },
+  });
+
+  // Audio player functions
+  const handlePlayPause = (jobId: number) => {
+    if (playingJobId === jobId && audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        audioRef.current.play();
+        setIsPlaying(true);
+      }
+    } else {
+      // Stop current audio if playing
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      // Create new audio element
+      const audio = new Audio(`/api/audiobooks/jobs/${jobId}/download`);
+      audio.onended = () => {
+        setIsPlaying(false);
+        setPlayingJobId(null);
+      };
+      audio.onpause = () => setIsPlaying(false);
+      audio.onplay = () => setIsPlaying(true);
+      audioRef.current = audio;
+      audio.play();
+      setPlayingJobId(jobId);
+      setIsPlaying(true);
+    }
+  };
+
+  const handleStopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setIsPlaying(false);
+    setPlayingJobId(null);
+  };
 
   if (loadingProject) {
     return (
@@ -169,10 +268,44 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
           <p className="text-muted-foreground">{project.author}</p>
         </div>
         <div className="flex gap-2">
+          {playingJobId !== null && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleStopAudio}
+              data-testid="button-stop-audio"
+            >
+              <Square className="h-4 w-4 mr-2" />
+              Detener Audio
+            </Button>
+          )}
           {isProcessing && (
-            <Button variant="outline" size="sm" onClick={() => refetchJobs()} data-testid="button-refresh-status">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Actualizar
+            <>
+              <Button variant="outline" size="sm" onClick={() => refetchJobs()} data-testid="button-refresh-status">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Actualizar
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => pauseSynthesisMutation.mutate()}
+                disabled={pauseSynthesisMutation.isPending}
+                data-testid="button-pause-synthesis"
+              >
+                <Square className="h-4 w-4 mr-2" />
+                Detener
+              </Button>
+            </>
+          )}
+          {project.status === "paused" && (
+            <Button 
+              size="sm" 
+              onClick={() => resumeSynthesisMutation.mutate()}
+              disabled={resumeSynthesisMutation.isPending}
+              data-testid="button-resume-synthesis"
+            >
+              <Play className="h-4 w-4 mr-2" />
+              Reanudar
             </Button>
           )}
           {canSynthesize && (
@@ -315,8 +448,8 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
                           <span className="text-sm text-muted-foreground w-6">{index + 1}.</span>
                           <span className="text-sm font-medium truncate">{chapter.title}</span>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-xs text-muted-foreground mr-1">
                             ~{Math.ceil((chapter.estimatedDurationSeconds || 0) / 60)} min
                           </span>
                           {jobStatus && (
@@ -326,10 +459,38 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
                             </Badge>
                           )}
                           {job?.finalAudioUrl && (
-                            <Button variant="ghost" size="icon" asChild className="h-6 w-6">
-                              <a href={`/api/audiobooks/jobs/${job.id}/download`} data-testid={`download-chapter-${chapter.id}`}>
-                                <Download className="h-3 w-3" />
-                              </a>
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6"
+                                onClick={() => handlePlayPause(job.id)}
+                                data-testid={`play-chapter-${chapter.id}`}
+                              >
+                                {playingJobId === job.id && isPlaying ? (
+                                  <Pause className="h-3 w-3" />
+                                ) : (
+                                  <Play className="h-3 w-3" />
+                                )}
+                              </Button>
+                              <Button variant="ghost" size="icon" asChild className="h-6 w-6">
+                                <a href={`/api/audiobooks/jobs/${job.id}/download`} data-testid={`download-chapter-${chapter.id}`}>
+                                  <Download className="h-3 w-3" />
+                                </a>
+                              </Button>
+                            </>
+                          )}
+                          {(job?.status === "mastered" || job?.status === "completed" || job?.status === "failed") && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6"
+                              onClick={() => resynthesizeChapterMutation.mutate(chapter.id)}
+                              disabled={resynthesizeChapterMutation.isPending || isProcessing}
+                              title="Re-sintetizar capítulo"
+                              data-testid={`resynthesize-chapter-${chapter.id}`}
+                            >
+                              <RotateCcw className="h-3 w-3" />
                             </Button>
                           )}
                         </div>
@@ -356,7 +517,14 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
               Descarga los archivos de audio masterizados
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <Button asChild className="gap-2" data-testid="button-download-zip">
+              <a href={`/api/audiobooks/projects/${projectId}/download-zip`}>
+                <Archive className="h-4 w-4" />
+                Descargar Todo (ZIP)
+              </a>
+            </Button>
+            <Separator />
             <div className="flex flex-wrap gap-2">
               {jobs.filter(j => j.finalAudioUrl).map((job, index) => {
                 const chapter = chapters?.find(c => c.id === job.chapterId);

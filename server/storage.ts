@@ -203,6 +203,7 @@ export interface IStorage {
   
   // Audiobook Chapters
   getChaptersByProject(projectId: number): Promise<AudiobookChapter[]>;
+  getChapterById(id: number): Promise<AudiobookChapter | null>;
   createAudiobookChapter(data: InsertAudiobookChapter): Promise<AudiobookChapter>;
   updateAudiobookChapter(id: number, data: Partial<InsertAudiobookChapter>): Promise<AudiobookChapter>;
   deleteChaptersByProject(projectId: number): Promise<void>;
@@ -1197,6 +1198,15 @@ export class DbStorage implements IStorage {
       .orderBy(audiobookChapters.sequenceNumber);
   }
 
+  async getChapterById(id: number): Promise<AudiobookChapter | null> {
+    const results = await this.db
+      .select()
+      .from(audiobookChapters)
+      .where(eq(audiobookChapters.id, id))
+      .limit(1);
+    return results[0] || null;
+  }
+
   async createAudiobookChapter(data: InsertAudiobookChapter): Promise<AudiobookChapter> {
     const [chapter] = await this.db.insert(audiobookChapters).values(data).returning();
     return chapter;
@@ -1625,6 +1635,10 @@ export class MemStorage implements IStorage {
   }
 
   async getChaptersByProject(projectId: number): Promise<AudiobookChapter[]> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async getChapterById(id: number): Promise<AudiobookChapter | null> {
     throw new Error("MemStorage does not support AudiobookForge operations");
   }
 

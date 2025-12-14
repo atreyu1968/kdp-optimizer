@@ -1554,6 +1554,196 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Pausar síntesis de un proyecto
+  app.post("/api/audiobooks/projects/:id/pause", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid project ID" });
+        return;
+      }
+
+      const project = await storage.getAudiobookProject(id);
+      if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+      }
+
+      await storage.updateAudiobookProject(id, { status: "paused" });
+      res.json({ success: true, message: "Síntesis pausada" });
+    } catch (error) {
+      console.error("Error pausing synthesis:", error);
+      res.status(500).json({ error: "Failed to pause synthesis" });
+    }
+  });
+
+  // Reanudar síntesis de un proyecto
+  app.post("/api/audiobooks/projects/:id/resume", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid project ID" });
+        return;
+      }
+
+      const project = await storage.getAudiobookProject(id);
+      if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+      }
+
+      // Reanudar síntesis
+      await storage.updateAudiobookProject(id, { status: "synthesizing" });
+      
+      synthesizeProject(id, (completed, total, currentChapter) => {
+        console.log(`[Synthesis Resume] Project ${id}: ${completed}/${total} - ${currentChapter}`);
+      }).catch(err => {
+        console.error(`[Synthesis Resume] Project ${id} failed:`, err);
+      });
+
+      res.json({ success: true, message: "Síntesis reanudada" });
+    } catch (error) {
+      console.error("Error resuming synthesis:", error);
+      res.status(500).json({ error: "Failed to resume synthesis" });
+    }
+  });
+
+  // Re-sintetizar un capítulo individual
+  app.post("/api/audiobooks/chapters/:chapterId/resynthesize", async (req, res) => {
+    try {
+      const chapterId = parseInt(req.params.chapterId);
+      if (isNaN(chapterId)) {
+        res.status(400).json({ error: "Invalid chapter ID" });
+        return;
+      }
+
+      // Buscar el capítulo por ID directamente
+      const chapter = await storage.getChapterById(chapterId);
+      if (!chapter) {
+        res.status(404).json({ error: "Chapter not found" });
+        return;
+      }
+
+      const project = await storage.getAudiobookProject(chapter.projectId);
+      if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+      }
+
+      // Marcar el job existente como pendiente (si existe)
+      const jobs = await storage.getSynthesisJobsByProject(project.id);
+      const existingJob = jobs.find(j => j.chapterId === chapterId);
+      if (existingJob) {
+        await storage.updateSynthesisJob(existingJob.id, { 
+          status: "synthesizing",
+          finalAudioUrl: null,
+          errorMessage: null,
+        });
+      }
+
+      // Importar y ejecutar síntesis del capítulo
+      const { synthesizeChapter } = await import("./services/polly-synthesizer");
+      
+      // Ejecutar en segundo plano
+      synthesizeChapter(
+        chapter.id,
+        project.id,
+        chapter.contentText,
+        project.voiceId,
+        project.engine,
+        project.speechRate || "90%",
+        chapter.title
+      ).catch(err => {
+        console.error(`[Resynthesize] Chapter ${chapterId} failed:`, err);
+      });
+
+      res.json({ success: true, message: "Re-síntesis iniciada" });
+    } catch (error) {
+      console.error("Error resynthesizing chapter:", error);
+      res.status(500).json({ error: "Failed to resynthesize chapter" });
+    }
+  });
+
+  // Descargar todos los archivos en ZIP
+  app.get("/api/audiobooks/projects/:id/download-zip", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid project ID" });
+        return;
+      }
+
+      const project = await storage.getAudiobookProject(id);
+      if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+      }
+
+      const jobs = await storage.getSynthesisJobsByProject(id);
+      const chapters = await storage.getChaptersByProject(id);
+      const completedJobs = jobs.filter(j => j.finalAudioUrl);
+
+      if (completedJobs.length === 0) {
+        res.status(400).json({ error: "No completed audio files" });
+        return;
+      }
+
+      const archiver = (await import("archiver")).default;
+      const https = await import("https");
+      const http = await import("http");
+
+      // Sanitize filename
+      const sanitize = (str: string) => str
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9\s-]/g, "")
+        .replace(/\s+/g, "_")
+        .slice(0, 60);
+
+      const zipFilename = `${sanitize(project.title)}_audiobook.zip`;
+
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="${zipFilename}"`);
+
+      const archive = archiver("zip", { zlib: { level: 5 } });
+      archive.pipe(res);
+
+      // Add each audio file to the archive
+      let index = 1;
+      for (const job of completedJobs) {
+        const chapter = chapters.find(c => c.id === job.chapterId);
+        const filename = chapter 
+          ? `${String(index).padStart(2, "0")}_${sanitize(chapter.title)}.mp3`
+          : `${String(index).padStart(2, "0")}_capitulo.mp3`;
+
+        const audioUrl = job.finalAudioUrl!;
+        const protocol = audioUrl.startsWith("https") ? https : http;
+
+        // Stream each file into the archive
+        await new Promise<void>((resolve, reject) => {
+          protocol.get(audioUrl, (audioRes) => {
+            if (audioRes.statusCode === 200) {
+              archive.append(audioRes, { name: filename });
+              audioRes.on("end", resolve);
+              audioRes.on("error", reject);
+            } else {
+              reject(new Error(`Failed to fetch ${filename}`));
+            }
+          }).on("error", reject);
+        });
+
+        index++;
+      }
+
+      await archive.finalize();
+
+    } catch (error) {
+      console.error("Error creating ZIP:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to create ZIP" });
+      }
+    }
+  });
+
   // Iniciar síntesis de un proyecto
   app.post("/api/audiobooks/projects/:id/synthesize", async (req, res) => {
     try {
