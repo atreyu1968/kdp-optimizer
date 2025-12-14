@@ -1492,15 +1492,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      const { voiceId, voiceLocale, engine, author, speechRate } = req.body;
+      const { voiceId, voiceLocale, engine, author, speechRate, title } = req.body;
 
       // Leer el archivo y parsearlo
       const fileBuffer = readFileSync(req.file.path);
       const parsed = await parseWordDocument(fileBuffer, req.file.originalname);
 
       // Crear el proyecto con status "ready" para que esté listo para sintetizar
+      // Usar título del formulario, o el del documento, o el nombre del archivo
       const project = await storage.createAudiobookProject({
-        title: parsed.title,
+        title: title || parsed.title,
         author: author || null,
         sourceFileName: req.file.originalname,
         voiceId: voiceId || "Lucia",
