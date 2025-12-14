@@ -431,11 +431,12 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
       formData.append("author", author);
       formData.append("voiceId", voiceId);
 
-      const selectedVoice = voices?.find(v => v.id === voiceId);
+      const selectedVoice = voices?.find(v => v.id === voiceId && v.engine === engine);
       if (selectedVoice) {
         formData.append("voiceLocale", selectedVoice.languageCode);
-        formData.append("engine", selectedVoice.engine);
       }
+      // Usar el motor seleccionado directamente, no el de la voz encontrada
+      formData.append("engine", engine);
       formData.append("speechRate", speechRate);
 
       const response = await fetch("/api/audiobooks/upload", {
@@ -465,7 +466,7 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
     }
   };
 
-  const selectedVoice = voices?.find(v => v.id === voiceId);
+  const selectedVoice = voices?.find(v => v.id === voiceId && v.engine === engine);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
