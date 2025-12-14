@@ -433,3 +433,179 @@ export async function validateAwsCredentials(): Promise<{ valid: boolean; error?
     };
   }
 }
+
+/**
+ * Recover a single job that was interrupted (check Polly status and update DB)
+ */
+export async function recoverSynthesisJob(jobId: number): Promise<{ recovered: boolean; status: string; error?: string }> {
+  const jobs = await storage.getSynthesisJobsByProject(0); // Get all to find by id
+  const allJobs = await storage.getSynthesisJobsByProject(1); // TODO: Need a getJobById method
+  
+  // Find the job by iterating (temporary until we add getJobById)
+  const job = allJobs.find(j => j.id === jobId);
+  if (!job) {
+    return { recovered: false, status: "not_found", error: "Job not found" };
+  }
+  
+  if (!job.pollyTaskId) {
+    return { recovered: false, status: job.status, error: "No Polly task ID" };
+  }
+  
+  try {
+    const task = await getSynthesisTaskStatus(job.pollyTaskId);
+    
+    if (task.TaskStatus === TaskStatus.COMPLETED) {
+      // Get the download URL
+      const audioUrl = task.OutputUri 
+        ? await getAudioDownloadUrl(task.OutputUri)
+        : null;
+      
+      await storage.updateSynthesisJob(job.id, {
+        status: "completed",
+        s3OutputUri: task.OutputUri || null,
+        finalAudioUrl: audioUrl,
+        completedAt: new Date(),
+      });
+      
+      return { recovered: true, status: "completed" };
+    } else if (task.TaskStatus === TaskStatus.FAILED) {
+      await storage.updateSynthesisJob(job.id, {
+        status: "failed",
+        errorMessage: task.TaskStatusReason || "Polly task failed",
+      });
+      return { recovered: true, status: "failed", error: task.TaskStatusReason };
+    } else {
+      // Still in progress
+      return { recovered: false, status: task.TaskStatus || "in_progress" };
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return { recovered: false, status: "error", error: errorMessage };
+  }
+}
+
+/**
+ * Recover all pending synthesis jobs (called on server startup or manually)
+ */
+export async function recoverPendingJobs(): Promise<{ recovered: number; failed: number; pending: number }> {
+  let recovered = 0;
+  let failed = 0;
+  let pending = 0;
+  
+  // Get all projects that are in synthesizing state
+  const projects = await storage.getAllAudiobookProjects();
+  
+  for (const project of projects) {
+    if (project.status !== "synthesizing") continue;
+    
+    const jobs = await storage.getSynthesisJobsByProject(project.id);
+    let allCompleted = true;
+    let anyFailed = false;
+    let completedCount = 0;
+    
+    for (const job of jobs) {
+      if (job.status === "synthesizing" && job.pollyTaskId) {
+        try {
+          const task = await getSynthesisTaskStatus(job.pollyTaskId);
+          
+          if (task.TaskStatus === TaskStatus.COMPLETED) {
+            const audioUrl = task.OutputUri 
+              ? await getAudioDownloadUrl(task.OutputUri)
+              : null;
+            
+            await storage.updateSynthesisJob(job.id, {
+              status: "completed",
+              s3OutputUri: task.OutputUri || null,
+              finalAudioUrl: audioUrl,
+              completedAt: new Date(),
+            });
+            recovered++;
+            completedCount++;
+          } else if (task.TaskStatus === TaskStatus.FAILED) {
+            await storage.updateSynthesisJob(job.id, {
+              status: "failed",
+              errorMessage: task.TaskStatusReason || "Polly task failed",
+            });
+            failed++;
+            anyFailed = true;
+          } else {
+            // Still processing
+            allCompleted = false;
+            pending++;
+          }
+        } catch (error) {
+          console.error(`[Recovery] Error checking job ${job.id}:`, error);
+          pending++;
+          allCompleted = false;
+        }
+      } else if (job.status === "completed" || job.status === "mastered") {
+        completedCount++;
+      } else if (job.status === "pending") {
+        allCompleted = false;
+      } else if (job.status === "failed") {
+        anyFailed = true;
+      }
+    }
+    
+    // Update project completed count
+    await storage.updateAudiobookProject(project.id, { completedChapters: completedCount });
+    
+    // Check if we need to continue synthesis for remaining chapters
+    const chapters = await storage.getChaptersByProject(project.id);
+    const processedChapterIds = new Set(jobs.map(j => j.chapterId));
+    const remainingChapters = chapters.filter(c => !processedChapterIds.has(c.id));
+    
+    if (remainingChapters.length > 0 && allCompleted && !anyFailed) {
+      // Continue synthesis for remaining chapters
+      console.log(`[Recovery] Resuming synthesis for project ${project.id}, ${remainingChapters.length} chapters remaining`);
+      synthesizeProjectFromChapter(project.id, remainingChapters, completedCount);
+    } else if (allCompleted && remainingChapters.length === 0) {
+      // All done
+      await storage.updateAudiobookProject(project.id, { 
+        status: anyFailed ? "failed" : "completed" 
+      });
+    }
+  }
+  
+  return { recovered, failed, pending };
+}
+
+/**
+ * Continue synthesizing a project from specific chapters
+ */
+async function synthesizeProjectFromChapter(
+  projectId: number,
+  chapters: { id: number; title: string; contentText: string }[],
+  startCount: number
+): Promise<void> {
+  const project = await storage.getAudiobookProject(projectId);
+  if (!project) return;
+  
+  let completed = startCount;
+  
+  try {
+    for (const chapter of chapters) {
+      console.log(`[Synthesis] Project ${projectId}: ${completed}/${project.totalChapters} - ${chapter.title}`);
+      
+      await synthesizeChapter(
+        chapter.id,
+        projectId,
+        chapter.contentText,
+        project.voiceId,
+        project.engine
+      );
+      
+      completed++;
+      await storage.updateAudiobookProject(projectId, { completedChapters: completed });
+    }
+    
+    await storage.updateAudiobookProject(projectId, { status: "completed" });
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    await storage.updateAudiobookProject(projectId, { 
+      status: "failed",
+      errorMessage,
+    });
+  }
+}

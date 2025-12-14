@@ -15,7 +15,7 @@ import { createDefaultTasks, updateTaskDueDates } from "./services/default-tasks
 import { importKdpXlsx, importKenpMonthlyData, processSalesMonthlyData } from "./services/kdp-importer";
 import { analyzeAllBooks, getEnrichedInsights } from "./services/book-analyzer";
 import { parseWordDocument } from "./services/word-parser";
-import { synthesizeProject, getAvailableVoices, validateAwsCredentials } from "./services/polly-synthesizer";
+import { synthesizeProject, getAvailableVoices, validateAwsCredentials, recoverPendingJobs } from "./services/polly-synthesizer";
 import multer from "multer";
 import { join } from "path";
 import { existsSync, mkdirSync, readFileSync, unlinkSync } from "fs";
@@ -1624,6 +1624,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch synthesis jobs" });
     }
   });
+
+  // Recuperar jobs de síntesis pendientes (para reanudar después de reinicio)
+  app.post("/api/audiobooks/recover", async (req, res) => {
+    try {
+      console.log("[Recovery] Starting recovery of pending synthesis jobs...");
+      const result = await recoverPendingJobs();
+      console.log(`[Recovery] Done: ${result.recovered} recovered, ${result.failed} failed, ${result.pending} pending`);
+      res.json({ 
+        success: true, 
+        ...result,
+        message: `Recuperación completada: ${result.recovered} jobs recuperados, ${result.failed} fallidos, ${result.pending} pendientes`
+      });
+    } catch (error) {
+      console.error("Error recovering jobs:", error);
+      res.status(500).json({ error: "Failed to recover pending jobs" });
+    }
+  });
+
+  // Ejecutar recuperación automática al iniciar el servidor
+  setTimeout(async () => {
+    try {
+      console.log("[Recovery] Auto-recovery check on startup...");
+      const result = await recoverPendingJobs();
+      if (result.recovered > 0 || result.pending > 0) {
+        console.log(`[Recovery] Startup recovery: ${result.recovered} recovered, ${result.failed} failed, ${result.pending} pending`);
+      }
+    } catch (error) {
+      console.error("[Recovery] Auto-recovery failed:", error);
+    }
+  }, 5000); // Esperar 5 segundos después de iniciar
 
   const httpServer = createServer(app);
 
