@@ -327,7 +327,7 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
                           )}
                           {job?.finalAudioUrl && (
                             <Button variant="ghost" size="icon" asChild className="h-6 w-6">
-                              <a href={job.finalAudioUrl} target="_blank" rel="noopener noreferrer" data-testid={`download-chapter-${chapter.id}`}>
+                              <a href={`/api/audiobooks/jobs/${job.id}/download`} data-testid={`download-chapter-${chapter.id}`}>
                                 <Download className="h-3 w-3" />
                               </a>
                             </Button>
@@ -362,7 +362,7 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
                 const chapter = chapters?.find(c => c.id === job.chapterId);
                 return (
                   <Button key={job.id} variant="outline" size="sm" asChild className="gap-2">
-                    <a href={job.finalAudioUrl!} download data-testid={`download-final-${job.id}`}>
+                    <a href={`/api/audiobooks/jobs/${job.id}/download`} data-testid={`download-final-${job.id}`}>
                       <Download className="h-4 w-4" />
                       {chapter?.title || `Capítulo ${index + 1}`}
                     </a>

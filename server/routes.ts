@@ -1610,6 +1610,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Descargar audio de un capítulo con nombre correcto
+  app.get("/api/audiobooks/jobs/:jobId/download", async (req, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      if (isNaN(jobId)) {
+        res.status(400).json({ error: "Invalid job ID" });
+        return;
+      }
+
+      // Buscar el job
+      const projects = await storage.getAllAudiobookProjects();
+      let foundJob = null;
+      let foundChapter = null;
+
+      for (const project of projects) {
+        const jobs = await storage.getSynthesisJobsByProject(project.id);
+        const job = jobs.find(j => j.id === jobId);
+        if (job) {
+          foundJob = job;
+          const chapters = await storage.getChaptersByProject(project.id);
+          foundChapter = chapters.find(c => c.id === job.chapterId);
+          break;
+        }
+      }
+
+      if (!foundJob || !foundJob.finalAudioUrl) {
+        res.status(404).json({ error: "Audio not found" });
+        return;
+      }
+
+      // Generar nombre de archivo basado en el título del capítulo
+      const sanitize = (str: string) => str
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9\s-]/g, "")
+        .replace(/\s+/g, "_")
+        .slice(0, 60);
+      
+      const filename = foundChapter 
+        ? `${sanitize(foundChapter.title)}.mp3`
+        : `capitulo_${foundJob.chapterId}.mp3`;
+
+      // Descargar el archivo de S3 y reenviarlo al cliente
+      const https = await import("https");
+      const http = await import("http");
+      
+      const audioUrl = foundJob.finalAudioUrl;
+      const protocol = audioUrl.startsWith("https") ? https : http;
+      
+      protocol.get(audioUrl, (audioRes) => {
+        if (audioRes.statusCode !== 200) {
+          res.status(500).json({ error: "Failed to fetch audio" });
+          return;
+        }
+
+        res.setHeader("Content-Type", "audio/mpeg");
+        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+        
+        if (audioRes.headers["content-length"]) {
+          res.setHeader("Content-Length", audioRes.headers["content-length"]);
+        }
+
+        audioRes.pipe(res);
+      }).on("error", (err) => {
+        console.error("Error downloading audio:", err);
+        res.status(500).json({ error: "Failed to download audio" });
+      });
+
+    } catch (error) {
+      console.error("Error in audio download:", error);
+      res.status(500).json({ error: "Failed to download audio" });
+    }
+  });
+
   // Obtener jobs de síntesis de un proyecto
   app.get("/api/audiobooks/projects/:id/jobs", async (req, res) => {
     try {
