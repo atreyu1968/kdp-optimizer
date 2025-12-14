@@ -296,10 +296,11 @@ export function preprocessTextForTTS(text: string, options: PreprocessOptions = 
 }
 
 /**
- * Wrap text in SSML with prosody controls
+ * Wrap text in SSML with prosody controls and auto-breaths for natural narration
+ * Following ACX/Audible audiobook standards
  */
 export function wrapInSSML(text: string, rate: string = 'medium'): string {
-  // Rate options: x-slow, slow, medium, fast, x-fast, or percentage like 80%
+  // Rate options: x-slow, slow, medium, fast, x-fast, or percentage like 90%
   const rateMap: Record<string, string> = {
     'very-slow': 'x-slow',
     'slow': 'slow', 
@@ -316,5 +317,7 @@ export function wrapInSSML(text: string, rate: string = 'medium'): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
   
-  return `<speak><prosody rate="${prosodyRate}">${escapedText}</prosody></speak>`;
+  // Wrap with amazon:auto-breaths for natural breathing pauses (ACX requirement)
+  // and prosody for speed control
+  return `<speak><amazon:auto-breaths><prosody rate="${prosodyRate}">${escapedText}</prosody></amazon:auto-breaths></speak>`;
 }
