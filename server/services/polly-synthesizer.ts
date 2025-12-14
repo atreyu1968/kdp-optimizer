@@ -248,17 +248,33 @@ export async function waitForTaskCompletion(
 
 /**
  * Get a presigned URL to download the audio from S3
+ * Supports both s3://bucket/key and https://s3.region.amazonaws.com/bucket/key formats
  */
 export async function getAudioDownloadUrl(s3Uri: string, expiresIn: number = 3600): Promise<string> {
   const client = getS3Client();
   
-  // Parse S3 URI: s3://bucket/key
-  const match = s3Uri.match(/^s3:\/\/([^/]+)\/(.+)$/);
-  if (!match) {
-    throw new Error(`Invalid S3 URI: ${s3Uri}`);
-  }
+  let bucket: string;
+  let key: string;
   
-  const [, bucket, key] = match;
+  // Try S3 URI format: s3://bucket/key
+  const s3Match = s3Uri.match(/^s3:\/\/([^/]+)\/(.+)$/);
+  if (s3Match) {
+    [, bucket, key] = s3Match;
+  } else {
+    // Try HTTPS format: https://s3.region.amazonaws.com/bucket/key
+    const httpsMatch = s3Uri.match(/^https:\/\/s3\.[^/]+\.amazonaws\.com\/([^/]+)\/(.+)$/);
+    if (httpsMatch) {
+      [, bucket, key] = httpsMatch;
+    } else {
+      // Try alternative HTTPS format: https://bucket.s3.region.amazonaws.com/key
+      const altHttpsMatch = s3Uri.match(/^https:\/\/([^.]+)\.s3\.[^/]+\.amazonaws\.com\/(.+)$/);
+      if (altHttpsMatch) {
+        [, bucket, key] = altHttpsMatch;
+      } else {
+        throw new Error(`Invalid S3 URI format: ${s3Uri}`);
+      }
+    }
+  }
   
   const command = new GetObjectCommand({
     Bucket: bucket,
