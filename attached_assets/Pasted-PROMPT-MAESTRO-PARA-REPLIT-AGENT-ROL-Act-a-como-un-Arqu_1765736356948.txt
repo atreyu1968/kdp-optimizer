@@ -1,0 +1,66 @@
+PROMPT MAESTRO PARA REPLIT AGENT
+ROL: Actúa como un Arquitecto de Software Senior y experto en procesamiento de audio digital (DSP). Tu tarea es implementar una aplicación de producción de audiolibros automatizada ("AudiobookForge") en Node.js, basándote estrictamente en el Dossier Técnico que te proporcionaré a continuación.
+
+OBJETIVO: Construir un sistema que ingiera documentos Word (.docx), extraiga el texto por capítulos, lo sintetice usando Amazon Polly y lo masterice con FFmpeg para cumplir con los estándares de ACX (Audible).
+
+ENTORNO DE DESPLIEGUE (RESTRICCIONES DURAS):
+
+Plataforma: Replit (NixOS).
+
+Dependencias del Sistema (replit.nix): DEBES instalar pkgs.ffmpeg-full (no la versión estándar) para tener soporte de libmp3lame y filtros avanzados.
+
+Base de Datos: PostgreSQL (usando pg para Node.js).
+
+Almacenamiento:
+
+Temporal: Amazon S3 (requerido por Polly para tareas largas).
+
+Persistente: @replit/object-storage (Google Cloud Storage wrapper) para los archivos finales.
+
+INSTRUCCIONES DE IMPLEMENTACIÓN PASO A PASO:
+
+FASE 1: Configuración del Entorno
+
+Configura replit.nix añadiendo pkgs.ffmpeg-full y pkgs.libuuid.
+
+Instala las dependencias npm: express, multer, pg, mammoth, cheerio, @aws-sdk/client-polly, @aws-sdk/client-s3, fluent-ffmpeg, @replit/object-storage, dotenv.
+
+Crea un script de inicialización de Base de Datos (init_db.js) que cree las tablas projects, chapters y synthesis_jobs usando UUIDs.
+
+FASE 2: Parser Semántico (Mammoth + Cheerio)
+
+Implementa la carga de archivos .docx.
+
+CRÍTICO: Configura mammoth con un styleMap que fuerce los estilos "Heading 1", "Título 1" y "Chapter Title" a convertirse en <h1>.
+
+Usa cheerio para dividir el HTML resultante. Cada <h1> marca el inicio de un nuevo capítulo (entidad Chapter en la DB).
+
+FASE 3: Motor de Síntesis (AWS Polly)
+
+Implementa una cola de trabajos asíncrona (Polling).
+
+Usa exclusivamente StartSpeechSynthesisTaskCommand (no SynthesizeSpeech) para soportar textos largos.
+
+El sistema debe enviar el texto a un bucket S3 intermedio.
+
+Implementa lógica para envolver el texto en etiquetas SSML <amazon:auto-breaths> antes de enviarlo.
+
+FASE 4: Pipeline de Ingeniería de Audio (FFmpeg ACX)
+
+Implementa la función masterAudio(inputFile, outputFile) siguiendo el algoritmo de Doble Pasada (2-Pass) descrito en el dossier:
+
+Pasada de Análisis: Ejecuta loudnorm con print_format=json para medir input_i (Integrated Loudness) y input_tp (True Peak).
+
+Pasada de Corrección: Ejecuta loudnorm nuevamente inyectando los valores medidos y usando linear=true con target I=-20.0.
+
+Asegura la salida: MP3, 192kbps CBR, 44.1kHz.
+
+Añade "Room Tone" (silencio): 0.5s al inicio y 3.0s al final.
+
+FASE 5: API y Almacenamiento
+
+Una vez masterizado el audio, súbelo a @replit/object-storage para persistencia.
+
+Borra los archivos temporales locales y del bucket S3 intermedio.
+
+AHORA, ANALIZA EL SIGUIENTE DOSSIER TÉCNICO Y GENERA EL CÓDIGO COMPLETO PARA ESTA SOLUCIÓN:
