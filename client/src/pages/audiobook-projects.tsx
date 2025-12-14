@@ -52,6 +52,13 @@ const jobStatusConfig: Record<string, { label: string; variant: "default" | "sec
   failed: { label: "Error", variant: "destructive", icon: XCircle },
 };
 
+const engineLabels: Record<string, string> = {
+  neural: "Neural",
+  "long-form": "Long-Form (Audiolibros)",
+  generative: "Generativa",
+  standard: "Estándar",
+};
+
 interface Voice {
   id: string;
   name: string;
@@ -266,7 +273,7 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
             <Separator />
             <div className="flex justify-between">
               <span className="text-muted-foreground">Motor</span>
-              <Badge variant="outline">{project.engine}</Badge>
+              <Badge variant="outline">{engineLabels[project.engine] || project.engine}</Badge>
             </div>
             <Separator />
             <div className="flex justify-between">
