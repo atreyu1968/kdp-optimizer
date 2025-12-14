@@ -183,7 +183,7 @@ export async function startSynthesisTask(
     TextType: TextType.TEXT,
     VoiceId: voiceId,
     Engine: engine,
-    SampleRate: engine === Engine.NEURAL ? "24000" : "22050",
+    SampleRate: engine === Engine.STANDARD ? "22050" : "24000",
   });
   
   const result = await client.send(command);
@@ -304,7 +304,21 @@ export async function synthesizeChapter(
     // Start the synthesis task
     await storage.updateSynthesisJob(job.id, { status: "synthesizing" });
     
-    const pollyEngine = engine === "neural" ? Engine.NEURAL : Engine.STANDARD;
+    // Map engine string to Polly Engine enum
+    let pollyEngine: Engine;
+    switch (engine) {
+      case "neural":
+        pollyEngine = Engine.NEURAL;
+        break;
+      case "long-form":
+        pollyEngine = Engine.LONG_FORM;
+        break;
+      case "generative":
+        pollyEngine = Engine.GENERATIVE;
+        break;
+      default:
+        pollyEngine = Engine.STANDARD;
+    }
     const result = await startSynthesisTask(processedText, voiceId as VoiceId, pollyEngine);
     
     await storage.updateSynthesisJob(job.id, {
