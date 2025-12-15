@@ -16,6 +16,7 @@ import { importKdpXlsx, importKenpMonthlyData, processSalesMonthlyData } from ".
 import { analyzeAllBooks, getEnrichedInsights } from "./services/book-analyzer";
 import { parseWordDocument } from "./services/word-parser";
 import { synthesizeProject, getAvailableVoices, validateAwsCredentials, recoverPendingJobs } from "./services/polly-synthesizer";
+import type { IVooxMetadata } from "@shared/schema";
 import multer from "multer";
 import { join } from "path";
 import { existsSync, mkdirSync, readFileSync, unlinkSync } from "fs";
@@ -2102,6 +2103,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("[Recovery] Error checking for stuck jobs:", error);
     }
   }, STUCK_JOB_CHECK_INTERVAL);
+
+  // ============================================================================
+  // iVoox Metadata Generation
+  // ============================================================================
+
+  // Generate iVoox metadata for an audiobook project
+  app.post("/api/audiobooks/projects/:id/ivoox-metadata", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid project ID" });
+        return;
+      }
+
+      const project = await storage.getAudiobookProject(id);
+      if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+      }
+
+      const chapters = await storage.getChaptersByProject(id);
+      if (chapters.length === 0) {
+        res.status(400).json({ error: "Project has no chapters" });
+        return;
+      }
+
+      // Get manuscript text from chapters
+      const manuscriptText = chapters.map(c => c.contentText).join("\n\n");
+      const { genre = "Ficción", language = "es-ES" } = req.body;
+
+      const { generateIVooxMetadataForProject, generateChaptersMetadata, generateIVooxPublishingGuide } = await import("./services/ivoox-metadata-generator");
+
+      // Generate iVoox metadata using AI
+      const metadata = await generateIVooxMetadataForProject(
+        project.title,
+        project.author,
+        manuscriptText,
+        genre,
+        language
+      );
+
+      // Generate chapter-specific metadata
+      const chaptersMetadata = generateChaptersMetadata(
+        chapters.map(c => ({ title: c.title, sequenceNumber: c.sequenceNumber })),
+        project.title,
+        metadata
+      );
+
+      // Generate publishing guide
+      const publishingGuide = generateIVooxPublishingGuide(metadata, chapters.length);
+
+      res.json({
+        success: true,
+        projectId: id,
+        projectTitle: project.title,
+        metadata,
+        chapters: chaptersMetadata,
+        publishingGuide,
+      });
+    } catch (error) {
+      console.error("Error generating iVoox metadata:", error);
+      res.status(500).json({ error: "Failed to generate iVoox metadata" });
+    }
+  });
 
   const httpServer = createServer(app);
 
