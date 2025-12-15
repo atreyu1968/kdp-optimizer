@@ -450,9 +450,8 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
               <ScrollArea className="h-[200px]">
                 <div className="space-y-2">
                   {chapters.map((chapter, index) => {
-                    // Get the most recent job for this chapter (jobs are sorted by createdAt ascending, so we need the last one)
-                    const chapterJobs = jobs?.filter(j => j.chapterId === chapter.id) || [];
-                    const job = chapterJobs.length > 0 ? chapterJobs[chapterJobs.length - 1] : undefined;
+                    // Get the most recent job for this chapter (jobs are now sorted by createdAt DESC, so first match is the newest)
+                    const job = jobs?.find(j => j.chapterId === chapter.id);
                     const jobStatus = job ? (jobStatusConfig[job.status] || jobStatusConfig.pending) : null;
                     const JobIcon = jobStatus?.icon;
                     return (

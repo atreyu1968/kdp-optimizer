@@ -1232,7 +1232,7 @@ export class DbStorage implements IStorage {
       .select()
       .from(audiobookSynthesisJobs)
       .where(eq(audiobookSynthesisJobs.projectId, projectId))
-      .orderBy(audiobookSynthesisJobs.createdAt);
+      .orderBy(desc(audiobookSynthesisJobs.createdAt), desc(audiobookSynthesisJobs.id));
   }
 
   async getSynthesisJobsByChapter(chapterId: number): Promise<SynthesisJob[]> {
