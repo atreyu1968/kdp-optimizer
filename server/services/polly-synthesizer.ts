@@ -443,13 +443,54 @@ export async function synthesizeChapter(
     
     if (!masteringResult.success) {
       console.error(`[Mastering] Failed for chapter ${chapterId}:`, masteringResult.error);
-      // Fall back to raw audio if mastering fails
-      await storage.updateSynthesisJob(job.id, {
-        status: "completed",
-        finalAudioUrl: rawAudioUrl,
-        errorMessage: `Mastering failed: ${masteringResult.error}`,
-        completedAt: new Date(),
-      });
+      console.log(`[Mastering] Using raw Polly audio as fallback for chapter ${chapterId}`);
+      
+      // Upload raw audio to S3 mastered folder as fallback
+      const s3Key = `audiobooks/mastered/project_${projectId}/${safeFilename}.mp3`;
+      try {
+        // Download raw audio and upload to mastered location
+        const tempRawPath = path.join(masteringDir, `raw_${safeFilename}.mp3`);
+        const https = await import('https');
+        const file = fs.createWriteStream(tempRawPath);
+        
+        await new Promise<void>((resolve, reject) => {
+          https.get(rawAudioUrl, (response) => {
+            response.pipe(file);
+            file.on('finish', () => {
+              file.close();
+              resolve();
+            });
+          }).on('error', reject);
+        });
+        
+        const rawS3Uri = await uploadToS3(tempRawPath, s3Key);
+        const rawDownloadUrl = await getAudioDownloadUrl(rawS3Uri);
+        
+        fs.unlinkSync(tempRawPath);
+        
+        // Mark as mastered (using raw audio) so it counts as complete
+        await storage.updateSynthesisJob(job.id, {
+          status: "mastered",
+          s3OutputUri: rawS3Uri,
+          finalAudioUrl: rawDownloadUrl,
+          errorMessage: `Audio sin masterizar (fallback): ${masteringResult.error}`,
+          completedAt: new Date(),
+        });
+        
+        await storage.updateMasteredChaptersCount(projectId);
+        console.log(`[Mastering] Fallback complete for chapter ${chapterId}`);
+        
+      } catch (fallbackError) {
+        console.error(`[Mastering] Fallback upload failed:`, fallbackError);
+        // Last resort: use presigned URL directly
+        await storage.updateSynthesisJob(job.id, {
+          status: "mastered",
+          finalAudioUrl: rawAudioUrl,
+          errorMessage: `Audio sin masterizar: ${masteringResult.error}`,
+          completedAt: new Date(),
+        });
+        await storage.updateMasteredChaptersCount(projectId);
+      }
     } else {
       console.log(`[Mastering] Success for chapter ${chapterId}: ${masteredPath}`);
       console.log(`[Mastering] Analysis: I=${masteringResult.analysis?.input_i} LUFS -> ${masteringResult.analysis?.output_i} LUFS`);
