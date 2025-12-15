@@ -657,6 +657,7 @@ export async function recoverSynthesisJob(jobId: number): Promise<{ recovered: b
 
 /**
  * Recover all pending synthesis jobs (called on server startup or manually)
+ * Only considers the LATEST job per chapter (ignores old failed jobs if newer ones exist)
  */
 export async function recoverPendingJobs(): Promise<{ recovered: number; failed: number; pending: number }> {
   let recovered = 0;
@@ -669,14 +670,28 @@ export async function recoverPendingJobs(): Promise<{ recovered: number; failed:
   for (const project of projects) {
     if (project.status !== "synthesizing") continue;
     
-    const jobs = await storage.getSynthesisJobsByProject(project.id);
-    let allCompleted = true;
-    let anyFailed = false;
-    let completedCount = 0;
+    console.log(`[Recovery] Checking project ${project.id}: ${project.title}`);
     
-    for (const job of jobs) {
+    const allJobs = await storage.getSynthesisJobsByProject(project.id);
+    
+    // Get only the latest job per chapter
+    const latestJobsByChapter = new Map<number, typeof allJobs[0]>();
+    for (const job of allJobs) {
+      const existing = latestJobsByChapter.get(job.chapterId);
+      if (!existing || job.id > existing.id) {
+        latestJobsByChapter.set(job.chapterId, job);
+      }
+    }
+    
+    let allJobsCompleted = true;
+    let anyLatestFailed = false;
+    let masteredCount = 0;
+    
+    // Process only the latest job per chapter
+    for (const job of Array.from(latestJobsByChapter.values())) {
       if (job.status === "synthesizing" && job.pollyTaskId) {
         try {
+          console.log(`[Recovery] Checking Polly task ${job.pollyTaskId} for job ${job.id}`);
           const task = await getSynthesisTaskStatus(job.pollyTaskId);
           
           if (task.TaskStatus === TaskStatus.COMPLETED) {
@@ -690,51 +705,76 @@ export async function recoverPendingJobs(): Promise<{ recovered: number; failed:
               finalAudioUrl: audioUrl,
               completedAt: new Date(),
             });
+            console.log(`[Recovery] Job ${job.id} recovered as completed`);
             recovered++;
-            completedCount++;
+            // Job needs mastering still, so allJobsCompleted stays based on status
           } else if (task.TaskStatus === TaskStatus.FAILED) {
             await storage.updateSynthesisJob(job.id, {
               status: "failed",
               errorMessage: task.TaskStatusReason || "Polly task failed",
             });
+            console.log(`[Recovery] Job ${job.id} marked as failed: ${task.TaskStatusReason}`);
             failed++;
-            anyFailed = true;
+            anyLatestFailed = true;
           } else {
-            // Still processing
-            allCompleted = false;
+            // Still processing in AWS
+            console.log(`[Recovery] Job ${job.id} still in progress: ${task.TaskStatus}`);
+            allJobsCompleted = false;
             pending++;
           }
         } catch (error) {
           console.error(`[Recovery] Error checking job ${job.id}:`, error);
           pending++;
-          allCompleted = false;
+          allJobsCompleted = false;
         }
-      } else if (job.status === "completed" || job.status === "mastered") {
-        completedCount++;
-      } else if (job.status === "pending") {
-        allCompleted = false;
+      } else if (job.status === "mastered") {
+        masteredCount++;
+      } else if (job.status === "completed") {
+        // Completed but not mastered - might need mastering
+      } else if (job.status === "pending" || job.status === "mastering") {
+        allJobsCompleted = false;
       } else if (job.status === "failed") {
-        anyFailed = true;
+        anyLatestFailed = true;
       }
     }
     
-    // Update project completed count
-    await storage.updateAudiobookProject(project.id, { completedChapters: completedCount });
+    // Update mastered chapters count
+    await storage.updateMasteredChaptersCount(project.id);
     
     // Check if we need to continue synthesis for remaining chapters
     const chapters = await storage.getChaptersByProject(project.id);
-    const processedChapterIds = new Set(jobs.map(j => j.chapterId));
-    const remainingChapters = chapters.filter(c => !processedChapterIds.has(c.id));
+    const processedChapterIds = new Set(latestJobsByChapter.keys());
     
-    if (remainingChapters.length > 0 && allCompleted && !anyFailed) {
+    // Find chapters that either:
+    // 1. Have no job at all, OR
+    // 2. Have only failed jobs (latest job is failed)
+    const chaptersToProcess = chapters.filter(c => {
+      const latestJob = latestJobsByChapter.get(c.id);
+      if (!latestJob) return true; // No job at all
+      if (latestJob.status === "failed") return true; // Latest is failed, retry
+      return false;
+    });
+    
+    // Also check for chapters with completed (not mastered) jobs - they might need mastering
+    const completedNotMastered = Array.from(latestJobsByChapter.values()).filter(
+      j => j.status === "completed" && j.finalAudioUrl
+    );
+    
+    console.log(`[Recovery] Project ${project.id}: ${masteredCount} mastered, ${chaptersToProcess.length} to process, ${completedNotMastered.length} need mastering`);
+    
+    if (chaptersToProcess.length > 0 && !anyLatestFailed) {
       // Continue synthesis for remaining chapters
-      console.log(`[Recovery] Resuming synthesis for project ${project.id}, ${remainingChapters.length} chapters remaining`);
-      synthesizeProjectFromChapter(project.id, remainingChapters, completedCount);
-    } else if (allCompleted && remainingChapters.length === 0) {
-      // All done
-      await storage.updateAudiobookProject(project.id, { 
-        status: anyFailed ? "failed" : "completed" 
-      });
+      console.log(`[Recovery] Resuming synthesis for project ${project.id}, ${chaptersToProcess.length} chapters to process`);
+      // Don't await - let it run in background
+      synthesizeProjectFromChapter(project.id, chaptersToProcess, masteredCount);
+    } else if (chaptersToProcess.length === 0 && masteredCount === chapters.length) {
+      // All chapters are mastered
+      console.log(`[Recovery] Project ${project.id} is complete`);
+      await storage.updateAudiobookProject(project.id, { status: "completed" });
+    } else if (anyLatestFailed && chaptersToProcess.length === 0) {
+      // Some chapters failed with no retry possible
+      console.log(`[Recovery] Project ${project.id} has failed chapters`);
+      await storage.updateAudiobookProject(project.id, { status: "failed" });
     }
   }
   
