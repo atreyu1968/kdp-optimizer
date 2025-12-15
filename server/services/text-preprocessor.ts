@@ -553,6 +553,15 @@ export function preprocessTextForTTS(text: string, options: PreprocessOptions = 
  * Wrap text in SSML with prosody controls
  * Converts special markers to SSML tags
  * Following ACX/Audible audiobook standards
+ * 
+ * Natural breathing pattern for audiobook narration:
+ * - Sentence end (period): 600-700ms - natural breath
+ * - Exclamation/Question: 700ms - emotional beat + breath
+ * - Comma: 200ms - quick micro-pause
+ * - Semicolon/Colon: 350ms - medium pause
+ * - Ellipsis: 500ms - suspense/hesitation
+ * - Paragraph break: 900ms - topic change + breath
+ * - Scene break: 1.8s - major transition
  */
 export function wrapInSSML(text: string, rate: string = 'medium'): string {
   const rateMap: Record<string, string> = {
@@ -565,20 +574,57 @@ export function wrapInSSML(text: string, rate: string = 'medium'): string {
   
   const prosodyRate = rateMap[rate] || rate;
   
-  // Escape special XML characters
+  // Escape special XML characters FIRST (before any SSML insertions)
   let escapedText = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
   
-  // Convert scene break markers to SSML breaks (2 second pause)
-  escapedText = escapedText.replace(/\[SCENE_BREAK\]/g, '<break time="2s"/>');
+  // === STRUCTURAL BREAKS (largest to smallest) ===
   
-  // Add paragraph breaks for double newlines (1 second pause)
-  escapedText = escapedText.replace(/\n\n/g, '<break time="1s"/>');
+  // Scene breaks: 1.8 seconds (major transition, time for listener to reset)
+  escapedText = escapedText.replace(/\[SCENE_BREAK\]/g, '<break time="1800ms"/>');
   
-  // Single newlines become shorter pauses
-  escapedText = escapedText.replace(/\n/g, '<break time="500ms"/>');
+  // Paragraph breaks (double newline): 900ms (topic change, natural breath)
+  escapedText = escapedText.replace(/\n\n/g, '<break time="900ms"/>');
+  
+  // Single newlines: 400ms (soft break, minor pause)
+  escapedText = escapedText.replace(/\n/g, '<break time="400ms"/>');
+  
+  // === PUNCTUATION-BASED BREATHING ===
+  // These mimic natural narrator breathing patterns
+  
+  // Ellipsis: 500ms pause for suspense/hesitation (before space or end)
+  escapedText = escapedText.replace(/\.\.\.(\s|$)/g, '<break time="500ms"/>$1');
+  
+  // Period at end of sentence: 650ms (natural breath point)
+  // Match period followed by space and capital, or period at very end
+  escapedText = escapedText.replace(/\.(\s+)(?=[A-ZÁÉÍÓÚÑ])/g, '.<break time="650ms"/>$1');
+  escapedText = escapedText.replace(/\.(\s*)$/g, '.<break time="650ms"/>$1');
+  
+  // Question mark: 700ms (question needs beat for reflection)
+  escapedText = escapedText.replace(/\?(\s+)/g, '?<break time="700ms"/>$1');
+  escapedText = escapedText.replace(/\?(\s*)$/g, '?<break time="700ms"/>$1');
+  
+  // Exclamation: 700ms (emotional beat + breath)
+  escapedText = escapedText.replace(/!(\s+)/g, '!<break time="700ms"/>$1');
+  escapedText = escapedText.replace(/!(\s*)$/g, '!<break time="700ms"/>$1');
+  
+  // Semicolon: 350ms (longer than comma, connects related ideas)
+  escapedText = escapedText.replace(/;(\s+)/g, ';<break time="350ms"/>$1');
+  
+  // Colon: 350ms (pause before explanation/list)
+  escapedText = escapedText.replace(/:(\s+)/g, ':<break time="350ms"/>$1');
+  
+  // Em-dash or en-dash: 300ms (parenthetical pause)
+  escapedText = escapedText.replace(/—(\s*)/g, '—<break time="300ms"/>$1');
+  escapedText = escapedText.replace(/–(\s*)/g, '–<break time="300ms"/>$1');
+  
+  // Comma: 200ms (quick micro-pause, no full breath)
+  escapedText = escapedText.replace(/,(\s+)/g, ',<break time="200ms"/>$1');
+  
+  // Closing dialogue quotes with attribution coming: 250ms
+  escapedText = escapedText.replace(/(["»])(\s*,\s*)/g, '$1<break time="250ms"/>$2');
   
   return `<speak><prosody rate="${prosodyRate}">${escapedText}</prosody></speak>`;
 }
