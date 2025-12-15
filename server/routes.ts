@@ -1810,9 +1810,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const jobs = await storage.getSynthesisJobsByProject(id);
       const chapters = await storage.getChaptersByProject(id);
-      const completedJobs = jobs.filter(j => j.finalAudioUrl);
+      
+      // Get only the latest mastered job for each chapter (avoid duplicates)
+      const latestJobsByChapter = new Map<number, typeof jobs[0]>();
+      for (const job of jobs) {
+        if (job.finalAudioUrl && job.status === "mastered") {
+          const existing = latestJobsByChapter.get(job.chapterId);
+          if (!existing || (job.createdAt && existing.createdAt && job.createdAt > existing.createdAt)) {
+            latestJobsByChapter.set(job.chapterId, job);
+          }
+        }
+      }
+      
+      // Sort chapters by sequenceNumber and get their corresponding jobs
+      const sortedChapters = [...chapters].sort((a, b) => a.sequenceNumber - b.sequenceNumber);
+      const orderedJobs: { job: typeof jobs[0]; chapter: typeof chapters[0] }[] = [];
+      
+      for (const chapter of sortedChapters) {
+        const job = latestJobsByChapter.get(chapter.id);
+        if (job) {
+          orderedJobs.push({ job, chapter });
+        }
+      }
 
-      if (completedJobs.length === 0) {
+      if (orderedJobs.length === 0) {
         res.status(400).json({ error: "No completed audio files" });
         return;
       }
@@ -1839,13 +1860,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Import getAudioDownloadUrl for regenerating fresh URLs
       const { getAudioDownloadUrl } = await import("./services/polly-synthesizer");
 
-      // Add each audio file to the archive
+      // Add each audio file to the archive in chapter order
       let index = 1;
-      for (const job of completedJobs) {
-        const chapter = chapters.find(c => c.id === job.chapterId);
-        const filename = chapter 
-          ? `${String(index).padStart(2, "0")}_${sanitize(chapter.title)}.mp3`
-          : `${String(index).padStart(2, "0")}_capitulo.mp3`;
+      for (const { job, chapter } of orderedJobs) {
+        const filename = `${String(index).padStart(2, "0")}_${sanitize(chapter.title)}.mp3`;
 
         // Regenerate fresh URL - stored URLs may be expired
         let audioUrl = job.finalAudioUrl!;
