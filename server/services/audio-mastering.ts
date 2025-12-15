@@ -44,6 +44,8 @@ export interface MasteringOptions {
   silenceEnd?: number;          // Silence at end in ms (default: 3000)
   sampleRate?: number;          // Output sample rate (default: 44100)
   bitrate?: string;             // Output bitrate (default: 192k)
+  deEsser?: boolean;            // Apply de-esser to reduce sibilance (default: true)
+  deEsserAmount?: number;       // De-esser reduction in dB (default: -4)
 }
 
 const DEFAULT_OPTIONS: Required<MasteringOptions> = {
@@ -54,6 +56,8 @@ const DEFAULT_OPTIONS: Required<MasteringOptions> = {
   silenceEnd: 3000,
   sampleRate: 44100,
   bitrate: '192k',
+  deEsser: true,
+  deEsserAmount: -4,
 };
 
 /**
@@ -225,6 +229,60 @@ async function applyLoudnessCorrection(
 }
 
 /**
+ * Apply de-esser to reduce sibilance (harsh 's', 'sh', 'ch' sounds)
+ * Uses FFmpeg equalizer to attenuate frequencies 4-8kHz where sibilants reside
+ */
+async function applyDeEsser(
+  inputPath: string,
+  outputPath: string,
+  options: Required<MasteringOptions>
+): Promise<boolean> {
+  if (!options.deEsser) {
+    // If de-esser disabled, just copy the file
+    try {
+      fs.copyFileSync(inputPath, outputPath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  
+  console.log(`[Mastering] Applying de-esser (${options.deEsserAmount}dB reduction at 5-8kHz)`);
+  
+  // Multi-band de-esser targeting sibilant frequencies (5-8kHz)
+  // Uses highshelf filter to gently reduce high frequencies
+  const deEsserFilter = [
+    `highshelf=f=5000:g=${options.deEsserAmount}`,
+    `equalizer=f=6500:width_type=o:width=1:g=${options.deEsserAmount - 1}`,
+    `equalizer=f=8000:width_type=o:width=0.5:g=${options.deEsserAmount}`
+  ].join(',');
+  
+  const args = [
+    '-y',
+    '-i', inputPath,
+    '-af', deEsserFilter,
+    '-ar', options.sampleRate.toString(),
+    '-b:a', options.bitrate,
+    '-codec:a', 'libmp3lame',
+    outputPath
+  ];
+  
+  try {
+    const result = await runFFmpeg(args);
+    
+    if (result.code !== 0) {
+      console.error('[Mastering] FFmpeg de-esser failed:', result.stderr);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('[Mastering] Error applying de-esser:', error);
+    return false;
+  }
+}
+
+/**
  * Add room tone (silence) at the beginning and end of audio
  * ACX recommends 0.5-1s start, 1-5s end
  */
@@ -348,6 +406,7 @@ export async function masterAudio(
   
   const timestamp = Date.now();
   const tempInput = path.join(tempDir, `input_${timestamp}.mp3`);
+  const tempDeEssed = path.join(tempDir, `deessed_${timestamp}.mp3`);
   const tempNormalized = path.join(tempDir, `normalized_${timestamp}.mp3`);
   
   try {
@@ -374,8 +433,18 @@ export async function masterAudio(
       };
     }
     
+    // Pass 0: Apply de-esser to reduce sibilance
+    const deEssed = await applyDeEsser(localInputPath, tempDeEssed, opts);
+    if (!deEssed) {
+      return {
+        success: false,
+        outputPath: '',
+        error: 'Failed to apply de-esser',
+      };
+    }
+    
     // Pass 1: Analyze loudness
-    const analysis = await analyzeLoudness(localInputPath, opts);
+    const analysis = await analyzeLoudness(tempDeEssed, opts);
     if (!analysis) {
       return {
         success: false,
@@ -387,7 +456,7 @@ export async function masterAudio(
     console.log(`[Mastering] Analysis complete: I=${analysis.input_i} LUFS, TP=${analysis.input_tp} dB`);
     
     // Pass 2: Apply loudness correction
-    const normalized = await applyLoudnessCorrection(localInputPath, tempNormalized, analysis, opts);
+    const normalized = await applyLoudnessCorrection(tempDeEssed, tempNormalized, analysis, opts);
     if (!normalized) {
       return {
         success: false,
@@ -415,6 +484,7 @@ export async function masterAudio(
     // Cleanup temp files
     try {
       if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
+      if (fs.existsSync(tempDeEssed)) fs.unlinkSync(tempDeEssed);
       if (fs.existsSync(tempNormalized)) fs.unlinkSync(tempNormalized);
     } catch {
       // Ignore cleanup errors
@@ -433,6 +503,7 @@ export async function masterAudio(
     // Cleanup on error
     try {
       if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
+      if (fs.existsSync(tempDeEssed)) fs.unlinkSync(tempDeEssed);
       if (fs.existsSync(tempNormalized)) fs.unlinkSync(tempNormalized);
     } catch {
       // Ignore cleanup errors
