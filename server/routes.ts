@@ -1836,6 +1836,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const archive = archiver("zip", { zlib: { level: 5 } });
       archive.pipe(res);
 
+      // Import getAudioDownloadUrl for regenerating fresh URLs
+      const { getAudioDownloadUrl } = await import("./services/polly-synthesizer");
+
       // Add each audio file to the archive
       let index = 1;
       for (const job of completedJobs) {
@@ -1844,7 +1847,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? `${String(index).padStart(2, "0")}_${sanitize(chapter.title)}.mp3`
           : `${String(index).padStart(2, "0")}_capitulo.mp3`;
 
-        const audioUrl = job.finalAudioUrl!;
+        // Regenerate fresh URL - stored URLs may be expired
+        let audioUrl = job.finalAudioUrl!;
+        if (job.s3OutputUri) {
+          audioUrl = await getAudioDownloadUrl(job.s3OutputUri, 3600);
+        } else if (audioUrl.startsWith("s3://")) {
+          audioUrl = await getAudioDownloadUrl(audioUrl, 3600);
+        }
+        
         const protocol = audioUrl.startsWith("https") ? https : http;
 
         // Stream each file into the archive
