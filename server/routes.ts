@@ -1965,7 +1965,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const https = await import("https");
       const http = await import("http");
       
-      const audioUrl = foundJob.finalAudioUrl;
+      let audioUrl = foundJob.finalAudioUrl;
+      
+      // Si es un S3 URI, convertirlo a URL firmada
+      if (audioUrl.startsWith("s3://")) {
+        const { getPresignedUrl } = await import("./services/polly-synthesizer");
+        audioUrl = await getPresignedUrl(audioUrl, 3600);
+      }
+      
       const protocol = audioUrl.startsWith("https") ? https : http;
       
       protocol.get(audioUrl, (audioRes) => {
