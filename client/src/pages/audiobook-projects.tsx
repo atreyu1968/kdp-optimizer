@@ -468,7 +468,10 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
                             ~{Math.ceil((chapter.estimatedDurationSeconds || 0) / 60)} min
                           </span>
                           {jobStatus && (
-                            <Badge variant={jobStatus.variant} className="gap-1 text-xs">
+                            <Badge 
+                              variant={jobStatus.variant} 
+                              className={`gap-1 text-xs ${job?.status === "mastered" ? "bg-green-500 text-white hover:bg-green-600" : ""}`}
+                            >
                               {JobIcon && <JobIcon className={`h-3 w-3 ${job?.status === "processing" || job?.status === "submitted" ? "animate-spin" : ""}`} />}
                               {jobStatus.label}
                             </Badge>
