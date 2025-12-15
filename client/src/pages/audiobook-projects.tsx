@@ -861,10 +861,8 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
 
               <TabsContent value="guide" className="mt-4">
                 <ScrollArea className="h-[400px]">
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <pre className="whitespace-pre-wrap text-sm font-sans bg-muted p-4 rounded-md">
-                      {ivooxData.publishingGuide}
-                    </pre>
+                  <div className="p-4 rounded-md bg-muted text-sm whitespace-pre-wrap font-sans">
+                    {ivooxData.publishingGuide || "No se pudo generar la guía"}
                   </div>
                 </ScrollArea>
               </TabsContent>
