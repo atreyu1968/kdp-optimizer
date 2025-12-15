@@ -1265,6 +1265,22 @@ export class DbStorage implements IStorage {
     return job;
   }
 
+  async getLatestJobByChapter(chapterId: number): Promise<SynthesisJob | undefined> {
+    const [job] = await this.db
+      .select()
+      .from(audiobookSynthesisJobs)
+      .where(eq(audiobookSynthesisJobs.chapterId, chapterId))
+      .orderBy(desc(audiobookSynthesisJobs.createdAt), desc(audiobookSynthesisJobs.id))
+      .limit(1);
+    return job;
+  }
+
+  async deleteOldJobsByChapter(chapterId: number): Promise<void> {
+    await this.db
+      .delete(audiobookSynthesisJobs)
+      .where(eq(audiobookSynthesisJobs.chapterId, chapterId));
+  }
+
   // Audiobook Settings
   async getAudiobookSetting(key: string): Promise<AudiobookSetting | undefined> {
     const [setting] = await this.db

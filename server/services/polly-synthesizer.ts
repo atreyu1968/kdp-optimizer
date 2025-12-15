@@ -502,6 +502,7 @@ export async function synthesizeChapter(
 
 /**
  * Synthesize all chapters of a project sequentially
+ * Skips chapters that are already mastered
  */
 export async function synthesizeProject(
   projectId: number,
@@ -520,14 +521,33 @@ export async function synthesizeProject(
   // Update project status
   await storage.updateAudiobookProject(projectId, { status: "synthesizing" });
   
-  let completed = 0;
+  // Count already mastered chapters
+  let alreadyMastered = 0;
+  const chaptersToProcess: typeof chapters = [];
+  
+  for (const chapter of chapters) {
+    const latestJob = await storage.getLatestJobByChapter(chapter.id);
+    if (latestJob?.status === "mastered") {
+      alreadyMastered++;
+      console.log(`[Polly] Skipping chapter "${chapter.title}" - already mastered`);
+    } else {
+      chaptersToProcess.push(chapter);
+    }
+  }
+  
+  console.log(`[Polly] Project ${projectId}: ${alreadyMastered} mastered, ${chaptersToProcess.length} to process`);
+  
+  let completed = alreadyMastered;
   
   // Use speech rate from project or default to 90% for ACX audiobooks
   const speechRate = project.speechRate || "90%";
   
   try {
-    for (const chapter of chapters) {
+    for (const chapter of chaptersToProcess) {
       onProgress?.(completed, chapters.length, chapter.title);
+      
+      // Delete old jobs for this chapter before creating new one
+      await storage.deleteOldJobsByChapter(chapter.id);
       
       await synthesizeChapter(
         chapter.id,
