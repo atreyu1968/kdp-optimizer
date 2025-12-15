@@ -1969,8 +1969,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Si es un S3 URI, convertirlo a URL firmada
       if (audioUrl.startsWith("s3://")) {
-        const { getPresignedUrl } = await import("./services/polly-synthesizer");
-        audioUrl = await getPresignedUrl(audioUrl, 3600);
+        const { getAudioDownloadUrl } = await import("./services/polly-synthesizer");
+        audioUrl = await getAudioDownloadUrl(audioUrl, 3600);
       }
       
       const protocol = audioUrl.startsWith("https") ? https : http;
