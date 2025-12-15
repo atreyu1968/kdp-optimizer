@@ -211,6 +211,7 @@ export interface IStorage {
   // Synthesis Jobs
   getSynthesisJobsByProject(projectId: number): Promise<SynthesisJob[]>;
   getSynthesisJobsByChapter(chapterId: number): Promise<SynthesisJob[]>;
+  getSynthesisJobById(id: number): Promise<SynthesisJob | undefined>;
   createSynthesisJob(data: InsertSynthesisJob): Promise<SynthesisJob>;
   updateSynthesisJob(id: number, data: Partial<InsertSynthesisJob>): Promise<SynthesisJob>;
   
@@ -1242,6 +1243,14 @@ export class DbStorage implements IStorage {
       .orderBy(desc(audiobookSynthesisJobs.createdAt));
   }
 
+  async getSynthesisJobById(id: number): Promise<SynthesisJob | undefined> {
+    const [job] = await this.db
+      .select()
+      .from(audiobookSynthesisJobs)
+      .where(eq(audiobookSynthesisJobs.id, id));
+    return job;
+  }
+
   async createSynthesisJob(data: InsertSynthesisJob): Promise<SynthesisJob> {
     const [job] = await this.db.insert(audiobookSynthesisJobs).values(data).returning();
     return job;
@@ -1659,6 +1668,10 @@ export class MemStorage implements IStorage {
   }
 
   async getSynthesisJobsByChapter(chapterId: number): Promise<SynthesisJob[]> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async getSynthesisJobById(id: number): Promise<SynthesisJob | undefined> {
     throw new Error("MemStorage does not support AudiobookForge operations");
   }
 

@@ -308,7 +308,7 @@ function sanitizeFilename(title: string): string {
 /**
  * Upload a local file to S3 and return the S3 URI
  */
-async function uploadToS3(localPath: string, s3Key: string): Promise<string> {
+export async function uploadToS3(localPath: string, s3Key: string): Promise<string> {
   const client = getS3Client();
   const bucket = process.env.S3_BUCKET_NAME;
   

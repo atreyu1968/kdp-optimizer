@@ -1664,6 +1664,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Masterizar un capítulo individual (para capítulos completed sin masterizar)
+  app.post("/api/audiobooks/jobs/:jobId/master", async (req, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      if (isNaN(jobId)) {
+        res.status(400).json({ error: "Invalid job ID" });
+        return;
+      }
+
+      const job = await storage.getSynthesisJobById(jobId);
+      if (!job) {
+        res.status(404).json({ error: "Job not found" });
+        return;
+      }
+
+      if (job.status !== "completed") {
+        res.status(400).json({ error: "Solo se pueden masterizar capítulos con estado 'completed'" });
+        return;
+      }
+
+      if (!job.rawAudioUrl && !job.finalAudioUrl) {
+        res.status(400).json({ error: "El capítulo no tiene audio para masterizar" });
+        return;
+      }
+
+      const audioUrl = job.rawAudioUrl || job.finalAudioUrl;
+      
+      // Obtener datos del capítulo para el nombre de archivo
+      const chapter = await storage.getChapterById(job.chapterId);
+      const project = await storage.getAudiobookProject(job.projectId);
+      
+      // Marcar como procesando
+      await storage.updateSynthesisJob(jobId, { status: "mastering" });
+
+      // Ejecutar masterización en segundo plano
+      (async () => {
+        try {
+          const { masterAudioFromUrl } = await import("./services/audio-mastering");
+          const { uploadToS3 } = await import("./services/polly-synthesizer");
+          const path = await import("path");
+          const os = await import("os");
+          const fs = await import("fs");
+
+          const masteringDir = path.join(os.tmpdir(), "audiobook-mastered");
+          if (!fs.existsSync(masteringDir)) {
+            fs.mkdirSync(masteringDir, { recursive: true });
+          }
+
+          const sanitizeFilename = (str: string) => str
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, "")
+            .replace(/\s+/g, "_")
+            .slice(0, 50);
+
+          const safeFilename = chapter?.title ? sanitizeFilename(chapter.title) : `chapter_${job.chapterId}`;
+          const masteredPath = path.join(masteringDir, `${safeFilename}.mp3`);
+
+          const masteringOptions = {
+            targetLoudness: -20,
+            targetPeak: -3,
+            targetLRA: 11,
+            silenceStart: 1000,
+            silenceEnd: 3000,
+            sampleRate: 44100,
+            bitrate: "192k",
+          };
+
+          const masteringResult = await masterAudioFromUrl(audioUrl!, masteredPath, masteringOptions);
+
+          if (!masteringResult.success) {
+            console.error(`[Mastering] Failed for job ${jobId}:`, masteringResult.error);
+            await storage.updateSynthesisJob(jobId, {
+              status: "completed",
+              errorMessage: `Mastering failed: ${masteringResult.error}`,
+            });
+            return;
+          }
+
+          // Subir archivo masterizado a S3
+          const s3Key = `audiobooks/mastered/project_${job.projectId}/${safeFilename}.mp3`;
+          const masteredUrl = await uploadToS3(masteredPath, s3Key);
+
+          if (!masteredUrl) {
+            await storage.updateSynthesisJob(jobId, {
+              status: "completed",
+              errorMessage: "Failed to upload mastered audio to S3",
+            });
+            return;
+          }
+
+          // Actualizar job con URL masterizada
+          await storage.updateSynthesisJob(jobId, {
+            status: "mastered",
+            finalAudioUrl: masteredUrl,
+            errorMessage: null,
+            completedAt: new Date(),
+          });
+
+          console.log(`[Mastering] Success for job ${jobId}: ${masteredUrl}`);
+
+          // Limpiar archivo temporal
+          try { fs.unlinkSync(masteredPath); } catch {}
+
+        } catch (err) {
+          console.error(`[Mastering] Error for job ${jobId}:`, err);
+          await storage.updateSynthesisJob(jobId, {
+            status: "completed",
+            errorMessage: `Mastering error: ${err instanceof Error ? err.message : "Unknown"}`,
+          });
+        }
+      })();
+
+      res.json({ success: true, message: "Masterización iniciada" });
+    } catch (error) {
+      console.error("Error mastering job:", error);
+      res.status(500).json({ error: "Failed to master audio" });
+    }
+  });
+
   // Descargar todos los archivos en ZIP
   app.get("/api/audiobooks/projects/:id/download-zip", async (req, res) => {
     try {

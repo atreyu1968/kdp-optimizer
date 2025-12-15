@@ -179,6 +179,21 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
     },
   });
 
+  const masterChapterMutation = useMutation({
+    mutationFn: async (jobId: number) => {
+      const res = await apiRequest("POST", `/api/audiobooks/jobs/${jobId}/master`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Masterización iniciada", description: "El audio se está masterizando." });
+      queryClient.invalidateQueries({ queryKey: ["/api/audiobooks/projects", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/audiobooks/projects", projectId, "jobs"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "No se pudo masterizar", variant: "destructive" });
+    },
+  });
+
   // Audio player functions
   const handlePlayPause = (jobId: number) => {
     if (playingJobId === jobId && audioRef.current) {
@@ -479,6 +494,19 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
                                 </a>
                               </Button>
                             </>
+                          )}
+                          {job?.status === "completed" && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6"
+                              onClick={() => masterChapterMutation.mutate(job.id)}
+                              disabled={masterChapterMutation.isPending || isProcessing}
+                              title="Masterizar audio"
+                              data-testid={`master-chapter-${chapter.id}`}
+                            >
+                              <Volume2 className="h-3 w-3" />
+                            </Button>
                           )}
                           {(job?.status === "mastered" || job?.status === "completed" || job?.status === "failed") && (
                             <Button 
