@@ -2053,6 +2053,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }, 5000); // Esperar 5 segundos después de iniciar
 
+  // Verificar jobs atascados cada 5 minutos (10 minutos de timeout)
+  const STUCK_JOB_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos
+  const STUCK_JOB_TIMEOUT_MINUTES = 10; // Considerar atascado después de 10 minutos
+
+  setInterval(async () => {
+    try {
+      const stuckCount = await storage.markStuckJobsAsFailed(STUCK_JOB_TIMEOUT_MINUTES);
+      if (stuckCount > 0) {
+        console.log(`[Recovery] Marked ${stuckCount} stuck jobs as failed`);
+      }
+    } catch (error) {
+      console.error("[Recovery] Error checking for stuck jobs:", error);
+    }
+  }, STUCK_JOB_CHECK_INTERVAL);
+
   const httpServer = createServer(app);
 
   return httpServer;

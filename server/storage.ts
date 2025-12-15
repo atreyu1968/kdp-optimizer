@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lte, lt, inArray, sql } from "drizzle-orm";
 import { 
   manuscripts, 
   optimizations,
@@ -214,6 +214,8 @@ export interface IStorage {
   getSynthesisJobById(id: number): Promise<SynthesisJob | undefined>;
   createSynthesisJob(data: InsertSynthesisJob): Promise<SynthesisJob>;
   updateSynthesisJob(id: number, data: Partial<InsertSynthesisJob>): Promise<SynthesisJob>;
+  getStuckJobs(maxMinutes: number): Promise<SynthesisJob[]>;
+  markStuckJobsAsFailed(maxMinutes: number): Promise<number>;
   
   // Audiobook Settings
   getAudiobookSetting(key: string): Promise<AudiobookSetting | undefined>;
@@ -1281,6 +1283,37 @@ export class DbStorage implements IStorage {
       .where(eq(audiobookSynthesisJobs.chapterId, chapterId));
   }
 
+  async getStuckJobs(maxMinutes: number): Promise<SynthesisJob[]> {
+    const cutoffTime = new Date(Date.now() - maxMinutes * 60 * 1000);
+    return await this.db
+      .select()
+      .from(audiobookSynthesisJobs)
+      .where(
+        and(
+          inArray(audiobookSynthesisJobs.status, ["synthesizing", "mastering"]),
+          lt(audiobookSynthesisJobs.startedAt, cutoffTime)
+        )
+      );
+  }
+
+  async markStuckJobsAsFailed(maxMinutes: number): Promise<number> {
+    const cutoffTime = new Date(Date.now() - maxMinutes * 60 * 1000);
+    const result = await this.db
+      .update(audiobookSynthesisJobs)
+      .set({
+        status: "failed",
+        errorMessage: `Job stuck for more than ${maxMinutes} minutes - auto-reset`,
+      })
+      .where(
+        and(
+          inArray(audiobookSynthesisJobs.status, ["synthesizing", "mastering"]),
+          lt(audiobookSynthesisJobs.startedAt, cutoffTime)
+        )
+      )
+      .returning();
+    return result.length;
+  }
+
   // Audiobook Settings
   async getAudiobookSetting(key: string): Promise<AudiobookSetting | undefined> {
     const [setting] = await this.db
@@ -1696,6 +1729,14 @@ export class MemStorage implements IStorage {
   }
 
   async updateSynthesisJob(id: number, data: Partial<InsertSynthesisJob>): Promise<SynthesisJob> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async getStuckJobs(maxMinutes: number): Promise<SynthesisJob[]> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async markStuckJobsAsFailed(maxMinutes: number): Promise<number> {
     throw new Error("MemStorage does not support AudiobookForge operations");
   }
 
