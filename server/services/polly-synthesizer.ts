@@ -606,6 +606,83 @@ export async function validateAwsCredentials(): Promise<{ valid: boolean; error?
 }
 
 /**
+ * Apply mastering to a job that has completed synthesis but hasn't been mastered yet
+ */
+async function applyMasteringToJob(
+  job: { id: number; chapterId: number; finalAudioUrl: string | null; s3OutputUri: string | null },
+  projectId: number
+): Promise<void> {
+  if (!job.finalAudioUrl) {
+    throw new Error(`Job ${job.id} has no audio URL`);
+  }
+  
+  // Get chapter info for filename
+  const chapter = await storage.getChapterById(job.chapterId);
+  const chapterTitle = chapter?.title || `chapter_${job.chapterId}`;
+  
+  console.log(`[Mastering] Applying mastering to job ${job.id}: ${chapterTitle}`);
+  
+  await storage.updateSynthesisJob(job.id, { status: "mastering" });
+  
+  const masteringDir = path.join(os.tmpdir(), "audiobook-mastered");
+  if (!fs.existsSync(masteringDir)) {
+    fs.mkdirSync(masteringDir, { recursive: true });
+  }
+  
+  const safeFilename = sanitizeFilename(chapterTitle);
+  const masteredPath = path.join(masteringDir, `${safeFilename}.mp3`);
+  
+  const masteringOptions: MasteringOptions = {
+    targetLoudness: -20,
+    targetPeak: -3,
+    targetLRA: 11,
+    silenceStart: 1000,
+    silenceEnd: 3000,
+    sampleRate: 44100,
+    bitrate: "192k",
+  };
+  
+  const masteringResult = await masterAudioFromUrl(job.finalAudioUrl, masteredPath, masteringOptions);
+  
+  if (!masteringResult.success) {
+    console.error(`[Mastering] Failed for job ${job.id}:`, masteringResult.error);
+    await storage.updateSynthesisJob(job.id, {
+      status: "completed",
+      errorMessage: `Mastering failed: ${masteringResult.error}`,
+    });
+    throw new Error(`Mastering failed: ${masteringResult.error}`);
+  }
+  
+  console.log(`[Mastering] Success for job ${job.id}: ${masteredPath}`);
+  
+  // Upload to S3
+  const s3Key = `audiobooks/mastered/project_${projectId}/${safeFilename}.mp3`;
+  try {
+    const masteredS3Uri = await uploadToS3(masteredPath, s3Key);
+    const masteredDownloadUrl = await getAudioDownloadUrl(masteredS3Uri);
+    
+    await storage.updateSynthesisJob(job.id, {
+      status: "mastered",
+      localAudioPath: masteredPath,
+      s3OutputUri: masteredS3Uri,
+      finalAudioUrl: masteredDownloadUrl,
+      completedAt: new Date(),
+    });
+    
+    fs.unlinkSync(masteredPath);
+    console.log(`[Mastering] Job ${job.id} mastered successfully`);
+  } catch (uploadError) {
+    console.error(`[S3] Failed to upload mastered audio:`, uploadError);
+    await storage.updateSynthesisJob(job.id, {
+      status: "mastered",
+      localAudioPath: masteredPath,
+      finalAudioUrl: job.finalAudioUrl,
+      completedAt: new Date(),
+    });
+  }
+}
+
+/**
  * Recover a single job that was interrupted (check Polly status and update DB)
  */
 export async function recoverSynthesisJob(jobId: number): Promise<{ recovered: boolean; status: string; error?: string }> {
@@ -755,12 +832,26 @@ export async function recoverPendingJobs(): Promise<{ recovered: number; failed:
       return false;
     });
     
-    // Also check for chapters with completed (not mastered) jobs - they might need mastering
+    // Also check for chapters with completed (not mastered) jobs - they need mastering
     const completedNotMastered = Array.from(latestJobsByChapter.values()).filter(
       j => j.status === "completed" && j.finalAudioUrl
     );
     
     console.log(`[Recovery] Project ${project.id}: ${masteredCount} mastered, ${chaptersToProcess.length} to process, ${completedNotMastered.length} need mastering`);
+    
+    // First, apply mastering to jobs that have completed synthesis but no mastering
+    if (completedNotMastered.length > 0) {
+      console.log(`[Recovery] Applying mastering to ${completedNotMastered.length} completed jobs`);
+      for (const job of completedNotMastered) {
+        try {
+          await applyMasteringToJob(job, project.id);
+          masteredCount++;
+        } catch (error) {
+          console.error(`[Recovery] Failed to master job ${job.id}:`, error);
+        }
+      }
+      await storage.updateMasteredChaptersCount(project.id);
+    }
     
     if (chaptersToProcess.length > 0 && !anyLatestFailed) {
       // Continue synthesis for remaining chapters
