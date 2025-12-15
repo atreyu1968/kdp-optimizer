@@ -256,9 +256,14 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
 
   const status = statusConfig[project.status] || statusConfig.draft;
   const StatusIcon = status.icon;
-  const completedCount = jobs?.filter(j => j.status === "completed" || j.status === "mastered").length || 0;
-  const totalJobs = jobs?.length || 0;
-  const progress = totalJobs > 0 ? (completedCount / totalJobs) * 100 : 0;
+  
+  // Contar capítulos únicos masterizados (no jobs)
+  const masteredChapterIds = new Set(
+    jobs?.filter(j => j.status === "mastered").map(j => j.chapterId) || []
+  );
+  const completedCount = masteredChapterIds.size;
+  const totalChapters = project.totalChapters || 0;
+  const progress = totalChapters > 0 ? (completedCount / totalChapters) * 100 : 0;
 
   const canSynthesize = project.status === "ready" && (project.totalChapters || 0) > 0;
   const isProcessing = project.status === "synthesizing" || project.status === "mastering";
@@ -387,8 +392,8 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between text-sm">
-              <span>Capítulos procesados</span>
-              <span className="font-medium">{completedCount} / {totalJobs}</span>
+              <span>Capítulos masterizados</span>
+              <span className="font-medium">{completedCount} / {totalChapters}</span>
             </div>
             <Progress value={progress} className="h-2" data-testid="progress-synthesis" />
           </CardContent>
