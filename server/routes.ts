@@ -1689,7 +1689,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      const audioUrl = job.s3OutputUri || job.finalAudioUrl;
+      let audioUrl = job.s3OutputUri || job.finalAudioUrl;
+      
+      // Si es una URI de S3, convertir a URL presignada
+      if (audioUrl && audioUrl.startsWith("s3://")) {
+        const { getAudioDownloadUrl } = await import("./services/polly-synthesizer");
+        audioUrl = await getAudioDownloadUrl(audioUrl, 3600);
+      }
       
       // Obtener datos del capítulo para el nombre de archivo
       const chapter = await storage.getChapterById(job.chapterId);
