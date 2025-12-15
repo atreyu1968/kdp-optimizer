@@ -982,7 +982,9 @@ MANDATORY REQUIREMENTS:
       })
     );
 
-    const content = response.choices[0].message.content || "{}";
+    let content = response.choices[0].message.content || "{}";
+    // Clean markdown code blocks if present
+    content = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
     let result = JSON.parse(content);
     
     // Validation and cleanup
