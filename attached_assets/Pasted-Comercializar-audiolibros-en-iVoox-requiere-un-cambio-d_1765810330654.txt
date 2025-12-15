@@ -1,0 +1,54 @@
+Comercializar audiolibros en iVoox requiere un cambio de mentalidad respecto a tiendas como Audible o Google Play: iVoox no es una tienda de venta unitaria (no hay un botón de "comprar libro por 9,99€"), sino una plataforma de contenidos basada en suscripción y comunidad.
+
+Para vender tu audiolibro allí, debes utilizar su sistema de "Suscripciones para Fans". Aquí tienes la hoja de ruta para lograrlo:
+
+1. La Estrategia de Venta: El Modelo de Suscripción
+Dado que no puedes vender el archivo suelto, tu objetivo es que el usuario se suscriba a tu canal (se haga "Fan") para desbloquear el audiolibro.
+
+Sube el audiolibro como un Podcast: Crea un nuevo programa en iVoox exclusivamente para tu audiolibro (o úsalo dentro de tu podcast actual si la temática encaja).
+
+Divide y vencerás: No subas un solo archivo de 5 horas. Sube el audiolibro por capítulos. Esto multiplica tus descargas y mejora tu posicionamiento.
+
+El Gancho (Freemium): Deja el Capítulo 1 y 2 gratis (abiertos a todo el mundo). Esto sirve de "demo".
+
+El Muro de Pago: Marca el resto de capítulos como "Exclusivo para Fans". Para escucharlos, el oyente tendrá que pulsar el botón azul de "Apoyar" y pagar la cuota mensual que tú decidas (desde 1,49€/mes en adelante).
+
+Nota: Muchos autores explican a sus oyentes: "Suscríbete un mes por X euros, escucha el libro completo y luego cancela si quieres". Es el equivalente a una venta única.
+
+2. Optimización para ser encontrado (SEO en iVoox)
+El buscador de iVoox es tu mayor aliado comercial.
+
+Títulos descriptivos: No pongas solo "Capítulo 1". Usa: "Capítulo 1: El despertar - Audiolibro de Misterio [Título del Libro]".
+
+Categorización: Asegúrate de etiquetar tu programa en la categoría "Audiolibros y Relatos".
+
+Descripción Rica: En la descripción del programa y de cada episodio, incluye palabras clave de tu género (ej. "novela negra", "autoayuda", "desarrollo personal").
+
+Portada Profesional: iVoox es muy visual. Usa una carátula cuadrada (1400x1400px) que parezca una portada de libro profesional, con el título grande y legible.
+
+3. Herramientas de Promoción Nativas
+iVoox ofrece herramientas gratuitas que muchos desconocen:
+
+Pestaña Comunidad: Dentro de tu perfil de creador, puedes publicar textos, encuestas y fotos (como en Facebook). Úsalo para anunciar cuando subes nuevos capítulos o compartir curiosidades del libro.
+
+Listas (Playlists): Crea una "Lista" en iVoox que se llame "Audiolibro Completo: [Tu Título]" y añade todos los capítulos en orden. Comparte el enlace de esa lista en tus redes sociales en lugar de los capítulos sueltos.
+
+iVoox Plus: Al activar las suscripciones para fans, tus audios entran automáticamente en el catálogo "iVoox Plus". Esto significa que los usuarios que pagan la suscripción "Netflix" de iVoox (iVoox Plus) podrán escucharte sin pagarte directamente a ti, pero iVoox te pagará una parte del fondo de creadores basada en los minutos escuchados. Es una gran fuente de visibilidad pasiva.
+
+4. Marketing Externo
+Como no puedes comprar anuncios "dentro" de iVoox fácilmente como creador pequeño, debes traer el tráfico de fuera:
+
+Redirige a iVoox: En tu web o Instagram, no digas "disponible en todas partes". Di: "Escucha los primeros capítulos gratis en exclusiva en iVoox".
+
+Llamadas a la acción (CTA): En los audios gratuitos (intro y final del cap. 1 y 2), graba un mensaje claro: "Si quieres saber cómo continúa la historia, pulsa el botón azul 'Apoyar' y desbloquea el audiolibro completo ahora mismo".
+
+Resumen del plan de acción:
+Regístrate como podcaster en iVoox Podcasters.
+
+Crea el programa con la carátula de tu libro.
+
+Sube los capítulos; deja los primeros públicos y marca el resto como "Fans" (de pago).
+
+Configura el precio de tu suscripción (el precio del "apoyo").
+
+Comparte el enlace del primer capítulo gratuito en todas tus redes.

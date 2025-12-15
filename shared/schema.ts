@@ -698,3 +698,50 @@ export const insertAudiobookSettingSchema = createInsertSchema(audiobookSettings
 });
 export type InsertAudiobookSetting = z.infer<typeof insertAudiobookSettingSchema>;
 export type AudiobookSetting = typeof audiobookSettings.$inferSelect;
+
+// iVoox Metadata Schema
+export const ivooxMetadataSchema = z.object({
+  // Program-level metadata
+  programTitle: z.string().min(1, "Título del programa requerido").max(150),
+  programDescription: z.string().min(50, "Descripción debe tener al menos 50 caracteres").max(2000),
+  programCategory: z.enum(["Audiolibros y Relatos", "Ficción", "No ficción", "Infantil", "Otros"]).default("Audiolibros y Relatos"),
+  programTags: z.array(z.string()).min(3, "Mínimo 3 etiquetas").max(10),
+  subscriptionPrice: z.number().min(1.49).max(99.99),
+  freeChaptersCount: z.number().min(1).max(5),
+  
+  // Episode-level template (usará el mismo para todos los capítulos)
+  episodeTitleTemplate: z.string().min(1, "Plantilla de título requerida").max(150),
+  episodeDescriptionTemplate: z.string().min(50, "Descripción debe tener al menos 50 caracteres").max(1000),
+  
+  // Marketing content
+  freeAccessCTA: z.string().min(20, "CTA debe tener al menos 20 caracteres").max(500).optional(),
+  paidAccessCTA: z.string().min(20, "CTA debe tener al menos 20 caracteres").max(500).optional(),
+});
+
+export type IVooxMetadata = z.infer<typeof ivooxMetadataSchema>;
+
+// Table for storing generated iVoox metadata per audiobook
+export const ivooxMetadataTable = pgTable("ivoox_metadata", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => audiobookProjects.id),
+  programTitle: text("program_title").notNull(),
+  programDescription: text("program_description").notNull(),
+  programCategory: text("program_category").notNull(),
+  programTags: text("program_tags").array().notNull(), // Array of tags
+  subscriptionPrice: integer("subscription_price").notNull(), // Stored in cents
+  freeChaptersCount: integer("free_chapters_count").notNull(),
+  episodeTitleTemplate: text("episode_title_template").notNull(),
+  episodeDescriptionTemplate: text("episode_description_template").notNull(),
+  freeAccessCTA: text("free_access_cta"),
+  paidAccessCTA: text("paid_access_cta"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type IVooxMetadataRecord = typeof ivooxMetadataTable.$inferSelect;
+export const insertIVooxMetadataSchema = createInsertSchema(ivooxMetadataTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+export type InsertIVooxMetadata = z.infer<typeof insertIVooxMetadataSchema>;

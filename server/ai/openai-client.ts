@@ -912,3 +912,87 @@ Return JSON with:
   
   return parseResult.success ? parseResult.data : preprocessed;
 }
+
+/**
+ * Generate iVoox-optimized metadata from manuscript analysis
+ */
+export async function generateIVooxMetadata(
+  text: string,
+  genre: string,
+  language: string
+): Promise<{
+  programTitle: string;
+  programDescription: string;
+  programCategory: string;
+  programTags: string[];
+  subscriptionPrice: number;
+  freeChaptersCount: number;
+  episodeTitleTemplate: string;
+  episodeDescriptionTemplate: string;
+  freeAccessCTA?: string;
+  paidAccessCTA?: string;
+}> {
+  // Preparar manuscrito
+  const manuscriptText = prepareManuscriptForAnalysis(text);
+  
+  const systemPrompt = `You are an expert in iVoox podcast marketing and audiobook distribution strategy. Generate optimized metadata for selling audiobooks via iVoox subscription model (Fan subscriptions). Remember iVoox is a community platform, not a store - focus on engagement, not sales.`;
+
+  const userPrompt = `Analyze this ${language} ${genre} manuscript and generate iVoox-optimized metadata:
+
+MANUSCRIPT ANALYSIS:
+${manuscriptText}
+
+Generate metadata for iVoox in JSON format with these fields:
+{
+  "programTitle": "Catchy title for the program (max 150 chars) - include genre hints",
+  "programDescription": "Rich description for program page (50-2000 chars) with genre keywords and appeal hooks",
+  "programCategory": "One of: Audiolibros y Relatos, Ficción, No ficción, Infantil, Otros",
+  "programTags": ["tag1", "tag2", "tag3", ...], // 3-10 tags, focus on genre keywords and audience
+  "subscriptionPrice": 1.99 to 4.99, // Entry price for Fan subscriptions
+  "freeChaptersCount": 2, // Always 2 - first chapters as freemium demo
+  "episodeTitleTemplate": "Template for episode titles: Capítulo {capitulo}: {titulo_capitulo} - [${genre}]",
+  "episodeDescriptionTemplate": "Template for episode descriptions (must include {capitulo}, {titulo_capitulo}, {titulo_libro})",
+  "freeAccessCTA": "Call-to-action for free chapters (mention 'Fan subscription' and price)",
+  "paidAccessCTA": "Call-to-action for paid chapters (emphasize exclusive access, quality, value)"
+}
+
+Focus on:
+1. SEO for iVoox search algorithm
+2. Community engagement tone (not salesy)
+3. Genre-appropriate language and appeals
+4. Clear freemium strategy communication`;
+
+  try {
+    const response = await withRetry(() =>
+      openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 1500,
+      })
+    );
+
+    const content = response.choices[0].message.content || "{}";
+    let result = JSON.parse(content);
+    
+    // Validation and cleanup
+    return {
+      programTitle: String(result.programTitle || "").substring(0, 150),
+      programDescription: String(result.programDescription || "").substring(0, 2000),
+      programCategory: result.programCategory || "Audiolibros y Relatos",
+      programTags: Array.isArray(result.programTags) ? result.programTags.slice(0, 10) : [],
+      subscriptionPrice: Math.max(1.49, Math.min(99.99, parseFloat(result.subscriptionPrice) || 1.99)),
+      freeChaptersCount: 2,
+      episodeTitleTemplate: String(result.episodeTitleTemplate || "Capítulo {capitulo}: {titulo_capitulo}").substring(0, 150),
+      episodeDescriptionTemplate: String(result.episodeDescriptionTemplate || "{titulo_libro} - Capítulo {capitulo}").substring(0, 1000),
+      freeAccessCTA: String(result.freeAccessCTA || "").substring(0, 500),
+      paidAccessCTA: String(result.paidAccessCTA || "").substring(0, 500),
+    };
+  } catch (error) {
+    console.error("[iVoox] Error generating metadata from AI:", error);
+    throw error;
+  }
+}
