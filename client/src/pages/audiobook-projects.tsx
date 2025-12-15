@@ -18,8 +18,11 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   Plus, Headphones, FileAudio, Clock, CheckCircle2, AlertCircle, Loader2, 
   Upload, FileText, Play, Download, Trash2, ArrowLeft, Volume2, XCircle,
-  RefreshCw, ChevronRight, AlertTriangle, Pause, RotateCcw, Archive, Square
+  RefreshCw, ChevronRight, AlertTriangle, Pause, RotateCcw, Archive, Square,
+  Radio, Copy, Tag, Euro
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,12 +77,43 @@ interface ProjectDetailProps {
   onBack: () => void;
 }
 
+interface IVooxChapterMeta {
+  chapterNumber: number;
+  title: string;
+  formattedTitle: string;
+  formattedDescription: string;
+  isExclusiveForFans: boolean;
+  accessLabel: string;
+}
+
+interface IVooxMetadataResponse {
+  success: boolean;
+  projectId: number;
+  projectTitle: string;
+  metadata: {
+    programTitle: string;
+    programDescription: string;
+    programCategory: string;
+    programTags: string[];
+    subscriptionPrice: number;
+    freeChaptersCount: number;
+    episodeTitleTemplate: string;
+    episodeDescriptionTemplate: string;
+    freeAccessCTA: string;
+    paidAccessCTA: string;
+  };
+  chapters: IVooxChapterMeta[];
+  publishingGuide: string;
+}
+
 function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
   const { toast } = useToast();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [playingJobId, setPlayingJobId] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [showIVooxDialog, setShowIVooxDialog] = useState(false);
+  const [ivooxData, setIvooxData] = useState<IVooxMetadataResponse | null>(null);
 
   // Cleanup audio on unmount to prevent memory leaks
   useEffect(() => {
@@ -193,6 +227,26 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
       toast({ title: "Error", description: error.message || "No se pudo masterizar", variant: "destructive" });
     },
   });
+
+  const generateIVooxMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/audiobooks/projects/${projectId}/ivoox-metadata`);
+      return res.json();
+    },
+    onSuccess: (data: IVooxMetadataResponse) => {
+      setIvooxData(data);
+      setShowIVooxDialog(true);
+      toast({ title: "Metadatos iVoox generados", description: "Se han optimizado los metadatos para iVoox." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "No se pudieron generar metadatos iVoox", variant: "destructive" });
+    },
+  });
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copiado", description: `${label} copiado al portapapeles` });
+  };
 
   // Audio player functions
   const handlePlayPause = (jobId: number) => {
@@ -555,12 +609,28 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button asChild className="gap-2" data-testid="button-download-zip">
-              <a href={`/api/audiobooks/projects/${projectId}/download-zip`}>
-                <Archive className="h-4 w-4" />
-                Descargar Todo (ZIP)
-              </a>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild className="gap-2" data-testid="button-download-zip">
+                <a href={`/api/audiobooks/projects/${projectId}/download-zip`}>
+                  <Archive className="h-4 w-4" />
+                  Descargar Todo (ZIP)
+                </a>
+              </Button>
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={() => generateIVooxMutation.mutate()}
+                disabled={generateIVooxMutation.isPending}
+                data-testid="button-generate-ivoox"
+              >
+                {generateIVooxMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Radio className="h-4 w-4" />
+                )}
+                Generar para iVoox
+              </Button>
+            </div>
             <Separator />
             <div className="flex flex-wrap gap-2">
               {jobs.filter(j => j.finalAudioUrl).map((job, index) => {
@@ -578,6 +648,219 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={showIVooxDialog} onOpenChange={setShowIVooxDialog}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Radio className="h-5 w-5 text-orange-500" />
+              Metadatos para iVoox
+            </DialogTitle>
+            <DialogDescription>
+              Usa estos metadatos optimizados para publicar tu audiolibro en iVoox con estrategia freemium
+            </DialogDescription>
+          </DialogHeader>
+
+          {ivooxData && (
+            <Tabs defaultValue="program" className="mt-4">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="program" data-testid="tab-ivoox-program">Programa</TabsTrigger>
+                <TabsTrigger value="chapters" data-testid="tab-ivoox-chapters">Capítulos</TabsTrigger>
+                <TabsTrigger value="guide" data-testid="tab-ivoox-guide">Guía</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="program" className="space-y-4 mt-4">
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Título del Programa</Label>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => copyToClipboard(ivooxData.metadata.programTitle, "Título")}
+                        data-testid="button-copy-program-title"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="p-3 rounded-md bg-muted text-sm">
+                      {ivooxData.metadata.programTitle}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Descripción del Programa</Label>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => copyToClipboard(ivooxData.metadata.programDescription, "Descripción")}
+                        data-testid="button-copy-program-description"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <Textarea 
+                      value={ivooxData.metadata.programDescription} 
+                      readOnly 
+                      className="min-h-[100px] resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Tag className="h-4 w-4" />
+                      <Label className="text-sm font-medium">Etiquetas</Label>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {ivooxData.metadata.programTags.map((tag, i) => (
+                        <Badge 
+                          key={i} 
+                          variant="secondary" 
+                          className="cursor-pointer"
+                          onClick={() => copyToClipboard(tag, "Etiqueta")}
+                          data-testid={`badge-tag-${i}`}
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Euro className="h-4 w-4" />
+                        Precio Suscripción
+                      </Label>
+                      <div className="p-3 rounded-md bg-muted text-lg font-bold">
+                        €{ivooxData.metadata.subscriptionPrice.toFixed(2)}/mes
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">Capítulos Gratis</Label>
+                      <div className="p-3 rounded-md bg-muted text-lg font-bold">
+                        {ivooxData.metadata.freeChaptersCount} capítulos
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">CTA para Capítulos Gratis</Label>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => copyToClipboard(ivooxData.metadata.freeAccessCTA, "CTA Gratis")}
+                        data-testid="button-copy-free-cta"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="p-3 rounded-md bg-green-500/10 border border-green-500/30 text-sm">
+                      {ivooxData.metadata.freeAccessCTA}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">CTA para Capítulos de Pago</Label>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => copyToClipboard(ivooxData.metadata.paidAccessCTA, "CTA Pago")}
+                        data-testid="button-copy-paid-cta"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="p-3 rounded-md bg-orange-500/10 border border-orange-500/30 text-sm">
+                      {ivooxData.metadata.paidAccessCTA}
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="chapters" className="mt-4">
+                <ScrollArea className="h-[400px]">
+                  <div className="space-y-3">
+                    {ivooxData.chapters.map((chapter) => (
+                      <Card key={chapter.chapterNumber} className={chapter.isExclusiveForFans ? "border-orange-500/30" : "border-green-500/30"}>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <CardTitle className="text-sm font-medium">
+                              Capítulo {chapter.chapterNumber}: {chapter.title}
+                            </CardTitle>
+                            <Badge variant={chapter.isExclusiveForFans ? "secondary" : "default"} className="shrink-0">
+                              {chapter.accessLabel}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs text-muted-foreground">Título del Episodio</Label>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-6"
+                                onClick={() => copyToClipboard(chapter.formattedTitle, `Título Cap. ${chapter.chapterNumber}`)}
+                                data-testid={`button-copy-chapter-title-${chapter.chapterNumber}`}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <div className="p-2 rounded-md bg-muted text-xs">
+                              {chapter.formattedTitle}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs text-muted-foreground">Descripción</Label>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-6"
+                                onClick={() => copyToClipboard(chapter.formattedDescription, `Descripción Cap. ${chapter.chapterNumber}`)}
+                                data-testid={`button-copy-chapter-desc-${chapter.chapterNumber}`}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <div className="p-2 rounded-md bg-muted text-xs whitespace-pre-wrap">
+                              {chapter.formattedDescription}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="guide" className="mt-4">
+                <ScrollArea className="h-[400px]">
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <pre className="whitespace-pre-wrap text-sm font-sans bg-muted p-4 rounded-md">
+                      {ivooxData.publishingGuide}
+                    </pre>
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+            </Tabs>
+          )}
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowIVooxDialog(false)} data-testid="button-close-ivoox">
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

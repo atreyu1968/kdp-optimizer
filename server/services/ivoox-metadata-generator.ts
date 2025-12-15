@@ -24,17 +24,20 @@ export async function generateIVooxMetadataForProject(
     
     await delayBetweenCalls();
     
+    // ENFORCE freemium model: ALWAYS 2 free chapters
+    const subscriptionPrice = Math.max(1.99, Math.min(4.99, aiMetadata.subscriptionPrice || 1.99));
+    
     const metadata: IVooxMetadata = {
-      programTitle: aiMetadata.programTitle || `${bookTitle} - Audiolibro`,
-      programDescription: aiMetadata.programDescription || `Escucha ${bookTitle} de ${author}. Audiolibro completo narrado profesionalmente.`,
-      programCategory: (aiMetadata.programCategory as any) || "Audiolibros y Relatos",
-      programTags: aiMetadata.programTags || [genre, "audiolibro", "literatura"],
-      subscriptionPrice: aiMetadata.subscriptionPrice || 1.99,
-      freeChaptersCount: Math.max(1, Math.min(2, aiMetadata.freeChaptersCount || 2)),
-      episodeTitleTemplate: aiMetadata.episodeTitleTemplate || `Capítulo {capitulo}: {titulo_capitulo} - ${bookTitle}`,
-      episodeDescriptionTemplate: aiMetadata.episodeDescriptionTemplate || `{titulo_libro} - {titulo_capitulo}. Audiolibro narrado profesionalmente.`,
-      freeAccessCTA: aiMetadata.freeAccessCTA,
-      paidAccessCTA: aiMetadata.paidAccessCTA,
+      programTitle: aiMetadata.programTitle || `${bookTitle} [Audiolibro ${genre}] - Narración Profesional`,
+      programDescription: aiMetadata.programDescription || `🎧 Escucha ${bookTitle} de ${author}. Audiolibro completo de ${genre} narrado profesionalmente en español. Los primeros 2 capítulos son GRATIS. Hazte Fan para desbloquear la historia completa.`,
+      programCategory: "Audiolibros y Relatos" as const,
+      programTags: aiMetadata.programTags?.length >= 3 ? aiMetadata.programTags : ["audiolibro", genre.toLowerCase(), "literatura", "narración", "español", "ficción", "entretenimiento", "lectura"],
+      subscriptionPrice,
+      freeChaptersCount: 2, // ALWAYS 2 - enforced freemium model
+      episodeTitleTemplate: aiMetadata.episodeTitleTemplate || `Capítulo {capitulo}: {titulo_capitulo} - ${bookTitle} [Audiolibro]`,
+      episodeDescriptionTemplate: aiMetadata.episodeDescriptionTemplate || `🎧 {titulo_libro} | {titulo_capitulo}. Audiolibro narrado profesionalmente en español.`,
+      freeAccessCTA: aiMetadata.freeAccessCTA || `🆓 ¡Este capítulo es GRATIS! Si te engancha la historia, hazte Fan por solo €${subscriptionPrice.toFixed(2)}/mes y desbloquea el audiolibro completo.`,
+      paidAccessCTA: aiMetadata.paidAccessCTA || `🔒 Contenido EXCLUSIVO para Fans. Hazte Fan por €${subscriptionPrice.toFixed(2)}/mes y accede a todo el audiolibro.`,
     };
     
     console.log(`[iVoox] ✓ Generated metadata for "${bookTitle}"`);

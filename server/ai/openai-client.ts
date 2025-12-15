@@ -937,30 +937,37 @@ export async function generateIVooxMetadata(
   
   const systemPrompt = `You are an expert in iVoox podcast marketing and audiobook distribution strategy. Generate optimized metadata for selling audiobooks via iVoox subscription model (Fan subscriptions). Remember iVoox is a community platform, not a store - focus on engagement, not sales.`;
 
-  const userPrompt = `Analyze this ${language} ${genre} manuscript and generate iVoox-optimized metadata:
+  const userPrompt = `Analyze this ${language} ${genre} manuscript and generate iVoox-optimized metadata for a freemium audiobook strategy.
 
 MANUSCRIPT ANALYSIS:
 ${manuscriptText}
 
-Generate metadata for iVoox in JSON format with these fields:
+CRITICAL FREEMIUM STRATEGY:
+- ALWAYS set freeChaptersCount to 2 (first 2 chapters are FREE demo)
+- Remaining chapters are EXCLUSIVE FOR FANS (paid subscription)
+- Price range: €1.99-€4.99/month for Fan subscription
+
+Generate metadata for iVoox in JSON format with these EXACT fields:
 {
-  "programTitle": "Catchy title for the program (max 150 chars) - include genre hints",
-  "programDescription": "Rich description for program page (50-2000 chars) with genre keywords and appeal hooks",
-  "programCategory": "One of: Audiolibros y Relatos, Ficción, No ficción, Infantil, Otros",
-  "programTags": ["tag1", "tag2", "tag3", ...], // 3-10 tags, focus on genre keywords and audience
-  "subscriptionPrice": 1.99 to 4.99, // Entry price for Fan subscriptions
-  "freeChaptersCount": 2, // Always 2 - first chapters as freemium demo
-  "episodeTitleTemplate": "Template for episode titles: Capítulo {capitulo}: {titulo_capitulo} - [${genre}]",
-  "episodeDescriptionTemplate": "Template for episode descriptions (must include {capitulo}, {titulo_capitulo}, {titulo_libro})",
-  "freeAccessCTA": "Call-to-action for free chapters (mention 'Fan subscription' and price)",
-  "paidAccessCTA": "Call-to-action for paid chapters (emphasize exclusive access, quality, value)"
+  "programTitle": "SEO-optimized title (max 150 chars) - include [Audiolibro] and genre: e.g. 'El Secreto del Bosque [Audiolibro Misterio] - Novela de Suspense'",
+  "programDescription": "Rich SEO description (500-2000 chars) with: book summary, genre keywords, emotional hooks, why listeners will love it, mention the freemium model (first chapters free)",
+  "programCategory": "Audiolibros y Relatos",
+  "programTags": ["audiolibro", "genre keywords", "tropes", "audience terms", "similar authors"], // EXACTLY 8-10 SEO tags
+  "subscriptionPrice": 1.99,
+  "freeChaptersCount": 2,
+  "episodeTitleTemplate": "Capítulo {capitulo}: {titulo_capitulo} - Audiolibro [${genre}]",
+  "episodeDescriptionTemplate": "🎧 {titulo_libro} | {titulo_capitulo}. [Genre-specific teaser 2-3 sentences]. Narración profesional en español.",
+  "freeAccessCTA": "🆓 ¡Este capítulo es GRATIS! Escúchalo completo. Si te engancha la historia, hazte Fan por solo €X.XX/mes y desbloquea el audiolibro completo. ¡Suscríbete un mes, escúchalo todo y cancela cuando quieras!",
+  "paidAccessCTA": "🔒 Contenido EXCLUSIVO para Fans. Hazte Fan por €X.XX/mes y accede a este capítulo y a todo el audiolibro. Miles de oyentes ya disfrutan la historia completa. ¡Únete ahora!"
 }
 
-Focus on:
-1. SEO for iVoox search algorithm
-2. Community engagement tone (not salesy)
-3. Genre-appropriate language and appeals
-4. Clear freemium strategy communication`;
+MANDATORY REQUIREMENTS:
+1. programTitle MUST include "[Audiolibro]" or "Audiolibro" for iVoox SEO
+2. programTags MUST include "audiolibro", genre terms, and 8-10 total tags
+3. freeChaptersCount MUST be exactly 2
+4. CTAs MUST mention the subscription price (€1.99-€4.99)
+5. CTAs MUST use persuasive language with emojis (🆓, 🔒, 🎧)
+6. Descriptions MUST include emotional hooks from the manuscript analysis`;
 
   try {
     const response = await withRetry(() =>
