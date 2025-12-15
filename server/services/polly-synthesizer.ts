@@ -544,14 +544,15 @@ export async function synthesizeProject(
   console.log(`[Polly] Project ${projectId}: ${alreadyMastered} mastered, ${chaptersToProcess.length} to process`);
   
   let completed = alreadyMastered;
+  const failedChapters: string[] = [];
   
   // Use speech rate from project or default to 90% for ACX audiobooks
   const speechRate = project.speechRate || "90%";
   
-  try {
-    for (const chapter of chaptersToProcess) {
-      onProgress?.(completed, chapters.length, chapter.title);
-      
+  for (const chapter of chaptersToProcess) {
+    onProgress?.(completed, chapters.length, chapter.title);
+    
+    try {
       // Delete old jobs for this chapter before creating new one
       await storage.deleteOldJobsByChapter(chapter.id);
       
@@ -567,18 +568,39 @@ export async function synthesizeProject(
       
       completed++;
       await storage.updateAudiobookProject(projectId, { completedChapters: completed });
+      
+    } catch (error) {
+      // Log error but continue with next chapter
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.error(`[Polly] Chapter "${chapter.title}" failed, continuing with next: ${errorMessage}`);
+      failedChapters.push(chapter.title);
+      
+      // Still count as processed (even if failed) so progress continues
+      completed++;
+      await storage.updateAudiobookProject(projectId, { 
+        completedChapters: completed,
+        errorMessage: `Capítulos con error: ${failedChapters.join(", ")}`,
+      });
     }
-    
+  }
+  
+  // Determine final status based on results
+  if (failedChapters.length === 0) {
     await storage.updateAudiobookProject(projectId, { status: "completed" });
     onProgress?.(completed, chapters.length, "Completado");
-    
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+  } else if (failedChapters.length === chaptersToProcess.length) {
+    // All chapters failed
     await storage.updateAudiobookProject(projectId, { 
       status: "failed",
-      errorMessage,
+      errorMessage: `Todos los capítulos fallaron: ${failedChapters.join(", ")}`,
     });
-    throw error;
+  } else {
+    // Some chapters succeeded, some failed
+    await storage.updateAudiobookProject(projectId, { 
+      status: "completed",
+      errorMessage: `Completado con ${failedChapters.length} errores: ${failedChapters.join(", ")}`,
+    });
+    onProgress?.(completed, chapters.length, `Completado con ${failedChapters.length} errores`);
   }
 }
 
