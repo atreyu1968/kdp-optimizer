@@ -1976,8 +1976,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let audioUrl = foundJob.finalAudioUrl;
       
-      // Si es un S3 URI, convertirlo a URL firmada
-      if (audioUrl.startsWith("s3://")) {
+      // Siempre regenerar URL fresca si tenemos el s3OutputUri
+      // Las URLs pre-firmadas expiran después de 1 hora
+      if (foundJob.s3OutputUri) {
+        const { getAudioDownloadUrl } = await import("./services/polly-synthesizer");
+        audioUrl = await getAudioDownloadUrl(foundJob.s3OutputUri, 3600);
+      } else if (audioUrl.startsWith("s3://")) {
         const { getAudioDownloadUrl } = await import("./services/polly-synthesizer");
         audioUrl = await getAudioDownloadUrl(audioUrl, 3600);
       }
