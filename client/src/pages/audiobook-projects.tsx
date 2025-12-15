@@ -394,6 +394,21 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
             </Button>
           )}
           <Button 
+            variant="outline"
+            size="sm"
+            onClick={() => generateIVooxMutation.mutate()}
+            disabled={generateIVooxMutation.isPending || !chapters || chapters.length === 0}
+            data-testid="button-generate-ivoox"
+            className="gap-2"
+          >
+            {generateIVooxMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Radio className="h-4 w-4" />
+            )}
+            iVoox
+          </Button>
+          <Button 
             variant="destructive" 
             size="icon" 
             onClick={() => setShowDeleteDialog(true)}
