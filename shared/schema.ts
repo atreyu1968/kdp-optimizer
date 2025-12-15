@@ -557,6 +557,7 @@ export const audiobookProjectStatuses = [
   "parsing",      // Extrayendo capítulos del documento
   "ready",        // Capítulos extraídos, listo para sintetizar
   "synthesizing", // En proceso de síntesis
+  "paused",       // Síntesis pausada por el usuario
   "mastering",    // En proceso de masterización
   "completed",    // Todos los capítulos completados
   "failed"        // Error en el proceso

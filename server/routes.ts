@@ -1684,12 +1684,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      if (!job.rawAudioUrl && !job.finalAudioUrl) {
+      if (!job.s3OutputUri && !job.finalAudioUrl) {
         res.status(400).json({ error: "El capítulo no tiene audio para masterizar" });
         return;
       }
 
-      const audioUrl = job.rawAudioUrl || job.finalAudioUrl;
+      const audioUrl = job.s3OutputUri || job.finalAudioUrl;
       
       // Obtener datos del capítulo para el nombre de archivo
       const chapter = await storage.getChapterById(job.chapterId);
