@@ -220,6 +220,9 @@ export interface IStorage {
   // Audiobook Settings
   getAudiobookSetting(key: string): Promise<AudiobookSetting | undefined>;
   setAudiobookSetting(key: string, value: string): Promise<AudiobookSetting>;
+  
+  // Helper to update mastered chapters count
+  updateMasteredChaptersCount(projectId: number): Promise<number>;
 }
 
 export class DbStorage implements IStorage {
@@ -1341,6 +1344,16 @@ export class DbStorage implements IStorage {
       return created;
     }
   }
+
+  async updateMasteredChaptersCount(projectId: number): Promise<number> {
+    const jobs = await this.getSynthesisJobsByProject(projectId);
+    const masteredChapterIds = new Set(
+      jobs.filter(j => j.status === "mastered").map(j => j.chapterId)
+    );
+    const count = masteredChapterIds.size;
+    await this.updateAudiobookProject(projectId, { completedChapters: count });
+    return count;
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -1745,6 +1758,10 @@ export class MemStorage implements IStorage {
   }
 
   async setAudiobookSetting(key: string, value: string): Promise<AudiobookSetting> {
+    throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async updateMasteredChaptersCount(projectId: number): Promise<number> {
     throw new Error("MemStorage does not support AudiobookForge operations");
   }
 }

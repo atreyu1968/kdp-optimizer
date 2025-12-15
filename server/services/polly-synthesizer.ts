@@ -470,6 +470,9 @@ export async function synthesizeChapter(
           completedAt: new Date(),
         });
         
+        // Actualizar contador de capítulos masterizados
+        await storage.updateMasteredChaptersCount(projectId);
+        
         // Clean up local temp file
         fs.unlinkSync(masteredPath);
       } catch (uploadError) {
@@ -481,6 +484,9 @@ export async function synthesizeChapter(
           finalAudioUrl: rawAudioUrl,
           completedAt: new Date(),
         });
+        
+        // Actualizar contador de capítulos masterizados
+        await storage.updateMasteredChaptersCount(projectId);
       }
     }
     

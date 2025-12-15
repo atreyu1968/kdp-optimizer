@@ -1769,6 +1769,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             completedAt: new Date(),
           });
 
+          // Actualizar contador de capítulos masterizados
+          await storage.updateMasteredChaptersCount(job.projectId);
+
           console.log(`[Mastering] Success for job ${jobId}: ${masteredUrl}`);
 
           // Limpiar archivo temporal
