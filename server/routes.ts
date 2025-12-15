@@ -2153,6 +2153,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate publishing guide
       const publishingGuide = generateIVooxPublishingGuide(metadata, chapters.length);
+      console.log("[iVoox] Publishing guide length:", publishingGuide?.length || 0);
 
       res.json({
         success: true,

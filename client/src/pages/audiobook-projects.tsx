@@ -234,6 +234,8 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
       return res.json();
     },
     onSuccess: (data: IVooxMetadataResponse) => {
+      console.log("[iVoox Frontend] Received data:", data);
+      console.log("[iVoox Frontend] Publishing guide:", data.publishingGuide?.substring(0, 100));
       setIvooxData(data);
       setShowIVooxDialog(true);
       toast({ title: "Metadatos iVoox generados", description: "Se han optimizado los metadatos para iVoox." });
