@@ -622,6 +622,12 @@ export const audiobookProjects = pgTable("audiobook_projects", {
   totalChapters: integer("total_chapters").default(0),
   completedChapters: integer("completed_chapters").default(0),
   errorMessage: text("error_message"),
+  // Metadatos ID3 para archivos de audio
+  albumName: text("album_name"), // Nombre del álbum (título del audiolibro)
+  albumArtist: text("album_artist"), // Intérprete/Narrador
+  albumYear: text("album_year"), // Año de publicación
+  albumGenre: text("album_genre").default("Audiobook"), // Género
+  coverImageUrl: text("cover_image_url"), // URL de la carátula
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

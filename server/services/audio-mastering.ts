@@ -331,6 +331,141 @@ async function addRoomTone(
 }
 
 /**
+ * ID3 Metadata options for audio files
+ */
+export interface ID3Metadata {
+  title?: string;        // Track title (chapter name)
+  artist?: string;       // Artist/Narrator
+  album?: string;        // Album name (audiobook title)
+  albumArtist?: string;  // Album artist (author)
+  year?: string;         // Year of publication
+  track?: string;        // Track number (e.g., "1/10")
+  genre?: string;        // Genre (default: "Audiobook")
+  comment?: string;      // Additional comments
+  coverImagePath?: string; // Path to cover image file
+}
+
+/**
+ * Add ID3 metadata tags to MP3 file using FFmpeg
+ * Supports cover art embedding
+ */
+export async function addID3Metadata(
+  inputPath: string,
+  outputPath: string,
+  metadata: ID3Metadata
+): Promise<boolean> {
+  console.log(`[Mastering] Adding ID3 metadata: ${metadata.title || 'No title'}`);
+  
+  const args = [
+    '-y',
+    '-i', inputPath,
+  ];
+  
+  // Add cover image if provided
+  if (metadata.coverImagePath && fs.existsSync(metadata.coverImagePath)) {
+    args.push('-i', metadata.coverImagePath);
+    args.push('-map', '0:a', '-map', '1:v');
+    args.push('-c:v', 'mjpeg'); // Use MJPEG codec for cover art
+    args.push('-disposition:v:0', 'attached_pic'); // Mark as attached picture
+  } else {
+    args.push('-c', 'copy'); // Just copy audio stream if no cover
+  }
+  
+  // Add metadata tags
+  if (metadata.title) {
+    args.push('-metadata', `title=${metadata.title}`);
+  }
+  if (metadata.artist) {
+    args.push('-metadata', `artist=${metadata.artist}`);
+  }
+  if (metadata.album) {
+    args.push('-metadata', `album=${metadata.album}`);
+  }
+  if (metadata.albumArtist) {
+    args.push('-metadata', `album_artist=${metadata.albumArtist}`);
+  }
+  if (metadata.year) {
+    args.push('-metadata', `date=${metadata.year}`);
+  }
+  if (metadata.track) {
+    args.push('-metadata', `track=${metadata.track}`);
+  }
+  if (metadata.genre) {
+    args.push('-metadata', `genre=${metadata.genre}`);
+  }
+  if (metadata.comment) {
+    args.push('-metadata', `comment=${metadata.comment}`);
+  }
+  
+  // ID3v2 format for better compatibility
+  args.push('-id3v2_version', '3');
+  args.push('-write_id3v1', '1');
+  
+  args.push(outputPath);
+  
+  try {
+    const result = await runFFmpeg(args);
+    
+    if (result.code !== 0) {
+      console.error('[Mastering] FFmpeg ID3 metadata failed:', result.stderr);
+      return false;
+    }
+    
+    console.log(`[Mastering] ID3 metadata added successfully`);
+    return true;
+  } catch (error) {
+    console.error('[Mastering] Error adding ID3 metadata:', error);
+    return false;
+  }
+}
+
+/**
+ * Download cover image from URL to local file
+ */
+export async function downloadCoverImage(url: string, outputPath: string): Promise<boolean> {
+  console.log(`[Mastering] Downloading cover image from URL`);
+  
+  try {
+    const https = await import('https');
+    const http = await import('http');
+    const protocol = url.startsWith('https') ? https : http;
+    
+    return new Promise((resolve) => {
+      const file = fs.createWriteStream(outputPath);
+      
+      protocol.get(url, (response) => {
+        // Handle redirects
+        if (response.statusCode === 301 || response.statusCode === 302) {
+          const redirectUrl = response.headers.location;
+          if (redirectUrl) {
+            file.close();
+            fs.unlinkSync(outputPath);
+            downloadCoverImage(redirectUrl, outputPath).then(resolve);
+            return;
+          }
+        }
+        
+        response.pipe(file);
+        file.on('finish', () => {
+          file.close();
+          resolve(true);
+        });
+      }).on('error', (err) => {
+        console.error('[Mastering] Error downloading cover:', err);
+        file.close();
+        if (fs.existsSync(outputPath)) {
+          fs.unlinkSync(outputPath);
+        }
+        resolve(false);
+      });
+    });
+  } catch (error) {
+    console.error('[Mastering] Error downloading cover image:', error);
+    return false;
+  }
+}
+
+/**
  * Get audio duration in seconds using FFprobe
  */
 async function getAudioDuration(filePath: string): Promise<number | null> {
