@@ -52,18 +52,7 @@ export function FileUploadZone({
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: (acceptedFiles) => {
-      // Validate file extension manually
-      const file = acceptedFiles[0];
-      if (file) {
-        const ext = file.name.toLowerCase().substring(file.name.lastIndexOf("."));
-        if (![".txt", ".docx", ".epub"].includes(ext)) {
-          onDrop([]);
-          return;
-        }
-      }
-      onDrop(acceptedFiles);
-    },
+    onDrop,
     maxFiles: 1,
     disabled: isReading,
   });
