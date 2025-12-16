@@ -385,10 +385,13 @@ export async function addID3Metadata(
   if (coverImagePath) {
     args.push('-i', coverImagePath);
     args.push('-map', '0:a', '-map', '1:v');
+    args.push('-c:a', 'libmp3lame');  // Explicitly specify audio codec
     args.push('-c:v', 'mjpeg'); // Use MJPEG codec for cover art
+    args.push('-b:a', '192k'); // Maintain audio bitrate
     args.push('-disposition:v:0', 'attached_pic'); // Mark as attached picture
   } else {
-    args.push('-c', 'copy'); // Just copy audio stream if no cover
+    args.push('-c:a', 'libmp3lame'); // Ensure audio codec is set
+    args.push('-b:a', '192k');
   }
   
   // Add metadata tags

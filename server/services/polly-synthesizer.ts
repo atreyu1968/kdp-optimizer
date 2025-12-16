@@ -340,7 +340,9 @@ export async function synthesizeChapter(
   voiceId: string,
   engine: string = "neural",
   speechRate: string = "medium",
-  chapterTitle: string = ""
+  chapterTitle: string = "",
+  chapterIndex: number = 1,
+  totalChapters: number = 1
 ): Promise<void> {
   // Preprocess text for better TTS quality
   let processedText = preprocessTextForTTS(text);
@@ -447,6 +449,7 @@ export async function synthesizeChapter(
       albumArtist: project?.albumArtist ?? undefined,
       year: project?.albumYear ?? undefined,
       genre: project?.albumGenre || "Audiobook",
+      track: `${chapterIndex}/${totalChapters}`,
       coverImageBase64: project?.coverImageUrl ?? undefined,
     };
     
@@ -601,6 +604,12 @@ export async function synthesizeProject(
   // Use speech rate from project or default to 90% for ACX audiobooks
   const speechRate = project.speechRate || "90%";
   
+  // Create a map of chapter indices for track number calculation
+  const chapterIndices = new Map<number, number>();
+  chapters.forEach((ch, index) => {
+    chapterIndices.set(ch.id, index + 1);
+  });
+  
   for (const chapter of chaptersToProcess) {
     onProgress?.(completed, chapters.length, chapter.title);
     
@@ -615,7 +624,9 @@ export async function synthesizeProject(
         project.voiceId,
         project.engine,
         speechRate,
-        chapter.title
+        chapter.title,
+        chapterIndices.get(chapter.id) || 1,
+        chapters.length
       );
       
       completed++;
