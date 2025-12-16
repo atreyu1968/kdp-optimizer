@@ -1497,18 +1497,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/audiobooks/upload", uploadWord.single("file"), async (req, res) => {
     try {
       if (!req.file) {
+        console.error("[Upload] No file received in request");
         res.status(400).json({ error: "No se recibió ningún archivo" });
         return;
       }
 
+      console.log(`[Upload] Starting upload: ${req.file.originalname} (${req.file.size} bytes)`);
+
       const { voiceId, voiceLocale, engine, author, speechRate, title } = req.body;
 
+      // Validar campos requeridos
+      if (!title || !author || !voiceId) {
+        console.error("[Upload] Missing required fields:", { title, author, voiceId });
+        res.status(400).json({ error: "Campos requeridos: título, autor, voz" });
+        return;
+      }
+
       // Leer el archivo y parsearlo
+      console.log(`[Upload] Reading and parsing document: ${req.file.originalname}`);
       const fileBuffer = readFileSync(req.file.path);
       const parsed = await parseWordDocument(fileBuffer, req.file.originalname);
+      console.log(`[Upload] Document parsed: ${parsed.chapters.length} chapters, ${parsed.totalCharacters} characters`);
 
       // Crear el proyecto con status "ready" para que esté listo para sintetizar
-      // Usar título del formulario, o el del documento, o el nombre del archivo
+      console.log("[Upload] Creating audiobook project");
       const project = await storage.createAudiobookProject({
         title: title || parsed.title,
         author: author || null,
@@ -1522,8 +1534,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         completedChapters: 0,
         errorMessage: null,
       });
+      console.log(`[Upload] Project created: ID ${project.id}`);
 
       // Crear los capítulos
+      console.log(`[Upload] Creating ${parsed.chapters.length} chapters`);
       for (const chapter of parsed.chapters) {
         await storage.createAudiobookChapter({
           projectId: project.id,
@@ -1535,17 +1549,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           estimatedDurationSeconds: chapter.estimatedDurationSeconds,
         });
       }
+      console.log("[Upload] All chapters created");
 
       // Limpiar archivo temporal
       try {
         unlinkSync(req.file.path);
+        console.log("[Upload] Temporary file deleted");
       } catch (e) {
-        console.warn("[AudiobookForge] Could not delete temp file:", e);
+        console.warn("[Upload] Could not delete temp file:", e);
       }
 
       // Obtener capítulos creados
       const chapters = await storage.getChaptersByProject(project.id);
 
+      console.log(`[Upload] Upload complete: Project ${project.id} with ${chapters.length} chapters`);
       res.json({
         project,
         chapters,
@@ -1556,7 +1573,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
     } catch (error) {
-      console.error("Error uploading document:", error);
+      console.error("[Upload] Error uploading document:", error);
       res.status(500).json({ 
         error: error instanceof Error ? error.message : "Failed to upload document" 
       });

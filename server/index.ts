@@ -3,8 +3,15 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
-app.use(express.json({ limit: '15mb' }));
-app.use(express.urlencoded({ extended: false, limit: '15mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+
+// Aumentar timeout para uploads y processing de documentos largos
+app.use((req, res, next) => {
+  req.setTimeout(5 * 60 * 1000); // 5 minutos
+  res.setTimeout(5 * 60 * 1000); // 5 minutos
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();

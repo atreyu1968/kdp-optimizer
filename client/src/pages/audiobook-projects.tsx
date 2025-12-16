@@ -1162,6 +1162,12 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
       return;
     }
 
+    // Validar tamaño del archivo (máx 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      toast({ title: "Archivo muy grande", description: "El archivo no debe exceder 50MB", variant: "destructive" });
+      return;
+    }
+
     setUploading(true);
     try {
       const formData = new FormData();
@@ -1178,23 +1184,10 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
       formData.append("engine", engine);
       formData.append("speechRate", speechRate);
 
-      const response = await fetch("/api/audiobooks/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        let errorMessage = "Error al subir el archivo";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorData.message || errorMessage;
-        } catch {
-          errorMessage = `Error HTTP ${response.status}: ${response.statusText || "Unknown error"}`;
-        }
-        throw new Error(errorMessage);
-      }
-
+      // Usar apiRequest para mejor manejo de errores y timeouts
+      const response = await apiRequest("POST", "/api/audiobooks/upload", formData);
       const data = await response.json();
+      
       toast({ title: "Proyecto creado", description: "El archivo ha sido procesado correctamente" });
       queryClient.invalidateQueries({ queryKey: ["/api/audiobooks/projects"] });
       setOpen(false);
@@ -1207,6 +1200,7 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
       onSuccess();
     } catch (error: any) {
       const errorMsg = error instanceof Error ? error.message : "Error desconocido al subir el archivo";
+      console.error("Upload error:", error);
       toast({ title: "Error", description: errorMsg, variant: "destructive" });
     } finally {
       setUploading(false);
