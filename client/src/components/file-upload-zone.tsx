@@ -57,7 +57,7 @@ export function FileUploadZone({
       "text/plain": [".txt"],
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         [".docx"],
-      "application/epub+zip": [".epub"],
+      "application/zip": [".epub"],
     },
     maxFiles: 1,
     disabled: isReading,
