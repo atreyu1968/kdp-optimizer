@@ -128,33 +128,18 @@ export async function parseWordDocument(buffer: Buffer, filename: string): Promi
   let currentChapterContent: string[] = [];
   let sequenceNumber = 1;
   
-  // Count different heading types for debugging
+  // Count H1 headings only
   const h1Count = $("h1").length;
-  const h2Count = $("h2").length;
-  const h3Count = $("h3").length;
-  const strongCount = $("strong").length;
-  const pCount = $("p").length;
   
-  console.log(`[WordParser] Document structure: ${h1Count} H1, ${h2Count} H2, ${h3Count} H3, ${strongCount} strong, ${pCount} p`);
+  console.log(`[WordParser] Document structure: ${h1Count} H1 headings found`);
   
-  // Determine which heading level to use for chapters
-  // Priority: H1 > H2 > H3 > Pattern matching in paragraphs
-  let chapterSelector = "h1";
-  if (h1Count === 0 && h2Count > 1) {
-    chapterSelector = "h2";
-    console.log("[WordParser] Using H2 for chapter detection");
-  } else if (h1Count === 0 && h2Count === 0 && h3Count > 1) {
-    chapterSelector = "h3";
-    console.log("[WordParser] Using H3 for chapter detection");
-  } else if (h1Count > 0) {
+  // Only use H1 for chapter detection
+  const useH1Detection = h1Count > 0;
+  
+  if (useH1Detection) {
     console.log("[WordParser] Using H1 for chapter detection");
-  }
-  
-  // Check if we need to use pattern matching instead
-  const usePatternMatching = h1Count === 0 && h2Count <= 1 && h3Count <= 1;
-  
-  if (usePatternMatching) {
-    console.log("[WordParser] No headings found, using pattern matching");
+  } else {
+    console.log("[WordParser] No H1 headings found, document will be treated as single chapter");
   }
   
   // Process each element in body
@@ -163,40 +148,14 @@ export async function parseWordDocument(buffer: Buffer, filename: string): Promi
     const tagName = element.tagName?.toLowerCase() || "";
     const text = $el.text().trim();
     
-    // Check if this element is a chapter break
+    // Check if this element is a chapter break (only H1)
     let isChapterBreak = false;
     let chapterTitle = "";
     
-    // Strategy 1: Check heading tags
-    if (tagName === chapterSelector.toLowerCase() || 
-        (chapterSelector === "h1" && (tagName === "h1" || tagName === "h2" || tagName === "h3"))) {
+    // Only detect H1 as chapter breaks
+    if (useH1Detection && tagName === "h1") {
       isChapterBreak = true;
       chapterTitle = text;
-    }
-    
-    // Strategy 2: Check for pattern matches in paragraphs and strong text
-    if (!isChapterBreak && usePatternMatching && text && isChapterTitle(text)) {
-      // Only treat as chapter if it's relatively short (title-like)
-      if (text.length < 80) {
-        isChapterBreak = true;
-        chapterTitle = text;
-      }
-    }
-    
-    // Strategy 3: Check for strong/bold text that matches chapter patterns
-    if (!isChapterBreak && tagName === "p") {
-      const $strong = $el.find("strong").first();
-      if ($strong.length > 0) {
-        const strongText = $strong.text().trim();
-        if (strongText && isChapterTitle(strongText) && strongText.length < 80) {
-          // Check if the strong text is at the beginning and makes up most of the paragraph
-          const fullText = $el.text().trim();
-          if (fullText.startsWith(strongText) && strongText.length > fullText.length * 0.5) {
-            isChapterBreak = true;
-            chapterTitle = strongText;
-          }
-        }
-      }
     }
     
     if (isChapterBreak) {
