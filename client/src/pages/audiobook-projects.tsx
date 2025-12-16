@@ -1148,6 +1148,10 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
     onDrop,
     accept: {
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+      "application/msword": [".doc"],
+      "application/epub+zip": [".epub"],
+      "application/zip": [".epub"],
+      "text/plain": [".txt"],
     },
     maxFiles: 1,
   });
@@ -1180,10 +1184,17 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Error al subir el archivo");
+        let errorMessage = "Error al subir el archivo";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch {
+          errorMessage = `Error HTTP ${response.status}: ${response.statusText || "Unknown error"}`;
+        }
+        throw new Error(errorMessage);
       }
 
+      const data = await response.json();
       toast({ title: "Proyecto creado", description: "El archivo ha sido procesado correctamente" });
       queryClient.invalidateQueries({ queryKey: ["/api/audiobooks/projects"] });
       setOpen(false);
@@ -1195,7 +1206,8 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
       setSpeechRate("90%");
       onSuccess();
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      const errorMsg = error instanceof Error ? error.message : "Error desconocido al subir el archivo";
+      toast({ title: "Error", description: errorMsg, variant: "destructive" });
     } finally {
       setUploading(false);
     }
@@ -1215,7 +1227,7 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
         <DialogHeader>
           <DialogTitle>Nuevo Proyecto de Audiolibro</DialogTitle>
           <DialogDescription>
-            Sube un archivo Word (.docx) con capítulos separados por encabezados H1
+            Sube un archivo Word (.docx), EPUB (.epub) o texto (.txt) con capítulos separados por encabezados H1
           </DialogDescription>
         </DialogHeader>
         
@@ -1240,7 +1252,7 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
               <>
                 <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
                 <p className="text-sm font-medium">Arrastra un archivo aquí o haz clic para seleccionar</p>
-                <p className="text-xs text-muted-foreground mt-1">Solo archivos .docx</p>
+                <p className="text-xs text-muted-foreground mt-1">Archivos: .docx, .doc, .epub, .txt</p>
               </>
             )}
           </div>
@@ -1479,7 +1491,7 @@ export default function AudiobookProjects() {
             <Headphones className="h-12 w-12 text-muted-foreground/50 mb-4" />
             <h3 className="text-lg font-semibold mb-2">No hay proyectos de audiolibros</h3>
             <p className="text-muted-foreground text-center mb-4 max-w-md">
-              Crea tu primer proyecto de audiolibro subiendo un archivo Word (.docx) con capítulos separados por encabezados H1.
+              Crea tu primer proyecto de audiolibro subiendo un archivo Word (.docx), EPUB (.epub) o texto (.txt) con capítulos separados por encabezados H1.
             </p>
             <NewProjectDialog onSuccess={() => {}} />
           </CardContent>

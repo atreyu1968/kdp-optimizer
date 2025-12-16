@@ -62,11 +62,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }),
     fileFilter: (req, file, cb) => {
-      if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-          file.mimetype === 'application/msword') {
+      // Check file extension first (more reliable than MIME type)
+      const filename = file.originalname.toLowerCase();
+      if (filename.endsWith('.docx') || filename.endsWith('.doc') || 
+          filename.endsWith('.epub') || filename.endsWith('.txt')) {
+        cb(null, true);
+      } else if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                 file.mimetype === 'application/msword' ||
+                 file.mimetype === 'application/zip' ||  // .docx is technically a zip file
+                 file.mimetype === 'text/plain' ||
+                 file.mimetype === 'application/octet-stream') {
         cb(null, true);
       } else {
-        cb(new Error('Solo se permiten archivos Word (.doc, .docx)'));
+        cb(new Error('Solo se permiten archivos Word (.doc, .docx), EPUB (.epub) o texto (.txt)'));
       }
     },
     limits: {
