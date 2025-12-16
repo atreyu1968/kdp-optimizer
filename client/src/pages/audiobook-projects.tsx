@@ -122,6 +122,8 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
     albumGenre: "Audiobook",
     coverImageUrl: "",
   });
+  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
 
   // Cleanup audio on unmount to prevent memory leaks
   useEffect(() => {
@@ -148,6 +150,11 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
         albumGenre: project.albumGenre || "Audiobook",
         coverImageUrl: project.coverImageUrl || "",
       });
+      // Set preview if URL exists
+      if (project.coverImageUrl) {
+        setCoverImagePreview(project.coverImageUrl);
+        setCoverImageFile(null);
+      }
     }
   }, [project]);
 
@@ -267,12 +274,28 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
   });
 
   const updateMetadataMutation = useMutation({
-    mutationFn: async (metadata: typeof metadataForm) => {
-      const res = await apiRequest("PATCH", `/api/audiobooks/projects/${projectId}`, metadata);
+    mutationFn: async () => {
+      const payload = { ...metadataForm };
+      
+      // If a new cover image file was selected, convert to base64
+      if (coverImageFile) {
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onload = () => {
+            resolve(reader.result as string);
+          };
+          reader.readAsDataURL(coverImageFile);
+        });
+        const base64 = await base64Promise;
+        payload.coverImageUrl = base64;
+      }
+      
+      const res = await apiRequest("PUT", `/api/audiobooks/projects/${projectId}`, payload);
       return res.json();
     },
     onSuccess: () => {
       toast({ title: "Metadatos guardados", description: "Los metadatos ID3 se aplicarán a los archivos de audio." });
+      setCoverImageFile(null);
       queryClient.invalidateQueries({ queryKey: ["/api/audiobooks/projects", projectId] });
       setShowMetadataDialog(false);
     },
@@ -578,31 +601,63 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="coverImageUrl" className="flex items-center gap-2">
+              <Label className="flex items-center gap-2">
                 <Image className="h-4 w-4" />
-                URL de la Carátula
+                Carátula del Álbum
               </Label>
-              <Input
-                id="coverImageUrl"
-                value={metadataForm.coverImageUrl}
-                onChange={(e) => setMetadataForm(prev => ({ ...prev, coverImageUrl: e.target.value }))}
-                placeholder="https://ejemplo.com/caratula.jpg"
-                data-testid="input-cover-url"
-              />
+              <div className="border-2 border-dashed rounded-md p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors" data-testid="dropzone-cover">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 10 * 1024 * 1024) {
+                        toast({ title: "Archivo muy grande", description: "La carátula debe pesar menos de 10MB", variant: "destructive" });
+                        return;
+                      }
+                      setCoverImageFile(file);
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        setCoverImagePreview(event.target?.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  data-testid="input-cover-file"
+                  className="hidden"
+                  id="cover-input"
+                />
+                <label htmlFor="cover-input" className="text-center cursor-pointer w-full">
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm font-medium">Arrastra una imagen o haz clic aquí</p>
+                  <p className="text-xs text-muted-foreground">JPG, PNG o WebP • Máximo 10MB</p>
+                </label>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Imagen JPG o PNG. Recomendado: 3000x3000 píxeles para mejor calidad.
+                Recomendado: 3000x3000 píxeles para mejor calidad.
               </p>
             </div>
-            {metadataForm.coverImageUrl && (
-              <div className="flex justify-center">
+            {coverImagePreview && (
+              <div className="flex flex-col items-center gap-2">
                 <img 
-                  src={metadataForm.coverImageUrl} 
+                  src={coverImagePreview} 
                   alt="Vista previa de carátula"
                   className="max-w-32 max-h-32 rounded-md border object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
                 />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setCoverImagePreview(null);
+                    setCoverImageFile(null);
+                  }}
+                  data-testid="button-remove-cover"
+                  className="text-xs"
+                >
+                  Remover imagen
+                </Button>
               </div>
             )}
           </div>
@@ -611,7 +666,7 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
               Cancelar
             </Button>
             <Button 
-              onClick={() => updateMetadataMutation.mutate(metadataForm)}
+              onClick={() => updateMetadataMutation.mutate()}
               disabled={updateMetadataMutation.isPending}
               data-testid="button-save-metadata"
             >

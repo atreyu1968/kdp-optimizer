@@ -343,11 +343,12 @@ export interface ID3Metadata {
   genre?: string;        // Genre (default: "Audiobook")
   comment?: string;      // Additional comments
   coverImagePath?: string; // Path to cover image file
+  coverImageBase64?: string; // Base64 encoded cover image
 }
 
 /**
  * Add ID3 metadata tags to MP3 file using FFmpeg
- * Supports cover art embedding
+ * Supports cover art embedding (both file path and base64)
  */
 export async function addID3Metadata(
   inputPath: string,
@@ -356,14 +357,33 @@ export async function addID3Metadata(
 ): Promise<boolean> {
   console.log(`[Mastering] Adding ID3 metadata: ${metadata.title || 'No title'}`);
   
+  let coverImagePath: string | null = null;
+  
+  // Handle base64 cover image
+  if (metadata.coverImageBase64 && !metadata.coverImagePath) {
+    try {
+      // Convert base64 to temporary file
+      const base64Data = metadata.coverImageBase64.replace(/^data:image\/(jpeg|png|webp);base64,/, '');
+      const tempDir = os.tmpdir();
+      coverImagePath = path.join(tempDir, `cover-${Date.now()}.jpg`);
+      fs.writeFileSync(coverImagePath, Buffer.from(base64Data, 'base64'));
+      console.log(`[Mastering] Converted base64 cover to temporary file: ${coverImagePath}`);
+    } catch (error) {
+      console.error('[Mastering] Error converting base64 cover image:', error);
+      coverImagePath = null;
+    }
+  } else if (metadata.coverImagePath && fs.existsSync(metadata.coverImagePath)) {
+    coverImagePath = metadata.coverImagePath;
+  }
+  
   const args = [
     '-y',
     '-i', inputPath,
   ];
   
   // Add cover image if provided
-  if (metadata.coverImagePath && fs.existsSync(metadata.coverImagePath)) {
-    args.push('-i', metadata.coverImagePath);
+  if (coverImagePath) {
+    args.push('-i', coverImagePath);
     args.push('-map', '0:a', '-map', '1:v');
     args.push('-c:v', 'mjpeg'); // Use MJPEG codec for cover art
     args.push('-disposition:v:0', 'attached_pic'); // Mark as attached picture
@@ -406,6 +426,17 @@ export async function addID3Metadata(
   try {
     const result = await runFFmpeg(args);
     
+    // Clean up temporary cover image file if created from base64
+    if (coverImagePath && metadata.coverImageBase64 && !metadata.coverImagePath) {
+      try {
+        if (fs.existsSync(coverImagePath)) {
+          fs.unlinkSync(coverImagePath);
+        }
+      } catch (error) {
+        console.error('[Mastering] Error cleaning up temporary cover file:', error);
+      }
+    }
+    
     if (result.code !== 0) {
       console.error('[Mastering] FFmpeg ID3 metadata failed:', result.stderr);
       return false;
@@ -415,6 +446,18 @@ export async function addID3Metadata(
     return true;
   } catch (error) {
     console.error('[Mastering] Error adding ID3 metadata:', error);
+    
+    // Clean up temporary cover image file on error
+    if (coverImagePath && metadata.coverImageBase64 && !metadata.coverImagePath) {
+      try {
+        if (fs.existsSync(coverImagePath)) {
+          fs.unlinkSync(coverImagePath);
+        }
+      } catch (cleanupError) {
+        console.error('[Mastering] Error cleaning up temporary cover file:', cleanupError);
+      }
+    }
+    
     return false;
   }
 }
