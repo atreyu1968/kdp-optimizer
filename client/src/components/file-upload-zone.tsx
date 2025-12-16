@@ -57,6 +57,7 @@ export function FileUploadZone({
       "text/plain": [".txt"],
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         [".docx"],
+      "application/epub+zip": [".epub"],
     },
     maxFiles: 1,
     disabled: isReading,
@@ -129,7 +130,7 @@ export function FileUploadZone({
                 </p>
                 <p className="text-sm text-muted-foreground max-w-md">
                   Arrastra y suelta tu archivo de manuscrito aquí, o haz clic para explorar.
-                  Soporta archivos .txt y .docx.
+                  Soporta archivos .txt, .docx y .epub.
                 </p>
               </div>
               <Button variant="outline" size="lg" data-testid="button-browse">
@@ -176,5 +177,60 @@ async function readFileContent(file: File): Promise<string> {
     return result.value;
   }
 
-  throw new Error("Tipo de archivo no soportado");
+  if (file.name.endsWith(".epub")) {
+    const JSZip = await import("jszip");
+    const zip = new JSZip.default();
+    const arrayBuffer = await file.arrayBuffer();
+    const zipFile = await zip.loadAsync(arrayBuffer);
+    
+    // Find content.opf to get the spine order
+    const contentOpf = zipFile.file("content.opf") || 
+      Object.values(zipFile.files).find(f => f.name.endsWith("content.opf"));
+    
+    if (!contentOpf) {
+      throw new Error("No se pudo encontrar la estructura del EPUB");
+    }
+    
+    const opfContent = await contentOpf.async("text");
+    
+    // Parse spine to get reading order
+    const spineMatch = opfContent.match(/<spine[^>]*>([\s\S]*?)<\/spine>/);
+    const spineItems = spineMatch ? 
+      Array.from(spineMatch[1].matchAll(/idref="([^"]+)"/g)).map(m => m[1]) : [];
+    
+    // Parse manifest to get file paths
+    const manifestMatch = opfContent.match(/<manifest[^>]*>([\s\S]*?)<\/manifest>/);
+    const manifest: Record<string, string> = {};
+    if (manifestMatch) {
+      Array.from(manifestMatch[1].matchAll(/id="([^"]+)"[^>]*href="([^"]+)"/g)).forEach(m => {
+        manifest[m[1]] = m[2];
+      });
+    }
+    
+    // Extract text from all spine items in order
+    let allText = "";
+    for (const itemId of spineItems) {
+      const filePath = manifest[itemId];
+      if (filePath) {
+        const dir = contentOpf.name.substring(0, contentOpf.name.lastIndexOf("/"));
+        const fullPath = dir ? `${dir}/${filePath}` : filePath;
+        const file = zipFile.file(fullPath);
+        if (file) {
+          const content = await file.async("text");
+          // Extract text from HTML/XHTML
+          const text = content
+            .replace(/<script[\s\S]*?<\/script>/gi, "")
+            .replace(/<style[\s\S]*?<\/style>/gi, "")
+            .replace(/<[^>]+>/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+          if (text) allText += text + "\n\n";
+        }
+      }
+    }
+    
+    return allText.trim() || "No se pudo extraer contenido del EPUB";
+  }
+
+  throw new Error("Tipo de archivo no soportado. Usa .txt, .docx o .epub");
 }
