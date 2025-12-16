@@ -19,7 +19,7 @@ import {
   Plus, Headphones, FileAudio, Clock, CheckCircle2, AlertCircle, Loader2, 
   Upload, FileText, Play, Download, Trash2, ArrowLeft, Volume2, XCircle,
   RefreshCw, ChevronRight, AlertTriangle, Pause, RotateCcw, Archive, Square,
-  Radio, Copy, Tag, Euro
+  Radio, Copy, Tag, Euro, Disc3, Image, Calendar, User, Music
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -114,6 +114,14 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [showIVooxDialog, setShowIVooxDialog] = useState(false);
   const [ivooxData, setIvooxData] = useState<IVooxMetadataResponse | null>(null);
+  const [showMetadataDialog, setShowMetadataDialog] = useState(false);
+  const [metadataForm, setMetadataForm] = useState({
+    albumName: "",
+    albumArtist: "",
+    albumYear: "",
+    albumGenre: "Audiobook",
+    coverImageUrl: "",
+  });
 
   // Cleanup audio on unmount to prevent memory leaks
   useEffect(() => {
@@ -129,6 +137,19 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
   const { data: project, isLoading: loadingProject } = useQuery<AudiobookProject>({
     queryKey: ["/api/audiobooks/projects", projectId],
   });
+
+  // Load metadata form when project data is available
+  useEffect(() => {
+    if (project) {
+      setMetadataForm({
+        albumName: project.albumName || project.title || "",
+        albumArtist: project.albumArtist || "",
+        albumYear: project.albumYear || new Date().getFullYear().toString(),
+        albumGenre: project.albumGenre || "Audiobook",
+        coverImageUrl: project.coverImageUrl || "",
+      });
+    }
+  }, [project]);
 
   const { data: chapters, isLoading: loadingChapters } = useQuery<AudiobookChapter[]>({
     queryKey: ["/api/audiobooks/projects", projectId, "chapters"],
@@ -242,6 +263,21 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "No se pudieron generar metadatos iVoox", variant: "destructive" });
+    },
+  });
+
+  const updateMetadataMutation = useMutation({
+    mutationFn: async (metadata: typeof metadataForm) => {
+      const res = await apiRequest("PATCH", `/api/audiobooks/projects/${projectId}`, metadata);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Metadatos guardados", description: "Los metadatos ID3 se aplicarán a los archivos de audio." });
+      queryClient.invalidateQueries({ queryKey: ["/api/audiobooks/projects", projectId] });
+      setShowMetadataDialog(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "No se pudieron guardar los metadatos", variant: "destructive" });
     },
   });
 
@@ -398,6 +434,16 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
           <Button 
             variant="outline"
             size="sm"
+            onClick={() => setShowMetadataDialog(true)}
+            data-testid="button-edit-metadata"
+            className="gap-2"
+          >
+            <Disc3 className="h-4 w-4" />
+            Metadatos
+          </Button>
+          <Button 
+            variant="outline"
+            size="sm"
             onClick={() => generateIVooxMutation.mutate()}
             disabled={generateIVooxMutation.isPending || !chapters || chapters.length === 0}
             data-testid="button-generate-ivoox"
@@ -448,6 +494,137 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Metadata ID3 Dialog */}
+      <Dialog open={showMetadataDialog} onOpenChange={setShowMetadataDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Disc3 className="h-5 w-5" />
+              Metadatos ID3 del Audio
+            </DialogTitle>
+            <DialogDescription>
+              Configura los metadatos que se incrustarán en los archivos MP3 (título, artista, carátula, etc.)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="albumName" className="flex items-center gap-2">
+                <Music className="h-4 w-4" />
+                Nombre del Álbum
+              </Label>
+              <Input
+                id="albumName"
+                value={metadataForm.albumName}
+                onChange={(e) => setMetadataForm(prev => ({ ...prev, albumName: e.target.value }))}
+                placeholder="Título del audiolibro"
+                data-testid="input-album-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="albumArtist" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Intérprete / Narrador
+              </Label>
+              <Input
+                id="albumArtist"
+                value={metadataForm.albumArtist}
+                onChange={(e) => setMetadataForm(prev => ({ ...prev, albumArtist: e.target.value }))}
+                placeholder="Nombre del narrador"
+                data-testid="input-album-artist"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="albumYear" className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Año
+                </Label>
+                <Input
+                  id="albumYear"
+                  value={metadataForm.albumYear}
+                  onChange={(e) => setMetadataForm(prev => ({ ...prev, albumYear: e.target.value }))}
+                  placeholder="2024"
+                  data-testid="input-album-year"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="albumGenre" className="flex items-center gap-2">
+                  <Tag className="h-4 w-4" />
+                  Género
+                </Label>
+                <Select
+                  value={metadataForm.albumGenre}
+                  onValueChange={(value) => setMetadataForm(prev => ({ ...prev, albumGenre: value }))}
+                >
+                  <SelectTrigger id="albumGenre" data-testid="select-album-genre">
+                    <SelectValue placeholder="Seleccionar género" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Audiobook">Audiobook</SelectItem>
+                    <SelectItem value="Fiction">Fiction</SelectItem>
+                    <SelectItem value="Non-Fiction">Non-Fiction</SelectItem>
+                    <SelectItem value="Romance">Romance</SelectItem>
+                    <SelectItem value="Fantasy">Fantasy</SelectItem>
+                    <SelectItem value="Thriller">Thriller</SelectItem>
+                    <SelectItem value="Mystery">Mystery</SelectItem>
+                    <SelectItem value="Science Fiction">Science Fiction</SelectItem>
+                    <SelectItem value="Self-Help">Self-Help</SelectItem>
+                    <SelectItem value="Biography">Biography</SelectItem>
+                    <SelectItem value="Children">Children</SelectItem>
+                    <SelectItem value="Poetry">Poetry</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="coverImageUrl" className="flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                URL de la Carátula
+              </Label>
+              <Input
+                id="coverImageUrl"
+                value={metadataForm.coverImageUrl}
+                onChange={(e) => setMetadataForm(prev => ({ ...prev, coverImageUrl: e.target.value }))}
+                placeholder="https://ejemplo.com/caratula.jpg"
+                data-testid="input-cover-url"
+              />
+              <p className="text-xs text-muted-foreground">
+                Imagen JPG o PNG. Recomendado: 3000x3000 píxeles para mejor calidad.
+              </p>
+            </div>
+            {metadataForm.coverImageUrl && (
+              <div className="flex justify-center">
+                <img 
+                  src={metadataForm.coverImageUrl} 
+                  alt="Vista previa de carátula"
+                  className="max-w-32 max-h-32 rounded-md border object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMetadataDialog(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={() => updateMetadataMutation.mutate(metadataForm)}
+              disabled={updateMetadataMutation.isPending}
+              data-testid="button-save-metadata"
+            >
+              {updateMetadataMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+              )}
+              Guardar Metadatos
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {project.errorMessage && (
         <Alert variant="destructive">
