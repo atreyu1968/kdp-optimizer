@@ -708,13 +708,34 @@ export async function masterAudioFromUrl(
   
   // Apply ID3 metadata after mastering if provided
   if (result.success && metadata) {
-    const tempOutputPath = outputPath.replace('.mp3', '_temp.mp3');
+    // Use unique temp path with timestamp to avoid race conditions
+    const tempOutputPath = outputPath.replace('.mp3', `_temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.mp3`);
     const success = await addID3Metadata(outputPath, tempOutputPath, metadata);
     
     if (success) {
-      // Replace original file with metadata-tagged version
-      fs.renameSync(tempOutputPath, outputPath);
-      console.log(`[Mastering] ID3 metadata applied to ${outputPath}`);
+      try {
+        // Replace original file with metadata-tagged version
+        if (fs.existsSync(tempOutputPath)) {
+          // If output already exists (race condition), delete it first
+          if (fs.existsSync(outputPath)) {
+            fs.unlinkSync(outputPath);
+          }
+          fs.renameSync(tempOutputPath, outputPath);
+          console.log(`[Mastering] ID3 metadata applied to ${outputPath}`);
+        } else {
+          console.warn(`[Mastering] Temp file not found after ID3 processing: ${tempOutputPath}`);
+        }
+      } catch (renameError) {
+        console.error(`[Mastering] Error renaming temp file:`, renameError);
+        // Cleanup temp file if it exists
+        if (fs.existsSync(tempOutputPath)) {
+          try {
+            fs.unlinkSync(tempOutputPath);
+          } catch {
+            // Ignore cleanup error
+          }
+        }
+      }
     } else {
       console.warn(`[Mastering] Failed to apply metadata, keeping original file`);
     }
