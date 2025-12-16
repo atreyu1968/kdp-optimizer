@@ -607,7 +607,7 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowMetadataDialog(false)}>
+            <Button variant="outline" onClick={() => setShowMetadataDialog(false)} data-testid="button-cancel-metadata">
               Cancelar
             </Button>
             <Button 
