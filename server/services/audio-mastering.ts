@@ -696,14 +696,31 @@ export async function masterAudio(
 }
 
 /**
- * Master audio from S3 presigned URL and save locally
+ * Master audio from S3 presigned URL and save locally with ID3 metadata
  */
 export async function masterAudioFromUrl(
   audioUrl: string,
   outputPath: string,
-  options: MasteringOptions = {}
+  options: MasteringOptions = {},
+  metadata?: ID3Metadata
 ): Promise<MasteringResult> {
-  return masterAudio(audioUrl, outputPath, options);
+  const result = await masterAudio(audioUrl, outputPath, options);
+  
+  // Apply ID3 metadata after mastering if provided
+  if (result.success && metadata) {
+    const tempOutputPath = outputPath.replace('.mp3', '_temp.mp3');
+    const success = await addID3Metadata(outputPath, tempOutputPath, metadata);
+    
+    if (success) {
+      // Replace original file with metadata-tagged version
+      fs.renameSync(tempOutputPath, outputPath);
+      console.log(`[Mastering] ID3 metadata applied to ${outputPath}`);
+    } else {
+      console.warn(`[Mastering] Failed to apply metadata, keeping original file`);
+    }
+  }
+  
+  return result;
 }
 
 /**

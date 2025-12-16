@@ -28,7 +28,7 @@ import * as path from "path";
 import * as os from "os";
 import { storage } from "../storage";
 import { preprocessTextForTTS, wrapInSSML } from "./text-preprocessor";
-import { masterAudioFromUrl, type MasteringOptions } from "./audio-mastering";
+import { masterAudioFromUrl, type MasteringOptions, type ID3Metadata } from "./audio-mastering";
 
 // Polly text limit per request (for neural voices, actual limit is 3000 chars)
 const MAX_CHARS_PER_REQUEST = 2800;
@@ -439,7 +439,18 @@ export async function synthesizeChapter(
       bitrate: "192k",         // 192 kbps CBR for ACX
     };
     
-    const masteringResult = await masterAudioFromUrl(rawAudioUrl, masteredPath, masteringOptions);
+    // Get project metadata for ID3 tags
+    const project = await storage.getAudiobookProject(projectId);
+    const metadata: ID3Metadata = {
+      title: chapterTitle || `Chapter ${chapterId}`,
+      album: project?.title ?? undefined,
+      albumArtist: project?.albumArtist ?? undefined,
+      year: project?.albumYear ?? undefined,
+      genre: project?.albumGenre || "Audiobook",
+      coverImageBase64: project?.coverImageUrl ?? undefined,
+    };
+    
+    const masteringResult = await masterAudioFromUrl(rawAudioUrl, masteredPath, masteringOptions, metadata);
     
     if (!masteringResult.success) {
       console.error(`[Mastering] Failed for chapter ${chapterId}:`, masteringResult.error);
@@ -705,7 +716,18 @@ async function applyMasteringToJob(
     bitrate: "192k",
   };
   
-  const masteringResult = await masterAudioFromUrl(job.finalAudioUrl, masteredPath, masteringOptions);
+  // Get project metadata for ID3 tags
+  const project = await storage.getAudiobookProject(projectId);
+  const metadata: ID3Metadata = {
+    title: chapterTitle ?? undefined,
+    album: project?.title ?? undefined,
+    albumArtist: project?.albumArtist ?? undefined,
+    year: project?.albumYear ?? undefined,
+    genre: project?.albumGenre || "Audiobook",
+    coverImageBase64: project?.coverImageUrl ?? undefined,
+  };
+  
+  const masteringResult = await masterAudioFromUrl(job.finalAudioUrl, masteredPath, masteringOptions, metadata);
   
   if (!masteringResult.success) {
     console.error(`[Mastering] Failed for job ${job.id}:`, masteringResult.error);
