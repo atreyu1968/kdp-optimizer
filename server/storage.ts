@@ -1347,11 +1347,21 @@ export class DbStorage implements IStorage {
 
   async updateMasteredChaptersCount(projectId: number): Promise<number> {
     const jobs = await this.getSynthesisJobsByProject(projectId);
+    const chapters = await this.getChaptersByProject(projectId);
+    
     const masteredChapterIds = new Set(
       jobs.filter(j => j.status === "mastered").map(j => j.chapterId)
     );
     const count = masteredChapterIds.size;
+    
+    // Update completed chapters count
     await this.updateAudiobookProject(projectId, { completedChapters: count });
+    
+    // If all chapters are mastered, mark project as completed
+    if (count > 0 && count === chapters.length) {
+      await this.updateAudiobookProject(projectId, { status: "completed" });
+    }
+    
     return count;
   }
 }
