@@ -1670,20 +1670,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Importar y ejecutar síntesis del capítulo
       const { synthesizeChapter } = await import("./services/polly-synthesizer");
       
-      // Ejecutar en segundo plano
-      synthesizeChapter(
-        chapter.id,
-        project.id,
-        chapter.contentText,
-        project.voiceId,
-        project.engine,
-        project.speechRate || "90%",
-        chapter.title
-      ).catch(err => {
-        console.error(`[Resynthesize] Chapter ${chapterId} failed:`, err);
-      });
-
       res.json({ success: true, message: "Re-síntesis iniciada" });
+
+      // Ejecutar en segundo plano con mejor error handling
+      setImmediate(async () => {
+        try {
+          await synthesizeChapter(
+            chapter.id,
+            project.id,
+            chapter.contentText,
+            project.voiceId,
+            project.engine,
+            project.speechRate || "90%",
+            chapter.title,
+            1,
+            1
+          );
+          console.log(`[Resynthesize] Chapter ${chapterId} completed`);
+        } catch (err) {
+          console.error(`[Resynthesize] Chapter ${chapterId} failed:`, err instanceof Error ? err.message : err);
+        }
+      });
     } catch (error) {
       console.error("Error resynthesizing chapter:", error);
       res.status(500).json({ error: "Failed to resynthesize chapter" });
@@ -1943,20 +1950,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      // Iniciar síntesis en segundo plano
-      synthesizeProject(id, (completed, total, currentChapter) => {
-        console.log(`[Synthesis] Project ${id}: ${completed}/${total} - ${currentChapter}`);
-      }).catch(err => {
-        console.error(`[Synthesis] Project ${id} failed:`, err);
-      });
-
       res.json({ 
         success: true, 
         message: "Síntesis iniciada. El proceso puede tardar varios minutos." 
       });
+
+      // Iniciar síntesis en segundo plano con mejor error handling
+      setImmediate(async () => {
+        try {
+          console.log(`[Synthesis] Starting project ${id}...`);
+          await synthesizeProject(id, (completed, total, currentChapter) => {
+            console.log(`[Synthesis] Project ${id}: ${completed}/${total} - ${currentChapter}`);
+          });
+          console.log(`[Synthesis] Completed project ${id}`);
+        } catch (synthesisError) {
+          console.error(`[Synthesis] Error in project ${id}:`, synthesisError instanceof Error ? synthesisError.message : synthesisError);
+          try {
+            await storage.updateAudiobookProject(id, {
+              status: "error",
+              errorMessage: synthesisError instanceof Error ? synthesisError.message : "Unknown synthesis error"
+            });
+          } catch (updateErr) {
+            console.error(`[Synthesis] Could not update error status:`, updateErr);
+          }
+        }
+      });
     } catch (error) {
       console.error("Error starting synthesis:", error);
-      res.status(500).json({ error: "Failed to start synthesis" });
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to start synthesis" });
+      }
     }
   });
 
