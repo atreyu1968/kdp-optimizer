@@ -35,6 +35,7 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
 *   **30-Day Marketing Plan**: A complete personalized calendar following the "Reto de 30 Días" strategy with weekly phases: Week 1 (Foundation), Week 2 (Content Creation), Week 3 (Community Building), Week 4 (Promotion Campaign). Each day includes a specific 15-30 minute task.
 *   **SEO for Book Landing Pages**: Automatic generation of SEO metadata for each market including: SEO Title (50-60 chars), SEO Description (150-160 chars), SEO Keywords (8-12), and Open Graph tags for social sharing. Displayed in results panel with character count validation and copy buttons.
 *   **Search and Filter Capabilities**: Comprehensive search and filtering are available across all Aura management pages (Books, Series, Pen Names).
+*   **Parallel Chapter Processing (AudiobookForge)**: Audiobook synthesis now processes 3 chapters simultaneously using batch-based parallelism. This significantly reduces total processing time for multi-chapter books. Configuration: `PARALLEL_CHAPTER_LIMIT=3`, `STUCK_JOB_TIMEOUT=60min`. The system uses resilient error handling - failed chapters don't block other chapters, and progress is reported in real-time.
 
 ## External Dependencies
 *   **AI Services**: OpenAI API (GPT-4o-mini).
