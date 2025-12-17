@@ -2137,15 +2137,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }, 5000); // Esperar 5 segundos después de iniciar
 
-  // Verificar jobs atascados cada 5 minutos (10 minutos de timeout)
-  const STUCK_JOB_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos
-  const STUCK_JOB_TIMEOUT_MINUTES = 10; // Considerar atascado después de 10 minutos
+  // Verificar jobs atascados cada 10 minutos (40 minutos de timeout para síntesis + mastering larga)
+  const STUCK_JOB_CHECK_INTERVAL = 10 * 60 * 1000; // 10 minutos
+  const STUCK_JOB_TIMEOUT_MINUTES = 40; // Aumentado a 40 min - permite síntesis Polly + mastering de 2-pass + ID3
 
   setInterval(async () => {
     try {
       const stuckCount = await storage.markStuckJobsAsFailed(STUCK_JOB_TIMEOUT_MINUTES);
       if (stuckCount > 0) {
-        console.log(`[Recovery] Marked ${stuckCount} stuck jobs as failed`);
+        console.log(`[Recovery] Marked ${stuckCount} stuck jobs as failed (timeout: ${STUCK_JOB_TIMEOUT_MINUTES}min)`);
       }
     } catch (error) {
       console.error("[Recovery] Error checking for stuck jobs:", error);
