@@ -62,9 +62,9 @@ const DEFAULT_OPTIONS: Required<MasteringOptions> = {
 
 /**
  * Execute FFmpeg command and return stdout/stderr
- * Includes a 20-minute timeout for production mastering (includes 2-pass loudnorm + ID3)
+ * Includes a 30-minute timeout for production mastering (includes 2-pass loudnorm + ID3)
  */
-function runFFmpeg(args: string[], timeoutMs: number = 1200000): Promise<{ stdout: string; stderr: string; code: number }> {
+function runFFmpeg(args: string[], timeoutMs: number = 1800000): Promise<{ stdout: string; stderr: string; code: number }> {
   return new Promise((resolve, reject) => {
     const ffmpeg = spawn('ffmpeg', args);
     
@@ -72,7 +72,7 @@ function runFFmpeg(args: string[], timeoutMs: number = 1200000): Promise<{ stdou
     let stderr = '';
     let killed = false;
     
-    // Timeout to prevent hanging
+    // Timeout to prevent hanging - 30 minutes for complete mastering
     const timeout = setTimeout(() => {
       killed = true;
       ffmpeg.kill('SIGKILL');
@@ -664,13 +664,28 @@ export async function masterAudio(
     // Get final duration
     const duration = await getAudioDuration(outputPath);
     
-    // Cleanup temp files
+    // Cleanup temp files aggressively - force garbage collection
     try {
-      if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
-      if (fs.existsSync(tempDeEssed)) fs.unlinkSync(tempDeEssed);
-      if (fs.existsSync(tempNormalized)) fs.unlinkSync(tempNormalized);
-    } catch {
-      // Ignore cleanup errors
+      if (fs.existsSync(tempInput)) {
+        fs.unlinkSync(tempInput);
+        console.log(`[Mastering] Cleaned up tempInput: ${tempInput}`);
+      }
+      if (fs.existsSync(tempDeEssed)) {
+        fs.unlinkSync(tempDeEssed);
+        console.log(`[Mastering] Cleaned up tempDeEssed: ${tempDeEssed}`);
+      }
+      if (fs.existsSync(tempNormalized)) {
+        fs.unlinkSync(tempNormalized);
+        console.log(`[Mastering] Cleaned up tempNormalized: ${tempNormalized}`);
+      }
+    } catch (cleanupErr) {
+      console.error('[Mastering] Cleanup error:', cleanupErr);
+    }
+    
+    // Force garbage collection if available
+    if (global.gc) {
+      global.gc();
+      console.log('[Mastering] Garbage collection triggered');
     }
     
     console.log(`[Mastering] Complete: ${outputPath}`);
@@ -688,8 +703,14 @@ export async function masterAudio(
       if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
       if (fs.existsSync(tempDeEssed)) fs.unlinkSync(tempDeEssed);
       if (fs.existsSync(tempNormalized)) fs.unlinkSync(tempNormalized);
-    } catch {
-      // Ignore cleanup errors
+      console.log('[Mastering] Cleaned up temp files after error');
+    } catch (cleanupErr) {
+      console.error('[Mastering] Cleanup error:', cleanupErr);
+    }
+    
+    // Force garbage collection if available
+    if (global.gc) {
+      global.gc();
     }
     
     return {

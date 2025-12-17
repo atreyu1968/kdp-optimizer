@@ -645,6 +645,8 @@ export async function synthesizeProject(
     onProgress?.(completed, chapters.length, chapter.title);
     
     try {
+      console.log(`[Polly] Processing chapter ${completed + 1}/${chaptersToProcess.length}: "${chapter.title}"`);
+      
       // Delete old jobs for this chapter before creating new one
       await storage.deleteOldJobsByChapter(chapter.id);
       
@@ -663,10 +665,16 @@ export async function synthesizeProject(
       completed++;
       await storage.updateAudiobookProject(projectId, { completedChapters: completed });
       
+      // Force garbage collection between chapters to prevent memory buildup
+      if (global.gc && completed % 5 === 0) {
+        console.log(`[Polly] Garbage collection triggered after ${completed} chapters`);
+        global.gc();
+      }
+      
     } catch (error) {
       // Log error but continue with next chapter
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      console.error(`[Polly] Chapter "${chapter.title}" failed, continuing with next: ${errorMessage}`);
+      console.error(`[Polly] Chapter "${chapter.title}" failed (attempt ${completed + 1}/${chaptersToProcess.length}):`, errorMessage);
       failedChapters.push(chapter.title);
       
       // Still count as processed (even if failed) so progress continues
@@ -675,6 +683,11 @@ export async function synthesizeProject(
         completedChapters: completed,
         errorMessage: `Capítulos con error: ${failedChapters.join(", ")}`,
       });
+      
+      // Force garbage collection on error too
+      if (global.gc) {
+        global.gc();
+      }
     }
   }
   
