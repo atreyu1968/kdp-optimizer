@@ -33,6 +33,44 @@ import { masterAudioFromUrl, type MasteringOptions, type ID3Metadata } from "./a
 // Polly text limit per request (for neural voices, actual limit is 3000 chars)
 const MAX_CHARS_PER_REQUEST = 2800;
 
+// Concurrency settings for parallel processing
+const DEFAULT_CONCURRENCY = 2; // Process 2 chapters simultaneously
+const MAX_CONCURRENCY = 4; // Maximum allowed parallel chapters
+
+/**
+ * Helper function to process items with limited concurrency (parallel batching)
+ * This prevents overwhelming AWS Polly and S3 while still processing faster than sequential
+ */
+async function processWithConcurrency<T, R>(
+  items: T[],
+  processor: (item: T, index: number) => Promise<R>,
+  concurrency: number = DEFAULT_CONCURRENCY
+): Promise<{ results: (R | Error)[]; succeeded: number; failed: number }> {
+  const results: (R | Error)[] = new Array(items.length);
+  let succeeded = 0;
+  let failed = 0;
+  let currentIndex = 0;
+
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (currentIndex < items.length) {
+      const index = currentIndex++;
+      const item = items[index];
+      
+      try {
+        results[index] = await processor(item, index);
+        succeeded++;
+      } catch (error) {
+        results[index] = error instanceof Error ? error : new Error(String(error));
+        failed++;
+      }
+    }
+  });
+
+  await Promise.all(workers);
+  
+  return { results, succeeded, failed };
+}
+
 export interface SynthesisResult {
   taskId: string;
   s3Uri: string;
@@ -593,12 +631,14 @@ export async function synthesizeChapter(
 }
 
 /**
- * Synthesize all chapters of a project sequentially
+ * Synthesize all chapters of a project with PARALLEL processing
+ * Uses limited concurrency (2-3 chapters at once) for optimal speed
  * Skips chapters that are already mastered
  */
 export async function synthesizeProject(
   projectId: number,
-  onProgress?: (completed: number, total: number, currentChapter: string) => void
+  onProgress?: (completed: number, total: number, currentChapter: string) => void,
+  concurrency: number = DEFAULT_CONCURRENCY
 ): Promise<void> {
   const project = await storage.getAudiobookProject(projectId);
   if (!project) {
@@ -613,7 +653,7 @@ export async function synthesizeProject(
   // Update project status
   await storage.updateAudiobookProject(projectId, { status: "synthesizing" });
   
-  // Count already mastered chapters
+  // Count already mastered chapters and filter those to process
   let alreadyMastered = 0;
   const chaptersToProcess: typeof chapters = [];
   
@@ -628,9 +668,7 @@ export async function synthesizeProject(
   }
   
   console.log(`[Polly] Project ${projectId}: ${alreadyMastered} mastered, ${chaptersToProcess.length} to process`);
-  
-  let completed = alreadyMastered;
-  const failedChapters: string[] = [];
+  console.log(`[Polly] Using PARALLEL processing with concurrency: ${Math.min(concurrency, MAX_CONCURRENCY)}`);
   
   // Use speech rate from project or default to 90% for ACX audiobooks
   const speechRate = project.speechRate || "90%";
@@ -641,60 +679,93 @@ export async function synthesizeProject(
     chapterIndices.set(ch.id, index + 1);
   });
   
-  for (const chapter of chaptersToProcess) {
-    onProgress?.(completed, chapters.length, chapter.title);
-    
-    try {
-      console.log(`[Polly] Processing chapter ${completed + 1}/${chaptersToProcess.length}: "${chapter.title}"`);
+  // Track completed chapters atomically
+  let completedCount = alreadyMastered;
+  const failedChapters: string[] = [];
+  const completedLock = { count: alreadyMastered }; // Simple lock for atomic updates
+  
+  // Limit concurrency to MAX_CONCURRENCY
+  const effectiveConcurrency = Math.min(concurrency, MAX_CONCURRENCY, chaptersToProcess.length);
+  
+  // Process chapters in parallel with limited concurrency
+  const results = await processWithConcurrency(
+    chaptersToProcess,
+    async (chapter, index) => {
+      const chapterNum = alreadyMastered + index + 1;
+      console.log(`[Polly] [PARALLEL] Starting chapter ${chapterNum}/${chapters.length}: "${chapter.title}"`);
       
       // Delete old jobs for this chapter before creating new one
       await storage.deleteOldJobsByChapter(chapter.id);
       
-      await synthesizeChapter(
-        chapter.id,
-        projectId,
-        chapter.contentText,
-        project.voiceId,
-        project.engine,
-        speechRate,
-        chapter.title,
-        chapterIndices.get(chapter.id) || 1,
-        chapters.length
-      );
-      
-      completed++;
-      await storage.updateAudiobookProject(projectId, { completedChapters: completed });
-      
-      // Force garbage collection between chapters to prevent memory buildup
-      if (global.gc && completed % 5 === 0) {
-        console.log(`[Polly] Garbage collection triggered after ${completed} chapters`);
-        global.gc();
+      try {
+        await synthesizeChapter(
+          chapter.id,
+          projectId,
+          chapter.contentText,
+          project.voiceId,
+          project.engine,
+          speechRate,
+          chapter.title,
+          chapterIndices.get(chapter.id) || 1,
+          chapters.length
+        );
+        
+        // Atomically update completed count
+        completedLock.count++;
+        const currentCompleted = completedLock.count;
+        await storage.updateAudiobookProject(projectId, { completedChapters: currentCompleted });
+        
+        console.log(`[Polly] [PARALLEL] Completed chapter "${chapter.title}" (${currentCompleted}/${chapters.length})`);
+        onProgress?.(currentCompleted, chapters.length, chapter.title);
+        
+        // Force garbage collection periodically
+        if (global.gc && currentCompleted % 5 === 0) {
+          console.log(`[Polly] Garbage collection triggered after ${currentCompleted} chapters`);
+          global.gc();
+        }
+        
+        return { success: true, chapter: chapter.title };
+        
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        console.error(`[Polly] [PARALLEL] Chapter "${chapter.title}" failed:`, errorMessage);
+        
+        // Still increment count for progress tracking
+        completedLock.count++;
+        const currentCompleted = completedLock.count;
+        await storage.updateAudiobookProject(projectId, { completedChapters: currentCompleted });
+        
+        // Force garbage collection on error
+        if (global.gc) {
+          global.gc();
+        }
+        
+        throw error; // Let the processWithConcurrency handle this as a failure
       }
-      
-    } catch (error) {
-      // Log error but continue with next chapter
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      console.error(`[Polly] Chapter "${chapter.title}" failed (attempt ${completed + 1}/${chaptersToProcess.length}):`, errorMessage);
-      failedChapters.push(chapter.title);
-      
-      // Still count as processed (even if failed) so progress continues
-      completed++;
-      await storage.updateAudiobookProject(projectId, { 
-        completedChapters: completed,
-        errorMessage: `Capítulos con error: ${failedChapters.join(", ")}`,
-      });
-      
-      // Force garbage collection on error too
-      if (global.gc) {
-        global.gc();
-      }
+    },
+    effectiveConcurrency
+  );
+  
+  // Collect failed chapters from results
+  results.results.forEach((result, index) => {
+    if (result instanceof Error) {
+      failedChapters.push(chaptersToProcess[index].title);
     }
+  });
+  
+  console.log(`[Polly] [PARALLEL] Finished processing. Success: ${results.succeeded}, Failed: ${results.failed}`);
+  
+  // Update error message if there were failures
+  if (failedChapters.length > 0) {
+    await storage.updateAudiobookProject(projectId, { 
+      errorMessage: `Capítulos con error: ${failedChapters.join(", ")}`,
+    });
   }
   
   // Determine final status based on results
   if (failedChapters.length === 0) {
     await storage.updateAudiobookProject(projectId, { status: "completed" });
-    onProgress?.(completed, chapters.length, "Completado");
+    onProgress?.(chapters.length, chapters.length, "Completado");
   } else if (failedChapters.length === chaptersToProcess.length) {
     // All chapters failed
     await storage.updateAudiobookProject(projectId, { 
@@ -707,7 +778,7 @@ export async function synthesizeProject(
       status: "completed",
       errorMessage: `Completado con ${failedChapters.length} errores: ${failedChapters.join(", ")}`,
     });
-    onProgress?.(completed, chapters.length, `Completado con ${failedChapters.length} errores`);
+    onProgress?.(chapters.length, chapters.length, `Completado con ${failedChapters.length} errores`);
   }
 }
 

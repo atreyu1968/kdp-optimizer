@@ -2137,9 +2137,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }, 5000); // Esperar 5 segundos después de iniciar
 
-  // Verificar jobs atascados cada 10 minutos (40 minutos de timeout para síntesis + mastering larga)
-  const STUCK_JOB_CHECK_INTERVAL = 10 * 60 * 1000; // 10 minutos
-  const STUCK_JOB_TIMEOUT_MINUTES = 40; // Aumentado a 40 min - permite síntesis Polly + mastering de 2-pass + ID3
+  // Verificar jobs atascados cada 15 minutos (60 minutos de timeout para síntesis paralela + mastering)
+  const STUCK_JOB_CHECK_INTERVAL = 15 * 60 * 1000; // 15 minutos
+  const STUCK_JOB_TIMEOUT_MINUTES = 60; // Aumentado a 60 min - margen amplio para síntesis paralela
 
   setInterval(async () => {
     try {
