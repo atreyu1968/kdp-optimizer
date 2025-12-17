@@ -549,12 +549,43 @@ export async function synthesizeChapter(
     
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const retryCount = (job.retryCount || 0) + 1;
+    
     console.error(`[Polly] Error synthesizing chapter ${chapterId}:`, errorMessage);
+    console.error(`[Polly] Retry count: ${retryCount}/3`);
+    
+    // Retry up to 3 times with exponential backoff
+    if (retryCount < 3 && !errorMessage.includes("FFmpeg timeout")) {
+      console.log(`[Polly] Retrying chapter ${chapterId} in ${retryCount * 5} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, retryCount * 5000));
+      
+      // Recursively retry
+      try {
+        return await synthesizeChapter(
+          chapterId,
+          projectId,
+          text,
+          voiceId,
+          engine,
+          speechRate,
+          chapterTitle,
+          chapterIndex,
+          totalChapters
+        );
+      } catch (retryError) {
+        console.error(`[Polly] Retry attempt ${retryCount} failed for chapter ${chapterId}`);
+      }
+    }
+    
+    // If timeout or max retries reached, mark as failed
+    const finalErrorMsg = retryCount >= 3 
+      ? `${errorMessage} (Falló después de 3 intentos)`
+      : errorMessage;
     
     await storage.updateSynthesisJob(job.id, {
       status: "failed",
-      errorMessage,
-      retryCount: (job.retryCount || 0) + 1,
+      errorMessage: finalErrorMsg,
+      retryCount,
     });
     
     throw error;

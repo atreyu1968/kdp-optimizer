@@ -62,9 +62,9 @@ const DEFAULT_OPTIONS: Required<MasteringOptions> = {
 
 /**
  * Execute FFmpeg command and return stdout/stderr
- * Includes a 5-minute timeout to prevent hanging in production
+ * Includes a 20-minute timeout for production mastering (includes 2-pass loudnorm + ID3)
  */
-function runFFmpeg(args: string[], timeoutMs: number = 300000): Promise<{ stdout: string; stderr: string; code: number }> {
+function runFFmpeg(args: string[], timeoutMs: number = 1200000): Promise<{ stdout: string; stderr: string; code: number }> {
   return new Promise((resolve, reject) => {
     const ffmpeg = spawn('ffmpeg', args);
     
@@ -112,6 +112,8 @@ function parseLoudnormOutput(stderr: string): LoudnormAnalysis | null {
   
   if (!jsonMatch) {
     console.error('[Mastering] Could not find loudnorm JSON in FFmpeg output');
+    console.error('[Mastering] FFmpeg stderr length:', stderr.length);
+    console.error('[Mastering] FFmpeg stderr (first 500 chars):', stderr.substring(0, 500));
     return null;
   }
   
