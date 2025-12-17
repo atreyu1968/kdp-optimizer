@@ -1,6 +1,35 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { execSync } from "child_process";
+
+// Verify critical dependencies on startup
+function checkDependencies() {
+  console.log('[Startup] Checking critical dependencies...');
+  
+  // Check ffmpeg
+  try {
+    const ffmpegVersion = execSync('ffmpeg -version', { encoding: 'utf8', timeout: 5000 }).split('\n')[0];
+    console.log('[Startup] ffmpeg:', ffmpegVersion);
+  } catch (error) {
+    console.error('[Startup] WARNING: ffmpeg not found! Audio mastering will fail.');
+  }
+  
+  // Check ffprobe
+  try {
+    const ffprobeVersion = execSync('ffprobe -version', { encoding: 'utf8', timeout: 5000 }).split('\n')[0];
+    console.log('[Startup] ffprobe:', ffprobeVersion);
+  } catch (error) {
+    console.error('[Startup] WARNING: ffprobe not found! Audio analysis will fail.');
+  }
+  
+  // Check environment
+  console.log('[Startup] NODE_ENV:', process.env.NODE_ENV);
+  console.log('[Startup] AWS credentials:', process.env.AWS_ACCESS_KEY_ID ? 'configured' : 'MISSING');
+  console.log('[Startup] Database:', process.env.DATABASE_URL ? 'configured' : 'MISSING');
+}
+
+checkDependencies();
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
