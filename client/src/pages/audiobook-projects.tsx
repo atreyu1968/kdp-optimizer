@@ -34,6 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { AudiobookProject, AudiobookChapter, SynthesisJob } from "@shared/schema";
+import { GoogleCredentialsManager } from "@/components/google-credentials-manager";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: any }> = {
   draft: { label: "Borrador", variant: "secondary", icon: Clock },
@@ -1123,6 +1124,14 @@ function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
   );
 }
 
+interface GoogleCredentialItem {
+  id: number;
+  label: string;
+  projectId: string | null;
+  clientEmail: string | null;
+  status: "pending" | "valid" | "invalid";
+}
+
 function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -1130,6 +1139,7 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
   const [ttsProvider, setTtsProvider] = useState<TTSProvider>("polly");
+  const [googleCredentialId, setGoogleCredentialId] = useState<string>("");
   const [engine, setEngine] = useState<string>("");
   const [voiceId, setVoiceId] = useState("");
   const [speechRate, setSpeechRate] = useState("75%");
@@ -1141,20 +1151,42 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
     enabled: open && ttsProvider === "polly",
   });
 
-  // Query para status de Google TTS
+  // Query para credenciales de Google TTS almacenadas
+  const { data: googleCredentials } = useQuery<GoogleCredentialItem[]>({
+    queryKey: ["/api/audiobooks/google-credentials"],
+    enabled: open,
+  });
+
+  // Query para status de Google TTS (legado - variables de entorno)
   const { data: googleStatus } = useQuery<{ configured: boolean }>({
     queryKey: ["/api/audiobooks/google-status"],
     enabled: open,
   });
 
-  // Query para voces de Google TTS
-  const { data: googleVoicesData, isLoading: loadingGoogleVoices } = useQuery<{ configured: boolean; voices: GoogleVoice[] }>({
-    queryKey: ["/api/audiobooks/google-voices"],
-    enabled: open && ttsProvider === "google" && googleStatus?.configured,
+  // Hay credenciales disponibles si hay al menos una válida o el env var está configurado
+  const validGoogleCredentials = googleCredentials?.filter(c => c.status === "valid") || [];
+  const hasGoogleCredentials = validGoogleCredentials.length > 0 || googleStatus?.configured;
+
+  // Query para voces de Google TTS (usando credencial seleccionada)
+  const { data: googleVoicesData, isLoading: loadingGoogleVoices } = useQuery<GoogleVoice[]>({
+    queryKey: ["/api/audiobooks/google-credentials", googleCredentialId, "voices"],
+    queryFn: async () => {
+      if (googleCredentialId) {
+        const res = await fetch(`/api/audiobooks/google-credentials/${googleCredentialId}/voices`);
+        if (!res.ok) throw new Error("Error fetching voices");
+        return res.json();
+      }
+      // Fallback a voces de env var si no hay credencial seleccionada
+      const res = await fetch("/api/audiobooks/google-voices");
+      if (!res.ok) throw new Error("Error fetching voices");
+      const data = await res.json();
+      return data.voices || [];
+    },
+    enabled: open && ttsProvider === "google" && hasGoogleCredentials,
   });
 
-  const googleVoices = googleVoicesData?.voices || [];
-  const isGoogleConfigured = googleStatus?.configured ?? false;
+  const googleVoices = googleVoicesData || [];
+  const isGoogleConfigured = hasGoogleCredentials;
 
   // Motores disponibles según el proveedor
   const availableEngines = ttsProvider === "polly"
@@ -1225,6 +1257,9 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
       formData.append("engine", engine);
       formData.append("speechRate", speechRate);
       formData.append("ttsProvider", ttsProvider);
+      if (googleCredentialId) {
+        formData.append("googleCredentialId", googleCredentialId);
+      }
 
       // Usar apiRequest para mejor manejo de errores y timeouts
       const response = await apiRequest("POST", "/api/audiobooks/upload", formData);
@@ -1237,6 +1272,7 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
       setTitle("");
       setAuthor("");
       setTtsProvider("polly");
+      setGoogleCredentialId("");
       setEngine("");
       setVoiceId("");
       setSpeechRate("75%");
@@ -1324,6 +1360,7 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
               value={ttsProvider} 
               onValueChange={(val: TTSProvider) => { 
                 setTtsProvider(val); 
+                setGoogleCredentialId("");
                 setEngine(""); 
                 setVoiceId(""); 
               }}
@@ -1346,9 +1383,37 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
                 ? "Amazon Polly ofrece voces Generative (mejor calidad) y Long-form para audiolibros."
                 : isGoogleConfigured 
                   ? "Google Cloud TTS Neural2 ofrece voces naturales de alta calidad."
-                  : "Configura GOOGLE_TTS_CREDENTIALS para habilitar Google Cloud TTS."}
+                  : "Añade credenciales de Google Cloud en la pestaña Configuración."}
             </p>
           </div>
+
+          {ttsProvider === "google" && validGoogleCredentials.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="googleCredential">Cuenta de Google Cloud</Label>
+              <Select 
+                value={googleCredentialId} 
+                onValueChange={(val) => {
+                  setGoogleCredentialId(val);
+                  setEngine("");
+                  setVoiceId("");
+                }}
+              >
+                <SelectTrigger data-testid="select-google-credential-trigger">
+                  <SelectValue placeholder="Selecciona una cuenta de servicio" />
+                </SelectTrigger>
+                <SelectContent>
+                  {validGoogleCredentials.map((cred) => (
+                    <SelectItem key={cred.id} value={String(cred.id)} data-testid={`credential-option-${cred.id}`}>
+                      {cred.label} {cred.projectId && `(${cred.projectId})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Selecciona la cuenta de servicio de Google Cloud para usar en este proyecto.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="engine">Motor de síntesis</Label>
@@ -1445,6 +1510,7 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
 export default function AudiobookProjects() {
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<AudiobookProject | null>(null);
+  const [activeTab, setActiveTab] = useState<"projects" | "settings">("projects");
   const { toast } = useToast();
   
   const { data: projects, isLoading } = useQuery<AudiobookProject[]>({
@@ -1480,11 +1546,23 @@ export default function AudiobookProjects() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight" data-testid="text-audiobook-title">Proyectos de Audiolibros</h2>
           <p className="text-muted-foreground">
-            Gestiona tus proyectos de conversión de texto a audio con Amazon Polly
+            Gestiona tus proyectos de conversión de texto a audio con Amazon Polly y Google Cloud TTS
           </p>
         </div>
-        <NewProjectDialog onSuccess={() => {}} />
+        {activeTab === "projects" && <NewProjectDialog onSuccess={() => {}} />}
       </div>
+
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "projects" | "settings")} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="projects" data-testid="tab-projects">Proyectos</TabsTrigger>
+          <TabsTrigger value="settings" data-testid="tab-settings">Configuración</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="settings" className="mt-6">
+          <GoogleCredentialsManager />
+        </TabsContent>
+        
+        <TabsContent value="projects" className="mt-6">
 
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -1579,6 +1657,8 @@ export default function AudiobookProjects() {
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+      </Tabs>
 
       <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
         <AlertDialogContent>

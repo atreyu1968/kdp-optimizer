@@ -19,6 +19,7 @@ import {
   audiobookChapters,
   audiobookSynthesisJobs,
   audiobookSettings,
+  googleTtsCredentials,
   type Manuscript, 
   type Optimization,
   type Publication,
@@ -36,6 +37,7 @@ import {
   type AudiobookChapter,
   type SynthesisJob,
   type AudiobookSetting,
+  type GoogleTtsCredential,
   type InsertManuscript,
   type InsertPublication,
   type InsertTask,
@@ -52,6 +54,7 @@ import {
   type InsertAudiobookChapter,
   type InsertSynthesisJob,
   type InsertAudiobookSetting,
+  type InsertGoogleTtsCredential,
   type OptimizationResult,
   type MarketMetadata,
   amazonMarkets,
@@ -223,6 +226,13 @@ export interface IStorage {
   
   // Helper to update mastered chapters count
   updateMasteredChaptersCount(projectId: number): Promise<number>;
+  
+  // Google TTS Credentials Management
+  getAllGoogleTtsCredentials(): Promise<GoogleTtsCredential[]>;
+  getGoogleTtsCredential(id: number): Promise<GoogleTtsCredential | undefined>;
+  createGoogleTtsCredential(data: InsertGoogleTtsCredential): Promise<GoogleTtsCredential>;
+  updateGoogleTtsCredential(id: number, data: Partial<InsertGoogleTtsCredential>): Promise<GoogleTtsCredential>;
+  deleteGoogleTtsCredential(id: number): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -1364,6 +1374,37 @@ export class DbStorage implements IStorage {
     
     return count;
   }
+
+  // ============================================================================
+  // GOOGLE TTS CREDENTIALS MANAGEMENT
+  // ============================================================================
+
+  async getAllGoogleTtsCredentials(): Promise<GoogleTtsCredential[]> {
+    return await this.db.select().from(googleTtsCredentials).orderBy(desc(googleTtsCredentials.createdAt));
+  }
+
+  async getGoogleTtsCredential(id: number): Promise<GoogleTtsCredential | undefined> {
+    const [credential] = await this.db.select().from(googleTtsCredentials).where(eq(googleTtsCredentials.id, id));
+    return credential;
+  }
+
+  async createGoogleTtsCredential(data: InsertGoogleTtsCredential): Promise<GoogleTtsCredential> {
+    const [credential] = await this.db.insert(googleTtsCredentials).values(data).returning();
+    return credential;
+  }
+
+  async updateGoogleTtsCredential(id: number, data: Partial<InsertGoogleTtsCredential>): Promise<GoogleTtsCredential> {
+    const [updated] = await this.db
+      .update(googleTtsCredentials)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(googleTtsCredentials.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteGoogleTtsCredential(id: number): Promise<void> {
+    await this.db.delete(googleTtsCredentials).where(eq(googleTtsCredentials.id, id));
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -1773,6 +1814,26 @@ export class MemStorage implements IStorage {
 
   async updateMasteredChaptersCount(projectId: number): Promise<number> {
     throw new Error("MemStorage does not support AudiobookForge operations");
+  }
+
+  async getAllGoogleTtsCredentials(): Promise<GoogleTtsCredential[]> {
+    throw new Error("MemStorage does not support Google TTS credentials");
+  }
+
+  async getGoogleTtsCredential(id: number): Promise<GoogleTtsCredential | undefined> {
+    throw new Error("MemStorage does not support Google TTS credentials");
+  }
+
+  async createGoogleTtsCredential(data: InsertGoogleTtsCredential): Promise<GoogleTtsCredential> {
+    throw new Error("MemStorage does not support Google TTS credentials");
+  }
+
+  async updateGoogleTtsCredential(id: number, data: Partial<InsertGoogleTtsCredential>): Promise<GoogleTtsCredential> {
+    throw new Error("MemStorage does not support Google TTS credentials");
+  }
+
+  async deleteGoogleTtsCredential(id: number): Promise<void> {
+    throw new Error("MemStorage does not support Google TTS credentials");
   }
 }
 

@@ -17,6 +17,7 @@ import { analyzeAllBooks, getEnrichedInsights } from "./services/book-analyzer";
 import { parseWordDocument } from "./services/word-parser";
 import { synthesizeProject, getAvailableVoices, validateAwsCredentials, recoverPendingJobs } from "./services/polly-synthesizer";
 import { getGoogleVoices, isGoogleTTSConfigured, synthesizeProjectWithGoogle } from "./services/google-tts-synthesizer";
+import * as googleCredentialsManager from "./services/google-credentials-manager";
 import type { IVooxMetadata } from "@shared/schema";
 import multer from "multer";
 import { join } from "path";
@@ -1505,7 +1506,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[Upload] Starting upload: ${req.file.originalname} (${req.file.size} bytes)`);
 
-      const { voiceId, voiceLocale, engine, author, speechRate, title } = req.body;
+      const { voiceId, voiceLocale, engine, author, speechRate, title, ttsProvider, googleCredentialId } = req.body;
 
       // Validar campos requeridos
       if (!title || !author || !voiceId) {
@@ -1526,6 +1527,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         title: title || parsed.title,
         author: author || null,
         sourceFileName: req.file.originalname,
+        ttsProvider: ttsProvider || "polly",
+        googleCredentialId: googleCredentialId ? parseInt(googleCredentialId) : null,
         voiceId: voiceId || "Lucia",
         voiceLocale: voiceLocale || "es-ES",
         engine: engine || "generative",
@@ -2029,6 +2032,188 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ configured: isGoogleTTSConfigured() });
     } catch (error) {
       res.json({ configured: false });
+    }
+  });
+
+  // ============================================================================
+  // GOOGLE TTS CREDENTIALS MANAGEMENT API
+  // ============================================================================
+
+  // Verificar si la clave maestra de cifrado está configurada
+  app.get("/api/audiobooks/google-credentials/status", async (req, res) => {
+    try {
+      res.json({ 
+        masterKeyConfigured: googleCredentialsManager.isMasterKeyConfigured(),
+        generatedKey: !googleCredentialsManager.isMasterKeyConfigured() ? googleCredentialsManager.generateMasterKey() : undefined
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Error checking credentials status" });
+    }
+  });
+
+  // Listar todas las credenciales de Google TTS (sin datos sensibles)
+  app.get("/api/audiobooks/google-credentials", async (req, res) => {
+    try {
+      if (!googleCredentialsManager.isMasterKeyConfigured()) {
+        res.status(400).json({ error: "GOOGLE_TTS_MASTER_KEY not configured" });
+        return;
+      }
+      const credentials = await googleCredentialsManager.listCredentials();
+      res.json(credentials);
+    } catch (error) {
+      console.error("Error listing Google credentials:", error);
+      res.status(500).json({ error: "Failed to list credentials" });
+    }
+  });
+
+  // Obtener una credencial específica (sin datos sensibles)
+  app.get("/api/audiobooks/google-credentials/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid credential ID" });
+        return;
+      }
+      const credential = await googleCredentialsManager.getCredential(id);
+      if (!credential) {
+        res.status(404).json({ error: "Credential not found" });
+        return;
+      }
+      res.json(credential);
+    } catch (error) {
+      console.error("Error getting Google credential:", error);
+      res.status(500).json({ error: "Failed to get credential" });
+    }
+  });
+
+  // Crear una nueva credencial de Google TTS
+  app.post("/api/audiobooks/google-credentials", async (req, res) => {
+    try {
+      if (!googleCredentialsManager.isMasterKeyConfigured()) {
+        res.status(400).json({ error: "GOOGLE_TTS_MASTER_KEY not configured" });
+        return;
+      }
+
+      const { label, jsonPayload } = req.body;
+      
+      if (!label || typeof label !== "string") {
+        res.status(400).json({ error: "Label is required" });
+        return;
+      }
+      
+      if (!jsonPayload || typeof jsonPayload !== "string") {
+        res.status(400).json({ error: "JSON credentials payload is required" });
+        return;
+      }
+
+      const credential = await googleCredentialsManager.createCredential(label, jsonPayload);
+      
+      // Return without sensitive data
+      const { encryptedPayload, iv, authTag, ...safeCredential } = credential as any;
+      res.json(safeCredential);
+    } catch (error) {
+      console.error("Error creating Google credential:", error);
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create credential" });
+    }
+  });
+
+  // Actualizar etiqueta de una credencial
+  app.patch("/api/audiobooks/google-credentials/:id/label", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid credential ID" });
+        return;
+      }
+
+      const { label } = req.body;
+      if (!label || typeof label !== "string") {
+        res.status(400).json({ error: "Label is required" });
+        return;
+      }
+
+      await googleCredentialsManager.updateCredentialLabel(id, label);
+      const credential = await googleCredentialsManager.getCredential(id);
+      res.json(credential);
+    } catch (error) {
+      console.error("Error updating Google credential:", error);
+      res.status(500).json({ error: "Failed to update credential" });
+    }
+  });
+
+  // Actualizar JSON de una credencial
+  app.put("/api/audiobooks/google-credentials/:id/payload", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid credential ID" });
+        return;
+      }
+
+      const { jsonPayload } = req.body;
+      if (!jsonPayload || typeof jsonPayload !== "string") {
+        res.status(400).json({ error: "JSON credentials payload is required" });
+        return;
+      }
+
+      await googleCredentialsManager.updateCredentialPayload(id, jsonPayload);
+      const credential = await googleCredentialsManager.getCredential(id);
+      res.json(credential);
+    } catch (error) {
+      console.error("Error updating Google credential payload:", error);
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update credential" });
+    }
+  });
+
+  // Validar una credencial
+  app.post("/api/audiobooks/google-credentials/:id/validate", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid credential ID" });
+        return;
+      }
+
+      const result = await googleCredentialsManager.validateCredential(id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error validating Google credential:", error);
+      res.status(500).json({ error: "Failed to validate credential" });
+    }
+  });
+
+  // Eliminar una credencial
+  app.delete("/api/audiobooks/google-credentials/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid credential ID" });
+        return;
+      }
+
+      await googleCredentialsManager.deleteCredential(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting Google credential:", error);
+      res.status(500).json({ error: "Failed to delete credential" });
+    }
+  });
+
+  // Listar voces usando una credencial específica
+  app.get("/api/audiobooks/google-credentials/:id/voices", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid credential ID" });
+        return;
+      }
+
+      const { languageCode } = req.query;
+      const voices = await googleCredentialsManager.listVoicesWithCredential(id, languageCode as string | undefined);
+      res.json(voices);
+    } catch (error) {
+      console.error("Error listing voices with credential:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to list voices" });
     }
   });
 

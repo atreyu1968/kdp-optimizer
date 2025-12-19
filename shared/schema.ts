@@ -608,15 +608,20 @@ export const pollyVoices = {
   ],
 } as const;
 
+// Proveedores TTS disponibles
+export const ttsProviders = ["polly", "google"] as const;
+
 // Tabla de proyectos de audiolibros
 export const audiobookProjects = pgTable("audiobook_projects", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   author: text("author").notNull(),
   sourceFileName: text("source_file_name"), // Nombre del archivo .docx original
+  ttsProvider: text("tts_provider").notNull().default("polly"), // "polly" o "google"
+  googleCredentialId: integer("google_credential_id"), // Referencia a credencial de Google (null si usa Polly)
   voiceId: text("voice_id").notNull().default("Lucia"),
   voiceLocale: text("voice_locale").notNull().default("es-ES"),
-  engine: text("engine").notNull().default("neural"), // "neural", "long-form", "standard"
+  engine: text("engine").notNull().default("neural"), // "neural", "long-form", "standard" para Polly; "Neural2", "WaveNet" para Google
   speechRate: text("speech_rate").notNull().default("90%"), // Velocidad de narración (ACX recomienda 90%)
   status: text("status").notNull().default("draft"),
   totalChapters: integer("total_chapters").default(0),
@@ -670,13 +675,32 @@ export const audiobookSettings = pgTable("audiobook_settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Tabla de credenciales de Google Cloud TTS (cifradas)
+export const googleTtsCredentials = pgTable("google_tts_credentials", {
+  id: serial("id").primaryKey(),
+  label: text("label").notNull(), // Etiqueta descriptiva (ej: "Cuenta Principal", "Backup")
+  projectId: text("project_id"), // Google Cloud Project ID (extraído del JSON)
+  clientEmail: text("client_email"), // Email de la cuenta de servicio (para identificación)
+  encryptedPayload: text("encrypted_payload").notNull(), // JSON cifrado con AES-256-GCM
+  iv: text("iv").notNull(), // Vector de inicialización para descifrado
+  authTag: text("auth_tag").notNull(), // Tag de autenticación para verificar integridad
+  status: text("status").notNull().default("pending"), // "pending", "valid", "invalid"
+  statusMessage: text("status_message"), // Mensaje de error si la validación falla
+  lastValidatedAt: timestamp("last_validated_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const googleTtsCredentialStatuses = ["pending", "valid", "invalid"] as const;
+
 // Tipos de inserción y selección para AudiobookForge
 export const insertAudiobookProjectSchema = createInsertSchema(audiobookProjects).omit({ 
   id: true, 
   createdAt: true,
   updatedAt: true 
 }).extend({
-  engine: z.enum(pollyEngines).default("neural"),
+  ttsProvider: z.enum(ttsProviders).default("polly"),
+  engine: z.string().default("neural"), // Flexible para soportar ambos proveedores
   status: z.enum(audiobookProjectStatuses).default("draft"),
 });
 export type InsertAudiobookProject = z.infer<typeof insertAudiobookProjectSchema>;
@@ -704,6 +728,17 @@ export const insertAudiobookSettingSchema = createInsertSchema(audiobookSettings
 });
 export type InsertAudiobookSetting = z.infer<typeof insertAudiobookSettingSchema>;
 export type AudiobookSetting = typeof audiobookSettings.$inferSelect;
+
+// Tipos para credenciales de Google TTS
+export const insertGoogleTtsCredentialSchema = createInsertSchema(googleTtsCredentials).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  status: z.enum(googleTtsCredentialStatuses).default("pending"),
+});
+export type InsertGoogleTtsCredential = z.infer<typeof insertGoogleTtsCredentialSchema>;
+export type GoogleTtsCredential = typeof googleTtsCredentials.$inferSelect;
 
 // iVoox Metadata Schema
 export const ivooxMetadataSchema = z.object({
