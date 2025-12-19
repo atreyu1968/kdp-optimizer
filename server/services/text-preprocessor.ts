@@ -550,6 +550,38 @@ export function preprocessTextForTTS(text: string, options: PreprocessOptions = 
 }
 
 /**
+ * Spanish pronunciation corrections using IPA phonemes
+ * Maps problematic words to their correct SSML phoneme representation
+ * These words are mispronounced by Amazon Polly's Spanish voices
+ * 
+ * Format: [word, IPA phoneme, display text]
+ */
+const PRONUNCIATION_CORRECTIONS: Array<[string, string, string]> = [
+  // "piedra" - often mispronounced, correct IPA: /ˈpjeðɾa/
+  ['piedra', 'ˈpjeðɾa', 'piedra'],
+  ['Piedra', 'ˈpjeðɾa', 'Piedra'],
+  ['piedras', 'ˈpjeðɾas', 'piedras'],
+  ['Piedras', 'ˈpjeðɾas', 'Piedras'],
+];
+
+/**
+ * Apply pronunciation corrections to already-escaped text
+ * Inserts phoneme SSML tags for words that need pronunciation fixes
+ */
+function applyPronunciationCorrections(escapedText: string): string {
+  let result = escapedText;
+  
+  for (const [word, ipa, display] of PRONUNCIATION_CORRECTIONS) {
+    // Match word boundaries - the text is already XML-escaped so no special chars
+    const regex = new RegExp(`\\b${word}\\b`, 'g');
+    const phonemeTag = `<phoneme alphabet="ipa" ph="${ipa}">${display}</phoneme>`;
+    result = result.replace(regex, phonemeTag);
+  }
+  
+  return result;
+}
+
+/**
  * Wrap text in SSML with prosody controls
  * Converts special markers to SSML tags
  * Following ACX/Audible audiobook standards
@@ -579,6 +611,10 @@ export function wrapInSSML(text: string, rate: string = 'medium'): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+  
+  // Apply pronunciation corrections for problematic Spanish words
+  // This must happen AFTER escape but BEFORE other SSML insertions
+  escapedText = applyPronunciationCorrections(escapedText);
   
   // === STRUCTURAL BREAKS (largest to smallest) ===
   
