@@ -269,15 +269,50 @@ export async function synthesizeChapterWithGoogle(
   speechRate: string = "75%",
   chapterTitle: string = "",
   chapterIndex: number = 1,
-  totalChapters: number = 1
+  totalChapters: number = 1,
+  preGeneratedSsml?: string | null
 ): Promise<void> {
-  // Preprocess text for TTS quality
-  let processedText = preprocessTextForTTS(text);
+  let ssmlText: string;
   
-  // Wrap in SSML for Google
-  const ssmlText = wrapInSSMLForGoogle(processedText, speechRate);
-  
-  console.log(`[Google TTS] Processing chapter ${chapterId}: ${text.length} -> ${processedText.length} chars, rate: ${speechRate}`);
+  if (preGeneratedSsml) {
+    // Use pre-generated SSML from EPUB3 with phoneme annotations
+    console.log(`[Google TTS] Using pre-generated SSML from EPUB for chapter ${chapterId}`);
+    
+    // Escape any unescaped characters for SSML
+    const escapedSsml = preGeneratedSsml
+      .replace(/&(?!(amp;|lt;|gt;|apos;|quot;|#\d+;|#x[0-9a-fA-F]+;))/g, '&amp;')
+      .replace(/<(?!\/?(phoneme|break|prosody|emphasis|say-as|sub|p|s)[>\s])/g, '&lt;');
+    
+    // Normalize speech rate for Google TTS
+    // Handle percentage format like "75%" or named rates like "medium"
+    let rateValue: string;
+    if (speechRate.endsWith('%')) {
+      rateValue = speechRate;
+    } else {
+      // Convert named rates to percentage values
+      const namedRates: Record<string, string> = {
+        "x-slow": "50%",
+        "slow": "75%",
+        "medium": "100%",
+        "fast": "125%",
+        "x-fast": "150%",
+      };
+      rateValue = namedRates[speechRate] || "100%";
+    }
+    
+    // Wrap in speak tags with speech rate
+    ssmlText = `<speak><prosody rate="${rateValue}">${escapedSsml}</prosody></speak>`;
+    
+    console.log(`[Google TTS] Pre-generated SSML length: ${ssmlText.length} chars`);
+  } else {
+    // Preprocess text for TTS quality
+    let processedText = preprocessTextForTTS(text);
+    
+    // Wrap in SSML for Google
+    ssmlText = wrapInSSMLForGoogle(processedText, speechRate);
+    
+    console.log(`[Google TTS] Processing chapter ${chapterId}: ${text.length} -> ${processedText.length} chars, rate: ${speechRate}`);
+  }
   
   // Create synthesis job record
   const job = await storage.createSynthesisJob({
@@ -542,7 +577,8 @@ export async function synthesizeProjectWithGoogle(
         speechRate,
         chapter.title,
         chapterIndices.get(chapter.id) || 1,
-        chapters.length
+        chapters.length,
+        chapter.contentSsml
       );
     },
     effectiveConcurrency,

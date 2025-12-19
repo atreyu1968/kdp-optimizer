@@ -396,6 +396,74 @@ function sanitizeFilename(title: string): string {
 }
 
 /**
+ * Safely truncate SSML content to a maximum length while preserving valid markup.
+ * Ensures all opened tags are properly closed after truncation.
+ */
+function truncateSSMLSafely(ssml: string, maxLength: number): string {
+  if (ssml.length <= maxLength) {
+    return ssml;
+  }
+  
+  // Find a good truncation point (not inside a tag)
+  let truncateAt = maxLength;
+  const textBeforeTruncate = ssml.slice(0, truncateAt);
+  const lastClosingTag = textBeforeTruncate.lastIndexOf('>');
+  const lastOpeningTag = textBeforeTruncate.lastIndexOf('<');
+  
+  // If the last < is after the last >, we're inside a tag - backtrack to before it
+  if (lastOpeningTag > lastClosingTag && lastClosingTag !== -1) {
+    truncateAt = lastOpeningTag;
+  }
+  
+  // Try to end at a sentence boundary for natural reading
+  const textToTruncate = ssml.slice(0, truncateAt);
+  const lastPeriod = textToTruncate.lastIndexOf('.');
+  const lastQuestion = textToTruncate.lastIndexOf('?');
+  const lastExclamation = textToTruncate.lastIndexOf('!');
+  const lastSentenceEnd = Math.max(lastPeriod, lastQuestion, lastExclamation);
+  
+  // Use sentence boundary if reasonably close (within 3000 chars)
+  if (lastSentenceEnd > 0 && truncateAt - lastSentenceEnd < 3000) {
+    truncateAt = lastSentenceEnd + 1;
+  }
+  
+  let truncated = ssml.slice(0, truncateAt);
+  
+  // Track open SSML tags that need closing
+  const ssmlTags = ['phoneme', 'prosody', 'emphasis', 'say-as', 'sub', 'p', 's'];
+  const openTags: string[] = [];
+  
+  // Parse through the truncated content to find unclosed tags
+  const tagRegex = /<(\/?)(phoneme|prosody|emphasis|say-as|sub|p|s)(?:\s[^>]*)?>/gi;
+  let match;
+  
+  while ((match = tagRegex.exec(truncated)) !== null) {
+    const isClosing = match[1] === '/';
+    const tagName = match[2].toLowerCase();
+    
+    if (isClosing) {
+      // Remove the matching opening tag from the stack
+      const lastIndex = openTags.lastIndexOf(tagName);
+      if (lastIndex !== -1) {
+        openTags.splice(lastIndex, 1);
+      }
+    } else {
+      // Self-closing tags like <break/> don't need closing
+      if (!match[0].endsWith('/>')) {
+        openTags.push(tagName);
+      }
+    }
+  }
+  
+  // Close all remaining open tags in reverse order
+  for (let i = openTags.length - 1; i >= 0; i--) {
+    truncated += `</${openTags[i]}>`;
+  }
+  
+  return truncated;
+}
+
+/**
  * Upload a local file to S3 and return the S3 URI
  */
 export async function uploadToS3(localPath: string, s3Key: string): Promise<string> {
@@ -432,21 +500,50 @@ export async function synthesizeChapter(
   speechRate: string = "medium",
   chapterTitle: string = "",
   chapterIndex: number = 1,
-  totalChapters: number = 1
+  totalChapters: number = 1,
+  preGeneratedSsml?: string | null
 ): Promise<void> {
-  // Preprocess text for better TTS quality
-  let processedText = preprocessTextForTTS(text);
+  let ssmlText: string;
   
-  // Check text length and truncate if needed (Polly's hard limit is 100k chars for StartSpeechSynthesisTask)
-  const maxLength = 90000; // Leave room for SSML tags
-  if (processedText.length > maxLength) {
-    processedText = processedText.slice(0, maxLength);
+  if (preGeneratedSsml) {
+    // Use pre-generated SSML from EPUB3 with phoneme annotations
+    // Apply speech rate wrapper around the pre-generated content
+    console.log(`[Polly] Using pre-generated SSML from EPUB for chapter ${chapterId}`);
+    
+    // Escape any unescaped characters for SSML
+    let escapedSsml = preGeneratedSsml
+      .replace(/&(?!(amp;|lt;|gt;|apos;|quot;|#\d+;|#x[0-9a-fA-F]+;))/g, '&amp;')
+      .replace(/<(?!\/?(phoneme|break|prosody|emphasis|say-as|sub|p|s)[>\s])/g, '&lt;');
+    
+    // Apply length limits (Polly's hard limit is 100k chars for StartSpeechSynthesisTask)
+    const maxContentLength = 85000; // Leave room for SSML wrapper tags and closing tags
+    if (escapedSsml.length > maxContentLength) {
+      console.warn(`[Polly] Pre-generated SSML too long (${escapedSsml.length}), truncating to ${maxContentLength}`);
+      
+      escapedSsml = truncateSSMLSafely(escapedSsml, maxContentLength);
+      console.log(`[Polly] Final truncated SSML length: ${escapedSsml.length}`);
+    }
+    
+    // Wrap in speak tags with speech rate
+    const rateValue = speechRate || 'medium';
+    ssmlText = `<speak><prosody rate="${rateValue}">${escapedSsml}</prosody></speak>`;
+    
+    console.log(`[Polly] Pre-generated SSML length: ${ssmlText.length} chars`);
+  } else {
+    // Preprocess text for better TTS quality
+    let processedText = preprocessTextForTTS(text);
+    
+    // Check text length and truncate if needed (Polly's hard limit is 100k chars for StartSpeechSynthesisTask)
+    const maxLength = 90000; // Leave room for SSML tags
+    if (processedText.length > maxLength) {
+      processedText = processedText.slice(0, maxLength);
+    }
+    
+    // Wrap in SSML with speech rate control
+    ssmlText = wrapInSSML(processedText, speechRate);
+    
+    console.log(`[Polly] Preprocessed text for chapter ${chapterId}: ${text.length} -> ${processedText.length} chars, rate: ${speechRate}`);
   }
-  
-  // Wrap in SSML with speech rate control
-  const ssmlText = wrapInSSML(processedText, speechRate);
-  
-  console.log(`[Polly] Preprocessed text for chapter ${chapterId}: ${text.length} -> ${processedText.length} chars, rate: ${speechRate}`);
   
   // Create synthesis job record
   const job = await storage.createSynthesisJob({
@@ -752,7 +849,8 @@ export async function synthesizeProject(
         speechRate,
         chapter.title,
         chapterIndices.get(chapter.id) || 1,
-        chapters.length
+        chapters.length,
+        chapter.contentSsml
       );
       
       return { success: true, chapter: chapter.title };

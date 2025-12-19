@@ -15,6 +15,7 @@ import { createDefaultTasks, updateTaskDueDates } from "./services/default-tasks
 import { importKdpXlsx, importKenpMonthlyData, processSalesMonthlyData } from "./services/kdp-importer";
 import { analyzeAllBooks, getEnrichedInsights } from "./services/book-analyzer";
 import { parseWordDocument } from "./services/word-parser";
+import { parseEpubDocument, applyPLSLexicon } from "./services/epub-parser";
 import { synthesizeProject, getAvailableVoices, validateAwsCredentials, recoverPendingJobs } from "./services/polly-synthesizer";
 import { getGoogleVoices, isGoogleTTSConfigured, synthesizeProjectWithGoogle } from "./services/google-tts-synthesizer";
 import * as googleCredentialsManager from "./services/google-credentials-manager";
@@ -1518,14 +1519,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Leer el archivo y parsearlo
       console.log(`[Upload] Reading and parsing document: ${req.file.originalname}`);
       const fileBuffer = readFileSync(req.file.path);
-      const parsed = await parseWordDocument(fileBuffer, req.file.originalname);
-      console.log(`[Upload] Document parsed: ${parsed.chapters.length} chapters, ${parsed.totalCharacters} characters`);
+      const isEpub = req.file.originalname.toLowerCase().endsWith('.epub');
+      
+      let parsedTitle = "";
+      let parsedAuthor = "";
+      let chapters: Array<{
+        sequenceNumber: number;
+        title: string;
+        contentText: string;
+        contentSsml: string | null;
+        characterCount: number;
+        estimatedDurationSeconds: number;
+      }> = [];
+      let totalCharacters = 0;
+      let totalEstimatedDuration = 0;
+      let hasSSMLAnnotations = false;
+      
+      if (isEpub) {
+        // Parse EPUB3 with SSML support
+        console.log("[Upload] Detected EPUB file, using EPUB parser with SSML support");
+        const epubParsed = await parseEpubDocument(fileBuffer, req.file.originalname);
+        parsedTitle = epubParsed.title;
+        parsedAuthor = epubParsed.author;
+        totalCharacters = epubParsed.totalCharacters;
+        totalEstimatedDuration = epubParsed.totalEstimatedDuration;
+        hasSSMLAnnotations = epubParsed.hasSSMLAnnotations;
+        
+        // Convert EPUB chapters with SSML support
+        for (const ch of epubParsed.chapters) {
+          let contentSsml: string | null = null;
+          
+          if (ch.ssmlAnnotations.length > 0) {
+            // Chapter has inline SSML annotations
+            contentSsml = ch.contentWithSSML;
+          } else if (epubParsed.plsLexicons.length > 0) {
+            // Apply PLS lexicons to generate SSML
+            contentSsml = applyPLSLexicon(ch.contentText, epubParsed.plsLexicons);
+          }
+          
+          chapters.push({
+            sequenceNumber: ch.sequenceNumber,
+            title: ch.title,
+            contentText: ch.contentText,
+            contentSsml,
+            characterCount: ch.characterCount,
+            estimatedDurationSeconds: ch.estimatedDurationSeconds,
+          });
+        }
+        
+        if (hasSSMLAnnotations) {
+          console.log(`[Upload] EPUB has SSML annotations - ${epubParsed.chapters.reduce((sum, ch) => sum + ch.ssmlAnnotations.length, 0)} inline phonemes, ${epubParsed.plsLexicons.length} PLS lexicons`);
+        }
+      } else {
+        // Parse Word/TXT documents (existing logic)
+        const parsed = await parseWordDocument(fileBuffer, req.file.originalname);
+        parsedTitle = parsed.title;
+        totalCharacters = parsed.totalCharacters;
+        totalEstimatedDuration = parsed.totalEstimatedDuration;
+        
+        for (const ch of parsed.chapters) {
+          chapters.push({
+            sequenceNumber: ch.sequenceNumber,
+            title: ch.title,
+            contentText: ch.contentText,
+            contentSsml: null,
+            characterCount: ch.characterCount,
+            estimatedDurationSeconds: ch.estimatedDurationSeconds,
+          });
+        }
+      }
+      
+      console.log(`[Upload] Document parsed: ${chapters.length} chapters, ${totalCharacters} characters`);
 
       // Crear el proyecto con status "ready" para que esté listo para sintetizar
       console.log("[Upload] Creating audiobook project");
       const project = await storage.createAudiobookProject({
-        title: title || parsed.title,
-        author: author || null,
+        title: title || parsedTitle,
+        author: author || parsedAuthor || null,
         sourceFileName: req.file.originalname,
         ttsProvider: ttsProvider || "polly",
         googleCredentialId: googleCredentialId ? parseInt(googleCredentialId) : null,
@@ -1534,26 +1604,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         engine: engine || "generative",
         speechRate: speechRate || "75%", // Óptimo para audiolibros: más natural y pausado
         status: "ready",
-        totalChapters: parsed.chapters.length,
+        totalChapters: chapters.length,
         completedChapters: 0,
         errorMessage: null,
       });
       console.log(`[Upload] Project created: ID ${project.id}`);
 
       // Crear los capítulos
-      console.log(`[Upload] Creating ${parsed.chapters.length} chapters`);
-      for (const chapter of parsed.chapters) {
+      console.log(`[Upload] Creating ${chapters.length} chapters`);
+      for (const chapter of chapters) {
         await storage.createAudiobookChapter({
           projectId: project.id,
           sequenceNumber: chapter.sequenceNumber,
           title: chapter.title,
           contentText: chapter.contentText,
-          contentSsml: null,
+          contentSsml: chapter.contentSsml,
           characterCount: chapter.characterCount,
           estimatedDurationSeconds: chapter.estimatedDurationSeconds,
         });
       }
-      console.log("[Upload] All chapters created");
+      console.log("[Upload] All chapters created" + (hasSSMLAnnotations ? " with SSML annotations" : ""));
 
       // Limpiar archivo temporal
       try {
@@ -1564,16 +1634,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Obtener capítulos creados
-      const chapters = await storage.getChaptersByProject(project.id);
+      const savedChapters = await storage.getChaptersByProject(project.id);
 
-      console.log(`[Upload] Upload complete: Project ${project.id} with ${chapters.length} chapters`);
+      console.log(`[Upload] Upload complete: Project ${project.id} with ${savedChapters.length} chapters`);
       res.json({
         project,
-        chapters,
+        chapters: savedChapters,
         summary: {
-          totalChapters: parsed.chapters.length,
-          totalCharacters: parsed.totalCharacters,
-          estimatedDurationMinutes: Math.round(parsed.totalEstimatedDuration / 60),
+          totalChapters: chapters.length,
+          totalCharacters,
+          estimatedDurationMinutes: Math.round(totalEstimatedDuration / 60),
+          hasSSMLAnnotations,
         },
       });
     } catch (error) {
