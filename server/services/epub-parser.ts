@@ -281,9 +281,66 @@ async function parseSpineDocument(
     const xhtml = await docFile.async("text");
     const $ = cheerio.load(xhtml, { xmlMode: true });
     
-    let title = $("h1").first().text().trim();
+    // Try multiple strategies to find chapter title
+    let title = "";
+    
+    // Strategy 1: Look for h1
+    title = $("h1").first().text().trim();
+    
+    // Strategy 2: Look for h2 if no h1
     if (!title) {
-      title = $("title").text().trim() || `Capítulo ${sequenceNumber}`;
+      title = $("h2").first().text().trim();
+    }
+    
+    // Strategy 3: Look for elements with chapter-related classes
+    if (!title) {
+      const chapterSelectors = [
+        "[class*='chapter']",
+        "[class*='titulo']",
+        "[class*='title']",
+        "[class*='heading']",
+        "[class*='capitulo']",
+        ".chapter-title",
+        ".chapter-name",
+        ".chapterTitle",
+        "#chapter-title",
+      ];
+      for (const selector of chapterSelectors) {
+        const found = $(selector).first().text().trim();
+        if (found && found.length < 200) { // Avoid grabbing entire paragraphs
+          title = found;
+          break;
+        }
+      }
+    }
+    
+    // Strategy 4: Look for h3
+    if (!title) {
+      title = $("h3").first().text().trim();
+    }
+    
+    // Strategy 5: Document title tag
+    if (!title) {
+      title = $("title").text().trim();
+    }
+    
+    // Strategy 6: Look for first bold or strong text if it's short
+    if (!title) {
+      const boldText = $("b, strong").first().text().trim();
+      if (boldText && boldText.length < 100) {
+        title = boldText;
+      }
+    }
+    
+    // Final fallback
+    if (!title) {
+      title = `Capítulo ${sequenceNumber}`;
+    }
+    
+    // Clean up title: remove excessive whitespace and limit length
+    title = title.replace(/\s+/g, " ").trim();
+    if (title.length > 150) {
+      title = title.substring(0, 147) + "...";
     }
     
     const body = $("body").get(0);
