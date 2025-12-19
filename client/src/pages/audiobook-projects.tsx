@@ -1120,7 +1120,7 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
   const [author, setAuthor] = useState("");
   const [engine, setEngine] = useState<string>("");
   const [voiceId, setVoiceId] = useState("");
-  const [speechRate, setSpeechRate] = useState("90%"); // ACX default: 90% for better comprehension
+  const [speechRate, setSpeechRate] = useState("75%"); // Óptimo para audiolibros: más natural y pausado
   const [uploading, setUploading] = useState(false);
 
   const { data: voices, isLoading: loadingVoices } = useQuery<Voice[]>({

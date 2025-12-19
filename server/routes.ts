@@ -1527,8 +1527,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sourceFileName: req.file.originalname,
         voiceId: voiceId || "Lucia",
         voiceLocale: voiceLocale || "es-ES",
-        engine: engine || "neural",
-        speechRate: speechRate || "90%", // ACX default: 90% for better comprehension
+        engine: engine || "generative",
+        speechRate: speechRate || "75%", // Óptimo para audiolibros: más natural y pausado
         status: "ready",
         totalChapters: parsed.chapters.length,
         completedChapters: 0,
@@ -1967,7 +1967,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error(`[Synthesis] Error in project ${id}:`, synthesisError instanceof Error ? synthesisError.message : synthesisError);
           try {
             await storage.updateAudiobookProject(id, {
-              status: "error",
+              status: "failed",
               errorMessage: synthesisError instanceof Error ? synthesisError.message : "Unknown synthesis error"
             });
           } catch (updateErr) {

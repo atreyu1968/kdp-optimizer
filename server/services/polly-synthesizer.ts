@@ -723,8 +723,8 @@ export async function synthesizeProject(
   console.log(`[Polly] Project ${projectId}: ${alreadyMastered} mastered, ${chaptersToProcess.length} to process`);
   console.log(`[Polly] Using PARALLEL processing with ${effectiveConcurrency} concurrent chapters`);
   
-  // Use speech rate from project or default to 90% for ACX audiobooks
-  const speechRate = project.speechRate || "90%";
+  // Use speech rate from project or default to 75% for optimal audiobook quality
+  const speechRate = project.speechRate || "75%";
   
   // Create a map of chapter indices for track number calculation
   const chapterIndices = new Map<number, number>();
@@ -1137,7 +1137,7 @@ async function synthesizeProjectFromChapter(
         chapter.contentText,
         project.voiceId,
         project.engine,
-        project.speechRate || "90%",
+        project.speechRate || "75%",
         chapter.title
       );
       
