@@ -54,8 +54,69 @@ export interface PLSEntry {
 
 const CHARS_PER_SECOND = 12.5;
 
+// Minimum characters for a chapter to be considered narrative content
+const MIN_NARRATIVE_CHARS = 200;
+
+// Patterns to identify non-narrative pages (title page, index, copyright, etc.)
+const NON_NARRATIVE_TITLE_PATTERNS = [
+  /^(índice|indice|table of contents|contents|toc|sumario|contenido)$/i,
+  /^(copyright|derechos|legal|aviso legal|nota legal)$/i,
+  /^(título|title|portada|cover|cubierta)$/i,
+  /^(créditos|credits|agradecimientos|acknowledgments|acknowledgements)$/i,
+  /^(dedicatoria|dedication|para\s)$/i,
+  /^(colofón|colophon)$/i,
+  /^(nota del autor|author'?s? note|nota del editor|editor'?s? note)$/i,
+  /^(bibliografía|bibliography|referencias|references)$/i,
+  /^(sobre el autor|about the author|biografía|biography)$/i,
+  /^(otros libros|also by|otras obras)$/i,
+  /^(sinopsis|synopsis|resumen|summary)$/i,
+];
+
+// Content patterns that indicate non-narrative pages
+const NON_NARRATIVE_CONTENT_PATTERNS = [
+  /©\s*\d{4}/i,  // Copyright symbol with year
+  /todos los derechos reservados/i,
+  /all rights reserved/i,
+  /ISBN[:\s]*[\d\-X]+/i,
+  /depósito legal/i,
+  /primera edición/i,
+  /impreso en/i,
+  /printed in/i,
+];
+
 function calculateDuration(characterCount: number): number {
   return Math.ceil(characterCount / CHARS_PER_SECOND);
+}
+
+/**
+ * Check if a chapter should be excluded from audio narration
+ */
+function isNonNarrativeContent(title: string, content: string): boolean {
+  // Check title patterns
+  const normalizedTitle = title.trim().toLowerCase();
+  for (const pattern of NON_NARRATIVE_TITLE_PATTERNS) {
+    if (pattern.test(normalizedTitle)) {
+      return true;
+    }
+  }
+  
+  // Check if content is too short (likely title page, separator, etc.)
+  if (content.length < MIN_NARRATIVE_CHARS) {
+    return true;
+  }
+  
+  // Check content patterns (only in the first 500 chars to catch copyright pages)
+  const contentStart = content.slice(0, 500);
+  for (const pattern of NON_NARRATIVE_CONTENT_PATTERNS) {
+    if (pattern.test(contentStart)) {
+      // Only exclude if the page is short (copyright pages are usually short)
+      if (content.length < 1500) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
 }
 
 /**
@@ -525,6 +586,12 @@ export async function parseEpubDocument(buffer: Buffer, filename: string): Promi
     
     const chapter = await parseSpineDocument(zip, manifestItem.href, sequenceNumber, ncxTitle);
     if (chapter) {
+      // Filter out non-narrative content (title page, index, copyright, etc.)
+      if (isNonNarrativeContent(chapter.title, chapter.contentText)) {
+        console.log(`[EpubParser] Skipping non-narrative content: "${chapter.title}" (${chapter.characterCount} chars)`);
+        continue;
+      }
+      
       chapters.push(chapter);
       sequenceNumber++;
       
