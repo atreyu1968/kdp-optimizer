@@ -72,6 +72,17 @@ interface Voice {
   engine: string;
 }
 
+interface GoogleVoice {
+  id: string;
+  name: string;
+  languageCode: string;
+  languageName: string;
+  gender: string;
+  voiceType: string;
+}
+
+type TTSProvider = "polly" | "google";
+
 interface ProjectDetailProps {
   projectId: number;
   onBack: () => void;
@@ -1118,21 +1129,44 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
+  const [ttsProvider, setTtsProvider] = useState<TTSProvider>("polly");
   const [engine, setEngine] = useState<string>("");
   const [voiceId, setVoiceId] = useState("");
-  const [speechRate, setSpeechRate] = useState("75%"); // Óptimo para audiolibros: más natural y pausado
+  const [speechRate, setSpeechRate] = useState("75%");
   const [uploading, setUploading] = useState(false);
 
-  const { data: voices, isLoading: loadingVoices } = useQuery<Voice[]>({
+  // Query para voces de Amazon Polly
+  const { data: pollyVoices, isLoading: loadingPollyVoices } = useQuery<Voice[]>({
     queryKey: ["/api/audiobooks/voices"],
+    enabled: open && ttsProvider === "polly",
+  });
+
+  // Query para status de Google TTS
+  const { data: googleStatus } = useQuery<{ configured: boolean }>({
+    queryKey: ["/api/audiobooks/google-status"],
     enabled: open,
   });
 
-  const availableEngines = voices 
-    ? Array.from(new Set(voices.map(v => v.engine))).sort()
-    : [];
+  // Query para voces de Google TTS
+  const { data: googleVoicesData, isLoading: loadingGoogleVoices } = useQuery<{ configured: boolean; voices: GoogleVoice[] }>({
+    queryKey: ["/api/audiobooks/google-voices"],
+    enabled: open && ttsProvider === "google" && googleStatus?.configured,
+  });
 
-  const filteredVoices = voices?.filter(v => !engine || v.engine === engine) || [];
+  const googleVoices = googleVoicesData?.voices || [];
+  const isGoogleConfigured = googleStatus?.configured ?? false;
+
+  // Motores disponibles según el proveedor
+  const availableEngines = ttsProvider === "polly"
+    ? pollyVoices ? Array.from(new Set(pollyVoices.map(v => v.engine))).sort() : []
+    : googleVoices ? Array.from(new Set(googleVoices.map(v => v.voiceType))).sort() : [];
+
+  // Voces filtradas según proveedor y motor
+  const filteredVoices = ttsProvider === "polly"
+    ? pollyVoices?.filter(v => !engine || v.engine === engine) || []
+    : googleVoices?.filter(v => !engine || v.voiceType === engine) || [];
+
+  const loadingVoices = ttsProvider === "polly" ? loadingPollyVoices : loadingGoogleVoices;
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -1176,13 +1210,21 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
       formData.append("author", author);
       formData.append("voiceId", voiceId);
 
-      const selectedVoice = voices?.find(v => v.id === voiceId && v.engine === engine);
-      if (selectedVoice) {
-        formData.append("voiceLocale", selectedVoice.languageCode);
+      // Determinar locale según proveedor
+      if (ttsProvider === "polly") {
+        const selectedVoice = pollyVoices?.find(v => v.id === voiceId && v.engine === engine);
+        if (selectedVoice) {
+          formData.append("voiceLocale", selectedVoice.languageCode);
+        }
+      } else {
+        const selectedVoice = googleVoices?.find(v => v.id === voiceId);
+        if (selectedVoice) {
+          formData.append("voiceLocale", selectedVoice.languageCode);
+        }
       }
-      // Usar el motor seleccionado directamente, no el de la voz encontrada
       formData.append("engine", engine);
       formData.append("speechRate", speechRate);
+      formData.append("ttsProvider", ttsProvider);
 
       // Usar apiRequest para mejor manejo de errores y timeouts
       const response = await apiRequest("POST", "/api/audiobooks/upload", formData);
@@ -1194,9 +1236,10 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
       setFile(null);
       setTitle("");
       setAuthor("");
+      setTtsProvider("polly");
       setEngine("");
       setVoiceId("");
-      setSpeechRate("90%");
+      setSpeechRate("75%");
       onSuccess();
     } catch (error: any) {
       const errorMsg = error instanceof Error ? error.message : "Error desconocido al subir el archivo";
@@ -1207,7 +1250,9 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
     }
   };
 
-  const selectedVoice = voices?.find(v => v.id === voiceId && v.engine === engine);
+  const selectedVoice = ttsProvider === "polly"
+    ? pollyVoices?.find(v => v.id === voiceId && v.engine === engine)
+    : googleVoices?.find(v => v.id === voiceId && v.voiceType === engine);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -1274,6 +1319,38 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="provider">Proveedor de voz</Label>
+            <Select 
+              value={ttsProvider} 
+              onValueChange={(val: TTSProvider) => { 
+                setTtsProvider(val); 
+                setEngine(""); 
+                setVoiceId(""); 
+              }}
+            >
+              <SelectTrigger data-testid="select-provider-trigger">
+                <SelectValue placeholder="Selecciona un proveedor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="polly" data-testid="provider-option-polly">
+                  Amazon Polly (Generative, Neural, Long-form)
+                </SelectItem>
+                <SelectItem value="google" disabled={!isGoogleConfigured} data-testid="provider-option-google">
+                  Google Cloud TTS (Neural2, WaveNet)
+                  {!isGoogleConfigured && " - No configurado"}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {ttsProvider === "polly" 
+                ? "Amazon Polly ofrece voces Generative (mejor calidad) y Long-form para audiolibros."
+                : isGoogleConfigured 
+                  ? "Google Cloud TTS Neural2 ofrece voces naturales de alta calidad."
+                  : "Configura GOOGLE_TTS_CREDENTIALS para habilitar Google Cloud TTS."}
+            </p>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="engine">Motor de síntesis</Label>
             <Select value={engine} onValueChange={(val) => { setEngine(val); setVoiceId(""); }}>
               <SelectTrigger data-testid="select-engine-trigger">
@@ -1282,30 +1359,41 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
               <SelectContent>
                 {availableEngines.map((eng) => (
                   <SelectItem key={eng} value={eng} data-testid={`engine-option-${eng}`}>
-                    {eng === "long-form" ? "Long-form (audiolibros)" : 
-                     eng === "neural" ? "Neural (alta calidad)" : 
-                     eng === "standard" ? "Standard (básico)" : eng}
+                    {ttsProvider === "polly" 
+                      ? (eng === "long-form" ? "Long-form (audiolibros)" : 
+                         eng === "neural" ? "Neural (alta calidad)" :
+                         eng === "generative" ? "Generative (mejor calidad)" : 
+                         eng === "standard" ? "Standard (básico)" : eng)
+                      : (eng === "Neural2" ? "Neural2 (recomendado)" :
+                         eng === "Journey" ? "Journey (narrativo)" :
+                         eng === "WaveNet" ? "WaveNet (alta calidad)" : eng)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              {engine === "long-form" ? "Ideal para contenido narrativo largo. Solo us-east-1." :
-               engine === "neural" ? "Voces de alta calidad para contenido general." :
-               engine === "standard" ? "Voces básicas, menor costo." :
-               "Selecciona un motor para ver las voces disponibles."}
+              {ttsProvider === "polly" 
+                ? (engine === "long-form" ? "Ideal para contenido narrativo largo. Solo us-east-1." :
+                   engine === "neural" ? "Voces de alta calidad para contenido general." :
+                   engine === "generative" ? "Máxima calidad y naturalidad. Recomendado." :
+                   engine === "standard" ? "Voces básicas, menor costo." :
+                   "Selecciona un motor para ver las voces disponibles.")
+                : (engine === "Neural2" ? "Voces premium de Google. Alta naturalidad." :
+                   engine === "Journey" ? "Optimizado para narración larga." :
+                   engine === "WaveNet" ? "Voces de alta calidad basadas en redes neuronales." :
+                   "Selecciona un tipo de voz para ver las opciones disponibles.")}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="voice">Voz de Amazon Polly</Label>
+            <Label htmlFor="voice">Voz {ttsProvider === "polly" ? "de Amazon Polly" : "de Google Cloud"}</Label>
             <Select value={voiceId} onValueChange={setVoiceId} disabled={!engine}>
               <SelectTrigger data-testid="select-voice-trigger">
                 <SelectValue placeholder={!engine ? "Primero selecciona un motor" : "Selecciona una voz"} />
               </SelectTrigger>
               <SelectContent>
                 {filteredVoices.map((voice, index) => (
-                  <SelectItem key={`${voice.id}-${voice.engine}-${index}`} value={voice.id} data-testid={`voice-option-${voice.id}`}>
+                  <SelectItem key={`${voice.id}-${index}`} value={voice.id} data-testid={`voice-option-${voice.id}`}>
                     {voice.name} ({voice.languageName}) - {voice.gender}
                   </SelectItem>
                 ))}
