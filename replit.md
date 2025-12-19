@@ -36,6 +36,7 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
 *   **SEO for Book Landing Pages**: Automatic generation of SEO metadata for each market including: SEO Title (50-60 chars), SEO Description (150-160 chars), SEO Keywords (8-12), and Open Graph tags for social sharing. Displayed in results panel with character count validation and copy buttons.
 *   **Search and Filter Capabilities**: Comprehensive search and filtering are available across all Aura management pages (Books, Series, Pen Names).
 *   **Parallel Chapter Processing (AudiobookForge)**: Audiobook synthesis now processes 3 chapters simultaneously using batch-based parallelism. This significantly reduces total processing time for multi-chapter books. Configuration: `PARALLEL_CHAPTER_LIMIT=3`, `STUCK_JOB_TIMEOUT=60min`. The system uses resilient error handling - failed chapters don't block other chapters, and progress is reported in real-time.
+*   **Multi-Credential Google Cloud TTS**: Secure management system for multiple Google Cloud service account credentials. Credentials are encrypted using AES-256-GCM with a master key (`GOOGLE_TTS_MASTER_KEY` - 64 hex chars). Features: credential CRUD with validation via Google API, cached TextToSpeechClient instances per credential ID, voice listing per credential, and project-level credential selection. UI accessible via Settings tab in AudiobookForge.
 
 ## External Dependencies
 *   **AI Services**: OpenAI API (GPT-4o-mini).
