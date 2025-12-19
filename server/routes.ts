@@ -16,6 +16,7 @@ import { importKdpXlsx, importKenpMonthlyData, processSalesMonthlyData } from ".
 import { analyzeAllBooks, getEnrichedInsights } from "./services/book-analyzer";
 import { parseWordDocument } from "./services/word-parser";
 import { synthesizeProject, getAvailableVoices, validateAwsCredentials, recoverPendingJobs } from "./services/polly-synthesizer";
+import { getGoogleVoices, isGoogleTTSConfigured, synthesizeProjectWithGoogle } from "./services/google-tts-synthesizer";
 import type { IVooxMetadata } from "@shared/schema";
 import multer from "multer";
 import { join } from "path";
@@ -2003,6 +2004,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error validating credentials:", error);
       res.status(500).json({ valid: false, error: "Failed to validate credentials" });
+    }
+  });
+
+  // Obtener voces de Google Cloud TTS (Neural2, WaveNet, Journey)
+  app.get("/api/audiobooks/google-voices", async (req, res) => {
+    try {
+      if (!isGoogleTTSConfigured()) {
+        res.json({ configured: false, voices: [] });
+        return;
+      }
+      const { languageCode } = req.query;
+      const voices = await getGoogleVoices(languageCode as string | undefined);
+      res.json({ configured: true, voices });
+    } catch (error) {
+      console.error("Error fetching Google voices:", error);
+      res.status(500).json({ configured: false, error: "Failed to fetch Google voices" });
+    }
+  });
+
+  // Verificar si Google Cloud TTS está configurado
+  app.get("/api/audiobooks/google-status", async (req, res) => {
+    try {
+      res.json({ configured: isGoogleTTSConfigured() });
+    } catch (error) {
+      res.json({ configured: false });
+    }
+  });
+
+  // Iniciar síntesis con Google Cloud TTS
+  app.post("/api/audiobooks/projects/:id/synthesize-google", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid project ID" });
+        return;
+      }
+
+      if (!isGoogleTTSConfigured()) {
+        res.status(400).json({ error: "Google Cloud TTS not configured" });
+        return;
+      }
+
+      const project = await storage.getAudiobookProject(id);
+      if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+      }
+
+      if (project.status === "synthesizing" || project.status === "mastering") {
+        res.status(400).json({ error: "Project is already being processed" });
+        return;
+      }
+
+      res.json({ message: "Synthesis with Google TTS started", projectId: id });
+
+      setImmediate(async () => {
+        try {
+          console.log(`[Google TTS] Starting project ${id}...`);
+          await synthesizeProjectWithGoogle(id, (completed, total, currentChapter) => {
+            console.log(`[Google TTS] Project ${id}: ${completed}/${total} - ${currentChapter}`);
+          });
+          console.log(`[Google TTS] Completed project ${id}`);
+        } catch (synthesisError) {
+          console.error(`[Google TTS] Error in project ${id}:`, synthesisError instanceof Error ? synthesisError.message : synthesisError);
+          try {
+            await storage.updateAudiobookProject(id, {
+              status: "failed",
+              errorMessage: synthesisError instanceof Error ? synthesisError.message : "Unknown synthesis error"
+            });
+          } catch (updateErr) {
+            console.error(`[Google TTS] Could not update error status:`, updateErr);
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Error starting Google synthesis:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to start Google synthesis" });
+      }
     }
   });
 

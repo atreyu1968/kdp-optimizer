@@ -664,3 +664,58 @@ export function wrapInSSML(text: string, rate: string = 'medium'): string {
   
   return `<speak><prosody rate="${prosodyRate}">${escapedText}</prosody></speak>`;
 }
+
+/**
+ * Wrap text in SSML for Google Cloud TTS
+ * Google uses slightly different SSML syntax but same pause structure
+ * Rate is specified as a multiplier (0.5 to 2.0) or percentage
+ */
+export function wrapInSSMLForGoogle(text: string, rate: string = 'medium'): string {
+  // Convert rate to Google format (percentage or multiplier)
+  let prosodyRate: string;
+  if (rate.endsWith('%')) {
+    prosodyRate = rate; // Keep percentage as-is
+  } else {
+    const rateMap: Record<string, string> = {
+      'very-slow': '50%',
+      'slow': '75%',
+      'medium': '100%',
+      'fast': '125%',
+      'very-fast': '150%',
+    };
+    prosodyRate = rateMap[rate] || '100%';
+  }
+  
+  // Escape special XML characters
+  let escapedText = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  
+  // Apply pronunciation corrections
+  escapedText = applyPronunciationCorrections(escapedText);
+  
+  // Scene breaks
+  escapedText = escapedText.replace(/\[SCENE_BREAK\]/g, '<break time="1800ms"/>');
+  
+  // Paragraph breaks
+  escapedText = escapedText.replace(/\n\n/g, '<break time="900ms"/>');
+  escapedText = escapedText.replace(/\n/g, '<break time="400ms"/>');
+  
+  // Punctuation pauses (same as Polly)
+  escapedText = escapedText.replace(/\.\.\.(\s|$)/g, '<break time="500ms"/>$1');
+  escapedText = escapedText.replace(/\.(\s+)(?=[A-ZÁÉÍÓÚÑ])/g, '.<break time="650ms"/>$1');
+  escapedText = escapedText.replace(/\.(\s*)$/g, '.<break time="650ms"/>$1');
+  escapedText = escapedText.replace(/\?(\s+)/g, '?<break time="700ms"/>$1');
+  escapedText = escapedText.replace(/\?(\s*)$/g, '?<break time="700ms"/>$1');
+  escapedText = escapedText.replace(/!(\s+)/g, '!<break time="700ms"/>$1');
+  escapedText = escapedText.replace(/!(\s*)$/g, '!<break time="700ms"/>$1');
+  escapedText = escapedText.replace(/;(\s+)/g, ';<break time="350ms"/>$1');
+  escapedText = escapedText.replace(/:(\s+)/g, ':<break time="350ms"/>$1');
+  escapedText = escapedText.replace(/—(\s*)/g, '—<break time="300ms"/>$1');
+  escapedText = escapedText.replace(/–(\s*)/g, '–<break time="300ms"/>$1');
+  escapedText = escapedText.replace(/,(\s+)/g, ',<break time="200ms"/>$1');
+  escapedText = escapedText.replace(/(["»])(\s*,\s*)/g, '$1<break time="250ms"/>$2');
+  
+  return `<speak><prosody rate="${prosodyRate}">${escapedText}</prosody></speak>`;
+}
