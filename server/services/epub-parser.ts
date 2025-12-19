@@ -90,6 +90,7 @@ async function parseOPF(zip: JSZip, opfPath: string): Promise<{
   manifest: Map<string, { href: string; mediaType: string }>;
   spine: string[];
   plsFiles: string[];
+  ncxPath: string | null;
 }> {
   const opfFile = zip.file(opfPath);
   if (!opfFile) {
@@ -107,6 +108,7 @@ async function parseOPF(zip: JSZip, opfPath: string): Promise<{
   
   const manifest = new Map<string, { href: string; mediaType: string }>();
   const plsFiles: string[] = [];
+  let ncxPath: string | null = null;
   
   $("manifest item").each((_, item) => {
     const $item = $(item);
@@ -121,6 +123,11 @@ async function parseOPF(zip: JSZip, opfPath: string): Promise<{
       if (mediaType === "application/pls+xml") {
         plsFiles.push(fullPath);
       }
+      
+      // Find NCX file (table of contents)
+      if (mediaType === "application/x-dtbncx+xml" || href.endsWith(".ncx")) {
+        ncxPath = fullPath;
+      }
     }
   });
   
@@ -132,7 +139,52 @@ async function parseOPF(zip: JSZip, opfPath: string): Promise<{
     }
   });
   
-  return { title, author, language, manifest, spine, plsFiles };
+  return { title, author, language, manifest, spine, plsFiles, ncxPath };
+}
+
+/**
+ * Parse NCX file to get table of contents with chapter titles
+ * Returns a map from document path to title
+ */
+async function parseNCX(zip: JSZip, ncxPath: string, opfDir: string): Promise<Map<string, string>> {
+  const titleMap = new Map<string, string>();
+  
+  const ncxFile = zip.file(ncxPath);
+  if (!ncxFile) {
+    console.log(`[EpubParser] NCX file not found: ${ncxPath}`);
+    return titleMap;
+  }
+  
+  try {
+    const ncxXml = await ncxFile.async("text");
+    const $ = cheerio.load(ncxXml, { xmlMode: true });
+    
+    $("navPoint").each((_, navPoint) => {
+      const $navPoint = $(navPoint);
+      const label = $navPoint.find("navLabel text").first().text().trim();
+      let src = $navPoint.find("content").first().attr("src") || "";
+      
+      if (label && src) {
+        // Remove fragment identifier (#section) if present
+        src = src.split("#")[0];
+        
+        // Build full path relative to NCX location
+        const ncxDir = path.dirname(ncxPath);
+        const fullPath = ncxDir ? path.join(ncxDir, src).replace(/\\/g, "/") : src;
+        
+        // Only set if not already set (keep first occurrence)
+        if (!titleMap.has(fullPath)) {
+          titleMap.set(fullPath, label);
+        }
+      }
+    });
+    
+    console.log(`[EpubParser] NCX parsed: found ${titleMap.size} navigation points`);
+  } catch (error) {
+    console.error(`[EpubParser] Error parsing NCX:`, error);
+  }
+  
+  return titleMap;
 }
 
 /**
@@ -264,12 +316,40 @@ function extractContentWithSSML($: cheerio.CheerioAPI, element: any): {
 }
 
 /**
+ * Extract chapter title from content text using common patterns
+ */
+function extractTitleFromContent(text: string): string | null {
+  const firstLines = text.slice(0, 500);
+  
+  // Common chapter patterns in multiple languages
+  const patterns = [
+    /^(Prólogo|Epílogo|Introducción|Conclusión|Prefacio)\s*$/im,
+    /^(Prologue|Epilogue|Introduction|Conclusion|Preface)\s*$/im,
+    /^(Capítulo|Chapter|Chapitre|Kapitel|Capitolo)\s+(\d+|[IVXLC]+)\s*$/im,
+    /^(Capítulo|Chapter|Chapitre|Kapitel|Capitolo)\s+(\d+|[IVXLC]+)\s*[:\-–—]\s*(.+)$/im,
+    /^(Parte|Part|Partie|Teil)\s+(\d+|[IVXLC]+)\s*$/im,
+    /^(\d+)\s*[:\-–—\.]\s*(.+)$/m,
+    /^([IVXLC]+)\s*[:\-–—\.]\s*(.+)$/m,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = firstLines.match(pattern);
+    if (match) {
+      return match[0].trim();
+    }
+  }
+  
+  return null;
+}
+
+/**
  * Parse a single XHTML document from the EPUB spine
  */
 async function parseSpineDocument(
   zip: JSZip,
   docPath: string,
-  sequenceNumber: number
+  sequenceNumber: number,
+  ncxTitle?: string
 ): Promise<ParsedChapterWithSSML | null> {
   const docFile = zip.file(docPath);
   if (!docFile) {
@@ -284,8 +364,15 @@ async function parseSpineDocument(
     // Try multiple strategies to find chapter title
     let title = "";
     
+    // Strategy 0 (PRIORITY): Use title from NCX table of contents
+    if (ncxTitle) {
+      title = ncxTitle;
+    }
+    
     // Strategy 1: Look for h1
-    title = $("h1").first().text().trim();
+    if (!title) {
+      title = $("h1").first().text().trim();
+    }
     
     // Strategy 2: Look for h2 if no h1
     if (!title) {
@@ -307,7 +394,7 @@ async function parseSpineDocument(
       ];
       for (const selector of chapterSelectors) {
         const found = $(selector).first().text().trim();
-        if (found && found.length < 200) { // Avoid grabbing entire paragraphs
+        if (found && found.length < 200) {
           title = found;
           break;
         }
@@ -319,9 +406,13 @@ async function parseSpineDocument(
       title = $("h3").first().text().trim();
     }
     
-    // Strategy 5: Document title tag
+    // Strategy 5: Document title tag (but only if different from book title)
     if (!title) {
-      title = $("title").text().trim();
+      const docTitle = $("title").text().trim();
+      // Avoid using the book's main title as chapter title
+      if (docTitle && docTitle.length < 100) {
+        title = docTitle;
+      }
     }
     
     // Strategy 6: Look for first bold or strong text if it's short
@@ -329,6 +420,26 @@ async function parseSpineDocument(
       const boldText = $("b, strong").first().text().trim();
       if (boldText && boldText.length < 100) {
         title = boldText;
+      }
+    }
+    
+    // Parse content first so we can check for patterns
+    const body = $("body").get(0);
+    if (!body) {
+      return null;
+    }
+    
+    const { plainText, ssmlText, annotations } = extractContentWithSSML($, body);
+    
+    if (!plainText.trim()) {
+      return null;
+    }
+    
+    // Strategy 7: Extract title from content patterns (Prólogo, Capítulo X, etc.)
+    if (!title) {
+      const contentTitle = extractTitleFromContent(plainText);
+      if (contentTitle) {
+        title = contentTitle;
       }
     }
     
@@ -341,17 +452,6 @@ async function parseSpineDocument(
     title = title.replace(/\s+/g, " ").trim();
     if (title.length > 150) {
       title = title.substring(0, 147) + "...";
-    }
-    
-    const body = $("body").get(0);
-    if (!body) {
-      return null;
-    }
-    
-    const { plainText, ssmlText, annotations } = extractContentWithSSML($, body);
-    
-    if (!plainText.trim()) {
-      return null;
     }
     
     const characterCount = plainText.length;
@@ -382,9 +482,17 @@ export async function parseEpubDocument(buffer: Buffer, filename: string): Promi
   const rootfilePath = await findRootfilePath(zip);
   console.log(`[EpubParser] Found rootfile at: ${rootfilePath}`);
   
-  const { title, author, language, manifest, spine, plsFiles } = await parseOPF(zip, rootfilePath);
+  const { title, author, language, manifest, spine, plsFiles, ncxPath } = await parseOPF(zip, rootfilePath);
   console.log(`[EpubParser] Metadata - Title: "${title}", Author: "${author}", Language: ${language}`);
   console.log(`[EpubParser] Spine contains ${spine.length} documents`);
+  
+  // Parse NCX for chapter titles
+  const opfDir = path.dirname(rootfilePath);
+  let ncxTitles = new Map<string, string>();
+  if (ncxPath) {
+    ncxTitles = await parseNCX(zip, ncxPath, opfDir);
+    console.log(`[EpubParser] NCX titles found: ${ncxTitles.size}`);
+  }
   
   const plsLexicons: PLSLexicon[] = [];
   for (const plsPath of plsFiles) {
@@ -412,7 +520,10 @@ export async function parseEpubDocument(buffer: Buffer, filename: string): Promi
       continue;
     }
     
-    const chapter = await parseSpineDocument(zip, manifestItem.href, sequenceNumber);
+    // Get title from NCX if available
+    const ncxTitle = ncxTitles.get(manifestItem.href);
+    
+    const chapter = await parseSpineDocument(zip, manifestItem.href, sequenceNumber, ncxTitle);
     if (chapter) {
       chapters.push(chapter);
       sequenceNumber++;
