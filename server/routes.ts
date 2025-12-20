@@ -100,13 +100,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/optimize", async (req, res) => {
-    const sessionId = `session-${Date.now()}`;
-    
-    // Crear emitter proactivamente para asegurar que siempre podemos emitir errores
-    let emitter = new ProgressEmitter();
-    progressEmitters.set(sessionId, emitter);
-    
-    res.json({ sessionId });
+    try {
+      const sessionId = `session-${Date.now()}`;
+      
+      // Crear emitter proactivamente para asegurar que siempre podemos emitir errores
+      let emitter = new ProgressEmitter();
+      progressEmitters.set(sessionId, emitter);
+      
+      res.json({ sessionId });
 
     setImmediate(async () => {
       try {
@@ -188,6 +189,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
     });
+    } catch (error) {
+      console.error("[/api/optimize] Error creating session:", error);
+      res.status(500).json({ error: "Failed to create optimization session" });
+    }
   });
 
   app.get("/api/manuscripts", async (req, res) => {
