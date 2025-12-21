@@ -101,7 +101,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/optimize", async (req, res) => {
     try {
+      console.log("[/api/optimize] Recibida petición de optimización");
+      
+      // Verificar que tenemos las credenciales de OpenAI antes de empezar
+      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+        console.error("[/api/optimize] ERROR: AI_INTEGRATIONS_OPENAI_API_KEY no está configurada");
+        res.status(500).json({ error: "El servicio de IA no está configurado correctamente. Contacta al administrador." });
+        return;
+      }
+      
       const sessionId = `session-${Date.now()}`;
+      console.log("[/api/optimize] Creando sesión:", sessionId);
       
       // Crear emitter proactivamente para asegurar que siempre podemos emitir errores
       let emitter = new ProgressEmitter();
