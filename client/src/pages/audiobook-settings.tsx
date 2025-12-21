@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle2, XCircle, Key, Cloud, HardDrive, AlertTriangle, Info } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CheckCircle2, XCircle, Key, Cloud, HardDrive, AlertTriangle, Info, Mail, ExternalLink, Server, Lock } from "lucide-react";
 
 interface AwsCredentialsStatus {
   hasAccessKeyId: boolean;
