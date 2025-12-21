@@ -1696,6 +1696,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reanudar síntesis de un proyecto
   app.post("/api/audiobooks/projects/:id/resume", async (req, res) => {
     try {
+      // Verificar credenciales AWS antes de empezar
+      if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+        console.error("[Resume] ERROR: Credenciales AWS no configuradas");
+        res.status(500).json({ error: "Las credenciales de AWS no están configuradas. Configúralas en la pestaña Secrets." });
+        return;
+      }
+
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         res.status(400).json({ error: "Invalid project ID" });
@@ -1727,6 +1734,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Re-sintetizar un capítulo individual
   app.post("/api/audiobooks/chapters/:chapterId/resynthesize", async (req, res) => {
     try {
+      // Verificar credenciales AWS antes de empezar
+      if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+        console.error("[Resynthesize] ERROR: Credenciales AWS no configuradas");
+        res.status(500).json({ error: "Las credenciales de AWS no están configuradas. Configúralas en la pestaña Secrets." });
+        return;
+      }
+
       const chapterId = parseInt(req.params.chapterId);
       if (isNaN(chapterId)) {
         res.status(400).json({ error: "Invalid chapter ID" });
@@ -1790,6 +1804,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Masterizar un capítulo individual (para capítulos completed sin masterizar)
   app.post("/api/audiobooks/jobs/:jobId/master", async (req, res) => {
     try {
+      // Verificar credenciales AWS antes de empezar
+      if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+        console.error("[Master] ERROR: Credenciales AWS no configuradas");
+        res.status(500).json({ error: "Las credenciales de AWS no están configuradas. Configúralas en la pestaña Secrets." });
+        return;
+      }
+
       const jobId = parseInt(req.params.jobId);
       if (isNaN(jobId)) {
         res.status(400).json({ error: "Invalid job ID" });
@@ -2027,6 +2048,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Iniciar síntesis de un proyecto
   app.post("/api/audiobooks/projects/:id/synthesize", async (req, res) => {
     try {
+      // Verificar credenciales AWS antes de empezar
+      if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+        console.error("[Synthesis] ERROR: Credenciales AWS no configuradas");
+        res.status(500).json({ error: "Las credenciales de AWS no están configuradas. Configúralas en la pestaña Secrets." });
+        return;
+      }
+
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         res.status(400).json({ error: "Invalid project ID" });
