@@ -123,23 +123,13 @@ function PostCard({ post, platform, coverUrl }: { post: SocialPost; platform: st
         )}
         <div className="whitespace-pre-wrap text-sm bg-muted/50 p-3 rounded-lg">
           {post.content}
+          {post.hashtags.length > 0 && (
+            <>
+              {"\n\n"}
+              <span className="text-primary">{post.hashtags.join(" ")}</span>
+            </>
+          )}
         </div>
-
-        {post.hashtags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {post.hashtags.slice(0, 10).map((tag, i) => (
-              <Badge key={i} variant="secondary" className="text-xs">
-                <Hash className="h-3 w-3 mr-0.5" />
-                {tag.replace("#", "")}
-              </Badge>
-            ))}
-            {post.hashtags.length > 10 && (
-              <Badge variant="outline" className="text-xs">
-                +{post.hashtags.length - 10} más
-              </Badge>
-            )}
-          </div>
-        )}
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <ImageIcon className="h-3 w-3" />
