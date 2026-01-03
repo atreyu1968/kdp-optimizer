@@ -9,6 +9,7 @@ import Library from "@/pages/library";
 import Publications from "@/pages/publications";
 import Aura from "@/pages/aura";
 import AudiobookForge from "@/pages/audiobook-forge";
+import SocialContentRoom from "@/pages/social-content-room";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/library" component={Library} />
       <Route path="/publications" component={Publications} />
+      <Route path="/social/:id" component={SocialContentRoom} />
       <Route path="/aura" component={Aura} />
       <Route path="/aura/:rest*" component={Aura} />
       <Route path="/audiobooks" component={AudiobookForge} />
