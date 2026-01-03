@@ -85,6 +85,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint de diagnóstico para verificar conexión de base de datos
+  app.get("/api/health/db", async (req, res) => {
+    try {
+      const dbUrl = process.env.DATABASE_URL || "NOT_SET";
+      const dbType = dbUrl.includes("helium") ? "development" : 
+                     dbUrl.includes("neon") ? "neon" : "unknown";
+      
+      // Intentar una consulta simple
+      const manuscripts = await storage.getAllManuscripts();
+      const optimizations = await storage.getAllOptimizations();
+      
+      res.json({
+        status: "connected",
+        dbType,
+        counts: {
+          manuscripts: manuscripts.length,
+          optimizations: optimizations.length
+        },
+        env: process.env.NODE_ENV || "not_set"
+      });
+    } catch (error) {
+      console.error("[Health Check] Database error:", error);
+      res.status(500).json({
+        status: "error",
+        error: error instanceof Error ? error.message : "Unknown error",
+        dbConfigured: !!process.env.DATABASE_URL,
+        env: process.env.NODE_ENV || "not_set"
+      });
+    }
+  });
+
   app.get("/api/optimize/progress/:sessionId", (req, res) => {
     const { sessionId } = req.params;
     
