@@ -242,6 +242,7 @@ export const manuscripts = pgTable("manuscripts", {
   wordCount: integer("word_count").notNull(),
   seriesName: text("series_name"),
   seriesNumber: integer("series_number"),
+  coverImageUrl: text("cover_image_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

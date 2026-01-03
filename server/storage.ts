@@ -82,6 +82,7 @@ export interface IStorage {
   saveManuscript(data: InsertManuscript): Promise<Manuscript>;
   getManuscript(id: number): Promise<Manuscript | undefined>;
   getAllManuscripts(): Promise<Manuscript[]>;
+  updateManuscript(id: number, data: Partial<InsertManuscript>): Promise<Manuscript>;
   saveOptimizationWithManuscript(
     manuscriptData: InsertManuscript, 
     optimizationId: string,
@@ -262,6 +263,15 @@ export class DbStorage implements IStorage {
 
   async getAllManuscripts(): Promise<Manuscript[]> {
     return await this.db.select().from(manuscripts).orderBy(desc(manuscripts.createdAt));
+  }
+
+  async updateManuscript(id: number, data: Partial<InsertManuscript>): Promise<Manuscript> {
+    const [manuscript] = await this.db
+      .update(manuscripts)
+      .set(data)
+      .where(eq(manuscripts.id, id))
+      .returning();
+    return manuscript;
   }
 
   async getOptimization(id: string): Promise<OptimizationResult | undefined> {
