@@ -241,7 +241,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("[/api/manuscripts] Fetching all manuscripts...");
       const manuscripts = await storage.getAllManuscripts();
       console.log(`[/api/manuscripts] Found ${manuscripts.length} manuscripts`);
-      res.json(manuscripts);
+      
+      // Excluir manuscriptText para reducir tamaño de respuesta (puede ser muy grande)
+      const lightManuscripts = manuscripts.map(m => ({
+        id: m.id,
+        originalTitle: m.originalTitle,
+        author: m.author,
+        genre: m.genre,
+        targetAudience: m.targetAudience,
+        language: m.language,
+        wordCount: m.wordCount,
+        seriesName: m.seriesName,
+        seriesNumber: m.seriesNumber,
+        createdAt: m.createdAt
+      }));
+      
+      res.json(lightManuscripts);
     } catch (error) {
       console.error("[/api/manuscripts] Error fetching manuscripts:", error instanceof Error ? error.message : error);
       console.error("[/api/manuscripts] Stack:", error instanceof Error ? error.stack : "No stack");
