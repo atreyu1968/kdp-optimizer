@@ -50,6 +50,15 @@ function generateSocialPosts(
   const ensureArray = (val: any): string[] => {
     if (Array.isArray(val)) return val;
     if (typeof val === 'string') return val.split(',').map(s => s.trim()).filter(Boolean);
+    // Si es un objeto con subcampos (como hashtags con general/specific), combinar todos
+    if (val && typeof val === 'object') {
+      const combined: string[] = [];
+      Object.values(val).forEach((v: any) => {
+        if (Array.isArray(v)) combined.push(...v);
+        else if (typeof v === 'string') combined.push(v);
+      });
+      return combined;
+    }
     return [];
   };
   
