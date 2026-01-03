@@ -238,11 +238,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/manuscripts", async (req, res) => {
     try {
+      console.log("[/api/manuscripts] Fetching all manuscripts...");
       const manuscripts = await storage.getAllManuscripts();
+      console.log(`[/api/manuscripts] Found ${manuscripts.length} manuscripts`);
       res.json(manuscripts);
     } catch (error) {
-      console.error("Error fetching manuscripts:", error);
-      res.status(500).json({ error: "Failed to fetch manuscripts" });
+      console.error("[/api/manuscripts] Error fetching manuscripts:", error instanceof Error ? error.message : error);
+      console.error("[/api/manuscripts] Stack:", error instanceof Error ? error.stack : "No stack");
+      res.status(500).json({ 
+        error: "Failed to fetch manuscripts",
+        details: process.env.NODE_ENV === "production" ? (error instanceof Error ? error.message : "Unknown error") : undefined
+      });
     }
   });
 
