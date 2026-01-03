@@ -93,7 +93,7 @@ function CopyButton({ text, className }: { text: string; className?: string }) {
   );
 }
 
-function PostCard({ post, platform }: { post: SocialPost; platform: string }) {
+function PostCard({ post, platform, coverUrl }: { post: SocialPost; platform: string; coverUrl?: string | null }) {
   const fullText = `${post.content}\n\n${post.hashtags.join(" ")}`;
 
   return (
@@ -111,6 +111,16 @@ function PostCard({ post, platform }: { post: SocialPost; platform: string }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {coverUrl && (
+          <div className="flex justify-center bg-muted/30 rounded-lg p-2">
+            <img 
+              src={coverUrl} 
+              alt="Portada del libro" 
+              className="max-h-48 object-contain rounded shadow-sm"
+              data-testid="img-post-cover"
+            />
+          </div>
+        )}
         <div className="whitespace-pre-wrap text-sm bg-muted/50 p-3 rounded-lg">
           {post.content}
         </div>
@@ -416,6 +426,7 @@ export default function SocialContentRoom() {
                             key={index}
                             post={post}
                             platform={platform.platform}
+                            coverUrl={coverUrl || socialData.manuscript.coverImageUrl}
                           />
                         ))}
                       </ScrollArea>
