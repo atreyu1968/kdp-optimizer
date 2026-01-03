@@ -46,14 +46,21 @@ function generateSocialPosts(
   author: string, 
   coverUrl: string | null
 ): SocialPost[] {
-  const hashtags = marketingKit.hashtags || [];
-  const tiktokHooks = marketingKit.tiktokHooks || [];
-  const instagramIdeas = marketingKit.instagramIdeas || [];
-  const pinterestDescriptions = marketingKit.pinterestDescriptions || [];
-  const freePromoStrategies = marketingKit.freePromoStrategies || [];
-  const reviewCTAs = marketingKit.reviewCTAs || [];
-  const leadMagnetIdeas = marketingKit.leadMagnetIdeas || [];
-  const facebookGroupPosts = marketingKit.facebookGroupPosts || [];
+  // Asegurar que todos los campos sean arrays
+  const ensureArray = (val: any): string[] => {
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'string') return val.split(',').map(s => s.trim()).filter(Boolean);
+    return [];
+  };
+  
+  const hashtags = ensureArray(marketingKit.hashtags);
+  const tiktokHooks = ensureArray(marketingKit.tiktokHooks);
+  const instagramIdeas = ensureArray(marketingKit.instagramIdeas);
+  const pinterestDescriptions = ensureArray(marketingKit.pinterestDescriptions);
+  const freePromoStrategies = ensureArray(marketingKit.freePromoStrategies);
+  const reviewCTAs = ensureArray(marketingKit.reviewCTAs);
+  const leadMagnetIdeas = ensureArray(marketingKit.leadMagnetIdeas);
+  const facebookGroupPosts = ensureArray(marketingKit.facebookGroupPosts);
 
   // Instagram Posts
   const instagramPosts = [
