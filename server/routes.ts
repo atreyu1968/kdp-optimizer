@@ -24,6 +24,184 @@ import multer from "multer";
 import { join } from "path";
 import { existsSync, mkdirSync, readFileSync, unlinkSync } from "fs";
 
+// Tipos para posts de redes sociales
+interface SocialPost {
+  platform: string;
+  icon: string;
+  color: string;
+  posts: {
+    type: string;
+    content: string;
+    hashtags: string[];
+    mediaRequirements: string;
+    bestTime: string;
+    characterLimit?: number;
+  }[];
+}
+
+// Generador de posts para redes sociales
+function generateSocialPosts(
+  marketingKit: any, 
+  bookTitle: string, 
+  author: string, 
+  coverUrl: string | null
+): SocialPost[] {
+  const hashtags = marketingKit.hashtags || [];
+  const tiktokHooks = marketingKit.tiktokHooks || [];
+  const instagramIdeas = marketingKit.instagramIdeas || [];
+  const pinterestDescriptions = marketingKit.pinterestDescriptions || [];
+  const freePromoStrategies = marketingKit.freePromoStrategies || [];
+  const reviewCTAs = marketingKit.reviewCTAs || [];
+  const leadMagnetIdeas = marketingKit.leadMagnetIdeas || [];
+  const facebookGroupPosts = marketingKit.facebookGroupPosts || [];
+
+  // Instagram Posts
+  const instagramPosts = [
+    {
+      type: "Carrusel Informativo",
+      content: instagramIdeas[0] || `Descubre "${bookTitle}" de ${author}. Una historia que no podrás soltar.`,
+      hashtags: hashtags.slice(0, 30),
+      mediaRequirements: "Imagen cuadrada 1080x1080px o carrusel (hasta 10 imágenes)",
+      bestTime: "11:00 AM - 1:00 PM o 7:00 PM - 9:00 PM"
+    },
+    {
+      type: "Story con Enlace",
+      content: `¡Nueva lectura! "${bookTitle}" ya disponible. Desliza para descubrir más.`,
+      hashtags: hashtags.slice(0, 10),
+      mediaRequirements: "Imagen vertical 1080x1920px",
+      bestTime: "9:00 AM o 8:00 PM"
+    },
+    {
+      type: "Reel Teaser",
+      content: tiktokHooks[0] || `¿Buscas tu próxima obsesión literaria? "${bookTitle}" te espera.`,
+      hashtags: hashtags.slice(0, 20),
+      mediaRequirements: "Video vertical 1080x1920px (15-60 segundos)",
+      bestTime: "12:00 PM o 6:00 PM"
+    }
+  ];
+
+  // Facebook Posts
+  const facebookPosts = [
+    {
+      type: "Post de Lanzamiento",
+      content: `¡Estoy emocionado/a de compartir mi nuevo libro!\n\n"${bookTitle}"\n\n${instagramIdeas[1] || "Una historia que te atrapará desde la primera página."}\n\n¿Te gustaría saber más? Déjame un comentario.`,
+      hashtags: hashtags.slice(0, 5),
+      mediaRequirements: "Imagen horizontal 1200x630px",
+      bestTime: "1:00 PM - 4:00 PM"
+    },
+    {
+      type: "Grupo de Lectores",
+      content: facebookGroupPosts[0] || `Hola, comunidad lectora. Acabo de terminar "${bookTitle}" y tengo muchas ganas de hablar sobre ello. ¿Alguien más lo ha leído?`,
+      hashtags: [],
+      mediaRequirements: "Imagen de portada opcional",
+      bestTime: "9:00 AM o 7:00 PM"
+    }
+  ];
+
+  // Twitter/X Posts
+  const twitterPosts = [
+    {
+      type: "Anuncio",
+      content: `¡"${bookTitle}" ya disponible! ${tiktokHooks[1] || "Una lectura que no olvidarás."}`,
+      hashtags: hashtags.slice(0, 3),
+      mediaRequirements: "Imagen 1200x675px",
+      bestTime: "9:00 AM o 5:00 PM",
+      characterLimit: 280
+    },
+    {
+      type: "Hilo (Thread)",
+      content: `Sobre "${bookTitle}":\n\n1/ ¿Por qué escribí esta historia?\n2/ Los personajes que más me costó crear\n3/ El mensaje que quiero transmitir\n\n¿Quieres saber más? Sigue leyendo...`,
+      hashtags: hashtags.slice(0, 2),
+      mediaRequirements: "Imagen para primer tweet",
+      bestTime: "12:00 PM",
+      characterLimit: 280
+    }
+  ];
+
+  // Pinterest Posts
+  const pinterestPosts = [
+    {
+      type: "Pin de Portada",
+      content: pinterestDescriptions[0] || `"${bookTitle}" de ${author}. Descubre esta fascinante historia.`,
+      hashtags: hashtags.slice(0, 20),
+      mediaRequirements: "Imagen vertical 1000x1500px (ratio 2:3)",
+      bestTime: "8:00 PM - 11:00 PM"
+    },
+    {
+      type: "Pin de Cita",
+      content: `"${reviewCTAs[0] || "Una historia que cambiará tu perspectiva."}" - ${bookTitle}`,
+      hashtags: hashtags.slice(0, 15),
+      mediaRequirements: "Imagen vertical con texto overlay",
+      bestTime: "2:00 PM - 4:00 PM"
+    }
+  ];
+
+  // TikTok Posts
+  const tiktokPosts = tiktokHooks.slice(0, 3).map((hook: string, i: number) => ({
+    type: i === 0 ? "BookTok Reveal" : i === 1 ? "Behind the Scenes" : "Reading Vlog",
+    content: hook,
+    hashtags: ["#BookTok", "#LibrosRecomendados", "#NuevoLibro", ...hashtags.slice(0, 5)],
+    mediaRequirements: "Video vertical 1080x1920px (15-60 segundos)",
+    bestTime: "7:00 PM - 9:00 PM"
+  }));
+
+  // LinkedIn Posts
+  const linkedinPosts = [
+    {
+      type: "Anuncio Profesional",
+      content: `Me complace anunciar el lanzamiento de mi nuevo libro: "${bookTitle}".\n\nEste proyecto representa meses de investigación, escritura y pasión por contar historias que importan.\n\n${leadMagnetIdeas[0] || "¿Te gustaría conocer más sobre el proceso creativo?"}\n\n#NuevoLibro #Autor #Escritura`,
+      hashtags: ["#NuevoLibro", "#Autor", "#Escritura"],
+      mediaRequirements: "Imagen profesional 1200x627px",
+      bestTime: "8:00 AM - 10:00 AM (martes a jueves)"
+    }
+  ];
+
+  return [
+    {
+      platform: "Instagram",
+      icon: "instagram",
+      color: "#E4405F",
+      posts: instagramPosts
+    },
+    {
+      platform: "Facebook",
+      icon: "facebook",
+      color: "#1877F2",
+      posts: facebookPosts
+    },
+    {
+      platform: "Twitter/X",
+      icon: "twitter",
+      color: "#1DA1F2",
+      posts: twitterPosts
+    },
+    {
+      platform: "Pinterest",
+      icon: "pinterest",
+      color: "#BD081C",
+      posts: pinterestPosts
+    },
+    {
+      platform: "TikTok",
+      icon: "tiktok",
+      color: "#000000",
+      posts: tiktokPosts.length > 0 ? tiktokPosts : [{
+        type: "BookTok Reveal",
+        content: `¿Buscas tu próxima obsesión literaria? "${bookTitle}" te espera.`,
+        hashtags: ["#BookTok", "#LibrosRecomendados", "#NuevoLibro"],
+        mediaRequirements: "Video vertical 1080x1920px",
+        bestTime: "7:00 PM - 9:00 PM"
+      }]
+    },
+    {
+      platform: "LinkedIn",
+      icon: "linkedin",
+      color: "#0A66C2",
+      posts: linkedinPosts
+    }
+  ];
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   const progressEmitters = new Map<string, ProgressEmitter>();
   
@@ -82,6 +260,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
     limits: {
       fileSize: 50 * 1024 * 1024 // 50MB límite para manuscritos largos
+    }
+  });
+
+  // Multer para portadas de libros (Sala de Contenido Social)
+  const coversDir = join(process.cwd(), 'uploads', 'covers');
+  if (!existsSync(coversDir)) {
+    mkdirSync(coversDir, { recursive: true });
+  }
+
+  const uploadCover = multer({
+    storage: multer.diskStorage({
+      destination: coversDir,
+      filename: (req, file, cb) => {
+        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+        const ext = file.originalname.split('.').pop() || 'jpg';
+        cb(null, `cover-${uniqueSuffix}.${ext}`);
+      }
+    }),
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Solo se permiten imágenes (JPG, PNG, WebP, GIF)'));
+      }
+    },
+    limits: {
+      fileSize: 10 * 1024 * 1024 // 10MB límite para portadas
     }
   });
 
@@ -253,6 +459,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         wordCount: m.wordCount,
         seriesName: m.seriesName,
         seriesNumber: m.seriesNumber,
+        coverImageUrl: m.coverImageUrl,
         createdAt: m.createdAt
       }));
       
@@ -301,6 +508,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching optimizations:", error);
       res.status(500).json({ error: "Failed to fetch optimizations" });
+    }
+  });
+
+  // ============================================================================
+  // SALA DE CONTENIDO SOCIAL - Upload de portadas y generación de posts
+  // ============================================================================
+
+  // Subir portada de libro
+  app.post("/api/manuscripts/:id/cover", uploadCover.single("cover"), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid manuscript ID" });
+        return;
+      }
+
+      if (!req.file) {
+        res.status(400).json({ error: "No se recibió ninguna imagen" });
+        return;
+      }
+
+      const manuscript = await storage.getManuscript(id);
+      if (!manuscript) {
+        res.status(404).json({ error: "Manuscript not found" });
+        return;
+      }
+
+      // Guardar URL relativa de la portada
+      const coverUrl = `/uploads/covers/${req.file.filename}`;
+      await storage.updateManuscript(id, { coverImageUrl: coverUrl } as any);
+
+      res.json({ 
+        success: true, 
+        coverImageUrl: coverUrl,
+        message: "Portada subida correctamente"
+      });
+    } catch (error) {
+      console.error("Error uploading cover:", error);
+      res.status(500).json({ error: "Failed to upload cover" });
+    }
+  });
+
+  // Generar posts para redes sociales basados en el Marketing Kit
+  app.get("/api/manuscripts/:id/social-posts", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid manuscript ID" });
+        return;
+      }
+
+      const manuscript = await storage.getManuscript(id);
+      if (!manuscript) {
+        res.status(404).json({ error: "Manuscript not found" });
+        return;
+      }
+
+      // Obtener optimizaciones con marketing kit
+      const optimizations = await storage.getOptimizationsByManuscriptId(id);
+      const latestOptimization = optimizations[0];
+
+      if (!latestOptimization || !latestOptimization.marketingKit) {
+        res.status(404).json({ error: "No se encontró información de marketing. Primero optimiza el libro." });
+        return;
+      }
+
+      const marketingKit = latestOptimization.marketingKit as any;
+      const bookTitle = manuscript.originalTitle;
+      const author = manuscript.author;
+      const coverUrl = manuscript.coverImageUrl;
+
+      // Generar posts para cada plataforma
+      const socialPosts = generateSocialPosts(marketingKit, bookTitle, author, coverUrl);
+
+      res.json({
+        manuscript: {
+          id: manuscript.id,
+          title: bookTitle,
+          author: author,
+          genre: manuscript.genre,
+          coverImageUrl: coverUrl
+        },
+        posts: socialPosts
+      });
+    } catch (error) {
+      console.error("Error generating social posts:", error);
+      res.status(500).json({ error: "Failed to generate social posts" });
     }
   });
 
