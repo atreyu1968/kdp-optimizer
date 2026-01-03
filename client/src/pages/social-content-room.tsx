@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useDropzone } from "react-dropzone";
@@ -22,7 +23,8 @@ import {
   Image as ImageIcon,
   ArrowLeft,
   Hash,
-  Sparkles
+  Sparkles,
+  AlertTriangle
 } from "lucide-react";
 import { SiInstagram, SiFacebook, SiX, SiPinterest, SiTiktok, SiLinkedin } from "react-icons/si";
 
@@ -50,6 +52,7 @@ interface SocialPostsResponse {
     genre: string;
     coverImageUrl: string | null;
   };
+  hasMarketingKit: boolean;
   posts: PlatformPosts[];
 }
 
@@ -363,6 +366,16 @@ export default function SocialContentRoom() {
 
             <Card>
               <CardContent className="pt-6">
+                {!socialData.hasMarketingKit && (
+                  <Alert className="mb-4" data-testid="alert-no-marketing-kit">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Contenido básico</AlertTitle>
+                    <AlertDescription>
+                      Este libro no tiene un Kit de Marketing generado. Los posts mostrados son genéricos.
+                      Para obtener contenido personalizado, ve a la Biblioteca y realiza una optimización completa.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <Tabs defaultValue="instagram">
                   <TabsList className="grid grid-cols-3 lg:grid-cols-6 mb-4" data-testid="tabs-platforms">
                     {socialData.posts.map((platform) => {

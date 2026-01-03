@@ -25,7 +25,7 @@ import { LandingPagePanel } from "@/components/landing-page-panel";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { amazonMarkets, type Manuscript, type Optimization, type UploadProgress, type OptimizationResult, type MarketMetadata, type MarketingKit, type LandingPageContent } from "@shared/schema";
-import { BookOpen, RefreshCw, History, Calendar, FileText, Sparkles, Search, Filter } from "lucide-react";
+import { BookOpen, RefreshCw, History, Calendar, FileText, Sparkles, Search, Filter, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -469,6 +469,17 @@ export default function Library() {
                         </div>
 
                         <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            data-testid={`button-social-content-${manuscript.id}`}
+                          >
+                            <Link href={`/social/${manuscript.id}`}>
+                              <Share2 className="h-4 w-4 mr-2" />
+                              Contenido Social
+                            </Link>
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"

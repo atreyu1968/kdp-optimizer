@@ -520,7 +520,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid manuscript ID" });
+        // Limpiar archivo si hay error de validación
+        if (req.file) {
+          try { unlinkSync(req.file.path); } catch {}
+        }
+        res.status(400).json({ error: "ID de manuscrito inválido" });
         return;
       }
 
@@ -531,8 +535,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const manuscript = await storage.getManuscript(id);
       if (!manuscript) {
-        res.status(404).json({ error: "Manuscript not found" });
+        // Limpiar archivo si el manuscrito no existe
+        try { unlinkSync(req.file.path); } catch {}
+        res.status(404).json({ error: "Manuscrito no encontrado" });
         return;
+      }
+
+      // Eliminar portada anterior si existe (solo si está en el directorio de covers)
+      if (manuscript.coverImageUrl && manuscript.coverImageUrl.startsWith('/uploads/covers/')) {
+        const filename = manuscript.coverImageUrl.split('/').pop();
+        if (filename && !filename.includes('..')) {
+          const oldPath = join(coversDir, filename);
+          try { unlinkSync(oldPath); } catch {}
+        }
       }
 
       // Guardar URL relativa de la portada
@@ -546,7 +561,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error uploading cover:", error);
-      res.status(500).json({ error: "Failed to upload cover" });
+      // Limpiar archivo en caso de error
+      if (req.file) {
+        try { unlinkSync(req.file.path); } catch {}
+      }
+      res.status(500).json({ error: "Error al subir la portada" });
     }
   });
 
@@ -555,29 +574,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
-        res.status(400).json({ error: "Invalid manuscript ID" });
+        res.status(400).json({ error: "ID de manuscrito inválido" });
         return;
       }
 
       const manuscript = await storage.getManuscript(id);
       if (!manuscript) {
-        res.status(404).json({ error: "Manuscript not found" });
+        res.status(404).json({ error: "Manuscrito no encontrado" });
         return;
       }
 
-      // Obtener optimizaciones con marketing kit
+      // Obtener optimizaciones con marketing kit (ordenadas por fecha descendente)
       const optimizations = await storage.getOptimizationsByManuscriptId(id);
-      const latestOptimization = optimizations[0];
+      const sortedOptimizations = [...optimizations].sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      const latestOptimization = sortedOptimizations[0];
 
-      if (!latestOptimization || !latestOptimization.marketingKit) {
-        res.status(404).json({ error: "No se encontró información de marketing. Primero optimiza el libro." });
-        return;
-      }
-
-      const marketingKit = latestOptimization.marketingKit as any;
+      // Usar marketing kit si existe, o generar posts básicos
+      const marketingKit = latestOptimization?.marketingKit || {};
       const bookTitle = manuscript.originalTitle;
       const author = manuscript.author;
       const coverUrl = manuscript.coverImageUrl;
+      const hasMarketingKit = !!latestOptimization?.marketingKit;
 
       // Generar posts para cada plataforma
       const socialPosts = generateSocialPosts(marketingKit, bookTitle, author, coverUrl);
@@ -590,11 +609,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           genre: manuscript.genre,
           coverImageUrl: coverUrl
         },
+        hasMarketingKit,
         posts: socialPosts
       });
     } catch (error) {
       console.error("Error generating social posts:", error);
-      res.status(500).json({ error: "Failed to generate social posts" });
+      res.status(500).json({ error: "Error al generar posts sociales" });
     }
   });
 
