@@ -239,8 +239,15 @@ export class DbStorage implements IStorage {
   private db;
 
   constructor() {
-    const sql = neon(process.env.DATABASE_URL!);
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      console.error("[Database] ERROR: DATABASE_URL no está configurada");
+      throw new Error("DATABASE_URL environment variable is not configured. Please configure your database in the Database tool.");
+    }
+    console.log("[Database] Connecting to database...");
+    const sql = neon(databaseUrl);
     this.db = drizzle(sql);
+    console.log("[Database] Database connection initialized");
   }
 
   async saveManuscript(data: InsertManuscript): Promise<Manuscript> {
