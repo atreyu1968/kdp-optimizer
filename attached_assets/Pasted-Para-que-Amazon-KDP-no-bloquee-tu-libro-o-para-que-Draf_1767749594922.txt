@@ -1,0 +1,38 @@
+Para que Amazon KDP no bloquee tu libro (o para que Draft2Digital lo distribuya sin problemas), debes limpiar tus metadatos de cualquier rastro de "desesperación por vender" o errores técnicos.
+
+Aquí tienes la lista negra de lo que NUNCA debe aparecer en tus metadatos:
+
+1. En el Título y Subtítulo (Zona de máximo riesgo)
+Amazon considera el título como algo "sagrado". No debe ser un anuncio publicitario.
+
+PROHIBIDO: Palabras clave de relleno. No pongas una lista de géneros (ej. "Novela histórica, thriller, acción, romanos").
+
+PROHIBIDO: Referencias a ventas o calidad. No pongas "Bestseller", "Número 1", "El mejor libro de 2024" o "5 estrellas".
+
+PROHIBIDO: Precios o promociones. No pongas "Gratis", "Oferta" o "$0.99".
+
+PROHIBIDO: Nombres de otros autores. No pongas "Al estilo de Santiago Posteguillo" o "Para fans de Ken Follett".
+
+2. En la Descripción (Blurb)
+Aquí es donde se "coló" tu error anterior. La descripción debe ser solo sobre la historia.
+
+PROHIBIDO: Instrucciones de compra. Nada de "Haz clic en el botón", "Compra ahora", "Añadir al carrito" o "Desplázate hacia arriba".
+
+PROHIBIDO: Menciones a la competencia. No menciones a Apple Books, Barnes & Noble o Kobo dentro de Amazon (y viceversa en Draft2Digital).
+
+PROHIBIDO: Información temporal. No pongas "Solo por tiempo limitado" o "Disponible próximamente".
+
+PROHIBIDO: Código "sucio". Evita copiar y pegar desde Word directamente si deja etiquetas extrañas. Usa solo negritas (<b>) o cursivas (<i>).
+
+PROHIBIDO: Promesas de salud o dinero. (No es tu caso, pero es bueno saberlo: nada de "este libro te hará rico").
+
+3. En las Palabras Clave del "Backend" (Los 7 cuadros)
+Son etiquetas invisibles, pero los bots las leen todas.
+
+PROHIBIDO: Repetir información. Si la palabra "Roma" ya está en tu título, no la pongas en las palabras clave. Es espacio desperdiciado.
+
+PROHIBIDO: Términos irrelevantes. No pongas palabras que no tengan nada que ver con tu libro solo para "atraer tráfico".
+
+PROHIBIDO: Marcas registradas. No uses nombres de otras editoriales o dispositivos (ej. "Kindle", "iPad").
+
+PROHIBIDO: Etiquetas técnicas. Como vimos antes, no pongas "GÉNERO:", "TROPOS:" o "AUDIENCIA:". Pon solo los conceptos: intriga palaciega, liberto romano, conspiración senado.

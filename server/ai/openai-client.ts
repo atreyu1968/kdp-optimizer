@@ -290,9 +290,11 @@ REQUIREMENTS:
       'Examples: "Giros inesperados que te mantendrán despierto", "Personajes que nunca olvidarás"' :
       'Examples: "Estrategias probadas por expertos", "Ejercicios prácticos paso a paso"'}
    
-   E) CALL TO ACTION (Final paragraph):
-      - Create urgency and clear next step
-      - Example: "Desplaza hacia arriba y haz clic en 'Comprar ahora' para comenzar tu transformación hoy"
+   E) CLOSING (Final paragraph - NO PURCHASE INSTRUCTIONS!):
+      - End with an emotional statement or promise, NOT a call to action
+      - ❌ FORBIDDEN: "Desplaza hacia arriba", "Haz clic", "Compra ahora", "Añadir al carrito"
+      - ✅ ALLOWED: "Tu aventura comienza aquí", "La verdad te espera entre estas páginas"
+      - Leave readers emotionally compelled - the buy button speaks for itself
    
    FORMAT RULES:
    - Use ONLY: <b>, <i>, <u>, <br>, <p>, <h4>, <h5>, <h6>, <ul><li>, <ol><li>
@@ -307,13 +309,30 @@ REQUIREMENTS:
    ⚠️ CRITICAL: If your description is under 3500 characters, you are FAILING. 
    Expand with more emotional hooks, benefits, and compelling details.
 
-4. PROHIBITED TERMS (DO NOT use these anywhere):
-   - "bestseller", "best-seller", "#1"
-   - "free", "gratis"
-   - "new release", "nuevo"
-   - Competitor author names
-   - Trademarked terms you don't own
-   - Subjective claims without proof
+4. ⚠️ AMAZON KDP PROHIBITED TERMS - CRITICAL COMPLIANCE (2024-2025 UPDATED RULES):
+   Amazon is actively blocking books with these violations. NEVER use ANY of these:
+   
+   A) IN TITLE AND SUBTITLE (Maximum risk zone - Amazon treats title as "sacred"):
+      - ❌ Keyword stuffing (lists of genres: "Novela histórica, thriller, acción, romanos")
+      - ❌ Sales/quality claims: "Bestseller", "Best-seller", "#1", "Número 1", "El mejor libro", "5 estrellas"
+      - ❌ Prices/promotions: "Gratis", "Free", "Oferta", "$0.99", "Descuento"
+      - ❌ Other author names: "Al estilo de Stephen King", "Para fans de Ken Follett"
+      - ❌ Competitor store names: "Apple Books", "Kobo", "Barnes & Noble"
+   
+   B) IN DESCRIPTION (Content violations):
+      - ❌ Purchase instructions: "Haz clic en el botón", "Compra ahora", "Añadir al carrito", 
+        "Desplázate hacia arriba", "Scroll up", "Click buy", "Add to cart"
+      - ❌ Competitor mentions: Apple Books, Kobo, Barnes & Noble, Google Play
+      - ❌ Time-limited claims: "Solo por tiempo limitado", "Disponible próximamente", "Oferta temporal"
+      - ❌ Dirty HTML code: Only use clean <b>, <i>, <p>, <ul>, <li> tags
+      - ❌ Health/money promises: "Este libro te hará rico", "Perderás peso garantizado"
+   
+   C) IN BACKEND KEYWORDS (7 fields):
+      - ❌ Repeating words already in title/subtitle (wasted space - Amazon auto-indexes)
+      - ❌ Irrelevant traffic terms (unrelated keywords to attract clicks)
+      - ❌ Trademarks: "Kindle", "iPad", "Audible", other brand names
+      - ❌ Technical labels: "GÉNERO:", "TROPOS:", "AUDIENCIA:" - use only concepts
+      - ❌ Competitor author names as keywords
 
 5. BACKEND KEYWORDS - Apply 4-TYPE STRATEGY:
    Generate EXACTLY 7 keyword phrases (one per KDP field, max 50 chars each):
@@ -333,10 +352,37 @@ REQUIREMENTS:
    ${isFiction ? kdpFictionCategories.slice(0, 50).join("\n   ") : kdpNonfictionCategories.slice(0, 50).join("\n   ")}
    ... and more. Choose the most relevant categories from these official KDP paths.
 
+7. ✍️ HUMANIZATION - CRITICAL FOR AI DETECTION AVOIDANCE:
+   Amazon and readers can detect AI-generated content. Your text MUST feel human-written:
+   
+   A) NATURAL VOICE PATTERNS:
+      - Vary sentence length dramatically (mix 5-word and 25-word sentences)
+      - Use conversational fragments: "¿El resultado? Una historia que no podrás soltar."
+      - Include rhetorical questions that readers naturally ask themselves
+      - Start some sentences with "Y" or "Pero" for conversational flow
+   
+   B) AVOID AI TELL-TALES:
+      - ❌ No generic superlatives: "imprescindible", "fascinante", "cautivador", "inolvidable"
+      - ❌ No clichéd openings: "En un mundo donde...", "Descubre una historia..."
+      - ❌ No formulaic lists with parallel structure (everything sounds the same)
+      - ❌ No excessive adjective stacking: "una emocionante, intrigante y cautivadora historia"
+      - ❌ No robotic transitions: "Además", "Por otro lado", "Sin embargo" in every paragraph
+   
+   C) AUTHENTIC EMOTIONAL LANGUAGE:
+      - Use specific, visceral words: "un nudo en el estómago" instead of "emocionante"
+      - Include imperfections and informal touches that humans naturally write
+      - Reference real emotions: "esa sensación de no poder cerrar el libro a las 3 de la mañana"
+      - Write like you're telling a friend about the book, not writing an ad
+   
+   D) REGIONAL AUTHENTICITY:
+      - Use expressions natural to ${locale} speakers (not translated phrases)
+      - Include local cultural references when appropriate
+      - Avoid overly formal or academic language unless the book demands it
+
 RESPONSE FORMAT:
 Return JSON with: title (string), subtitle (string), description (HTML string), keywords (array of EXACTLY 7 strings, each max 50 characters), categories (array of 3 strings)
 
-Remember: Write natively in ${locale} with cultural relevance. Every word should help turn a browser into a buyer.`;
+Remember: Write natively in ${locale} with cultural relevance. Your goal is text that feels like it was written by a passionate human author, not generated by AI. Every word should help turn a browser into a buyer.`;
 
   const response = await withRetry(async () => {
     return await openai.chat.completions.create({
@@ -345,7 +391,7 @@ Remember: Write natively in ${locale} with cultural relevance. Every word should
         {
           role: "system",
           content:
-            "You are an expert Amazon KDP conversion optimization specialist with deep knowledge of the A9 algorithm. Your primary goal is maximizing sales conversion, not just search visibility. You understand that Amazon rewards books that convert searchers into buyers. You are a skilled copywriter who creates persuasive, benefit-driven content while naturally incorporating keywords. You NEVER use prohibited terms. You write natively in the target language with cultural nuance, never simply translating.",
+            "You are an expert Amazon KDP conversion specialist AND skilled human copywriter. You deeply understand Amazon's 2024-2025 compliance rules that actively block books for metadata violations. You NEVER use purchase instructions (click, buy, scroll up), competitor mentions, bestseller claims, or any prohibited terms. Your writing is HUMAN - you avoid AI patterns like generic superlatives, formulaic lists, clichéd openings, and robotic transitions. You write with natural voice variation, conversational fragments, and authentic emotional language. You write natively in the target language with regional expressions, never translated phrases. Every word helps convert browsers into buyers while sounding like a passionate human author, not AI.",
         },
         { role: "user", content: prompt },
       ],
@@ -407,22 +453,38 @@ REQUIREMENTS:
    - Consider cultural nuances in how ${locale} readers search for books
    - DO NOT simply translate - generate authentically
 
-4. FORMAT RULES (CRITICAL):
+4. FORMAT RULES & PROHIBITED TERMS (CRITICAL - Amazon 2024-2025 Compliance):
    - EXACTLY 7 strings in the array (one per field)
    - Each string maximum 50 characters
    - Multiple keywords within one field separated by commas
-   - NO prohibited terms: "bestseller", "free", "new", "#1", competitor names
-   - Example: ["mystery, thriller, suspense", "detective, sleuth, investigator", "Victorian London, historical"]
+   
+   ⚠️ PROHIBITED (Amazon will block the book):
+   - ❌ Words already in title/subtitle (wasted space - Amazon auto-indexes)
+   - ❌ Sales claims: "bestseller", "best seller", "#1", "número 1"
+   - ❌ Pricing terms: "free", "gratis", "oferta", "descuento"
+   - ❌ Brand names: "Kindle", "iPad", "Audible", "Kobo"
+   - ❌ Competitor author names as keywords
+   - ❌ Technical labels: "GÉNERO:", "TROPOS:", "AUDIENCIA:" - use only concepts
+   - ❌ Irrelevant terms to attract unrelated traffic
+   
+   ✅ GOOD EXAMPLES: ["misterio, intriga, suspense", "detective aficionado, investigador", "Londres victoriano, época histórica"]
 
 5. BUYER INTENT FOCUS:
    - Target searchers ready to BUY, not just browse
    - Specific phrases indicate higher purchase intent
    - Generic single words attract browsers, not buyers
 
+6. HUMANIZATION - Natural Keyword Phrasing:
+   - Use natural reader search language, not robotic keyword lists
+   - Think: "How would a real ${locale} reader search for this book?"
+   - Avoid formulaic patterns that look AI-generated
+   - Include regional expressions and colloquialisms when relevant
+   - Mix short and long phrases naturally
+
 RESPONSE FORMAT:
 Return JSON with: keywords (array of EXACTLY 7 strings, each max 50 characters)
 
-Remember: Write for ${locale} native speakers. Think about how they ACTUALLY search when looking to buy a book. Optimize for CONVERSION.`;
+Remember: Write for ${locale} native speakers. Generate keywords that feel like genuine search queries from real book buyers, not automated keyword lists. Optimize for CONVERSION while sounding authentically human.`;
 
   const response = await withRetry(async () => {
     return await openai.chat.completions.create({
@@ -431,7 +493,7 @@ Remember: Write for ${locale} native speakers. Think about how they ACTUALLY sea
         {
           role: "system",
           content:
-            "You are an expert in Amazon KDP backend keyword optimization and international market research. You understand the 'bag of words' indexing model and prioritize long-tail, high-intent keywords. You generate keywords natively in each language based on local search behavior, cultural nuances, and regional idioms - you never simply translate. Your goal is conversion optimization: attracting buyers, not just browsers.",
+            "You are an expert in Amazon KDP backend keyword optimization with deep knowledge of 2024-2025 compliance rules. You understand the 'bag of words' indexing model and prioritize long-tail, high-intent keywords. You NEVER use prohibited terms (bestseller, free, brand names, words from title, technical labels). You generate keywords natively in each language based on local search behavior - phrased like genuine reader searches, not robotic keyword lists. Your writing feels human and authentic, avoiding AI patterns. Your goal is conversion optimization while maintaining full Amazon compliance.",
         },
         { role: "user", content: prompt },
       ],
