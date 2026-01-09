@@ -128,10 +128,15 @@ export async function generateOptimizationResult(
     console.log(`[AI Analysis] Análisis completado:
       - ${analysis.seedKeywords.length} keywords semilla
       - ${analysis.themes.length} temas
+      - ${analysis.entities?.length || 0} entidades (personajes/lugares)
       - ${analysis.tropes?.length || 0} tropos literarios
       - ${analysis.emotionalHooks?.length || 0} ganchos emocionales
       - ${analysis.targetAudienceInsights?.length || 0} insights de audiencia
       - Tipo: ${analysis.isFiction ? 'Ficción' : 'No ficción'}`);
+    
+    if (analysis.entities?.length) {
+      console.log(`[AI Analysis] Entidades extraídas: ${analysis.entities.join(", ")}`);
+    }
 
   const marketResults: MarketMetadata[] = [];
   const totalMarkets = targetMarkets.length;
@@ -155,7 +160,8 @@ export async function generateOptimizationResult(
       market.locale,
       analysis.tropes,
       analysis.emotionalHooks,
-      analysis.isFiction
+      analysis.isFiction,
+      analysis.entities
     );
 
     // Delay entre llamadas API del mismo mercado

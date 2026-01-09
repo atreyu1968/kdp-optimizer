@@ -214,7 +214,8 @@ export async function generateMetadata(
   locale: string,
   tropes?: string[],
   emotionalHooks?: string[],
-  isFiction?: boolean
+  isFiction?: boolean,
+  entities?: string[]
 ): Promise<{
   title: string;
   subtitle: string;
@@ -239,6 +240,15 @@ Seed Keywords: ${seedKeywords.slice(0, 20).join(", ")}
 Themes: ${themes.join(", ")}
 ${tropes?.length ? `Literary Tropes: ${tropes.join(", ")}` : ''}
 ${emotionalHooks?.length ? `Emotional Hooks: ${emotionalHooks.join(", ")}` : ''}
+${entities?.length ? `
+═══════════════════════════════════════════════════════════════════
+⚠️ MANDATORY CHARACTER/ENTITY NAMES - YOU MUST USE THESE EXACTLY:
+${entities.map(e => `• ${e}`).join('\n')}
+═══════════════════════════════════════════════════════════════════
+🚫 NEVER invent, modify, or hallucinate character names!
+🚫 NEVER use placeholder names like "María", "Juan", "Elena" unless they appear above!
+✅ ONLY reference the names listed above in your description!
+` : ''}
 
 REQUIREMENTS:
 
@@ -263,6 +273,10 @@ REQUIREMENTS:
    
    ⚠️ CRITICAL ERROR TO AVOID: Do NOT simply summarize the plot!
    The description is a SALES PAGE, not a synopsis. Your goal is to SELL, not inform.
+   
+   ⚠️ CHARACTER NAMES: If character names were provided above, USE THEM EXACTLY as written.
+   NEVER invent or hallucinate names. If no names were provided, refer to characters generically
+   (e.g., "la protagonista", "una joven", "un detective") rather than inventing names.
    
    COPYWRITING STRUCTURE (Hook → Conflict → Stakes → CTA):
    
