@@ -95,6 +95,8 @@ function convertNumbersToWords(text: string): string {
 }
 
 function expandAbbreviations(text: string): string {
+  // Abbreviations that should only be expanded when they appear as standalone tokens
+  // NOT when they are part of a word (e.g., "Liam." should NOT become "Lia metros")
   const abbreviations: Record<string, string> = {
     'Sr.': 'Señor',
     'Sra.': 'Señora',
@@ -114,11 +116,16 @@ function expandAbbreviations(text: string): string {
     'p.ej.': 'por ejemplo',
     'vs.': 'versus',
     'aprox.': 'aproximadamente',
-    'min.': 'minutos',
     'seg.': 'segundos',
     'hrs.': 'horas',
-    'km.': 'kilómetros',
     'km/h': 'kilómetros por hora',
+  };
+  
+  // Abbreviations that require STRICT word boundaries (preceded by space/start, followed by space/end)
+  // These are short and could be part of words otherwise
+  const strictAbbreviations: Record<string, string> = {
+    'min.': 'minutos',
+    'km.': 'kilómetros',
     'm.': 'metros',
     'cm.': 'centímetros',
     'mm.': 'milímetros',
@@ -129,9 +136,29 @@ function expandAbbreviations(text: string): string {
   };
   
   let result = text;
+  
+  // Standard abbreviations - match when preceded by word boundary
   for (const [abbr, full] of Object.entries(abbreviations)) {
-    const regex = new RegExp(abbr.replace('.', '\\.'), 'gi');
+    const escapedAbbr = abbr.replace('.', '\\.');
+    // Word boundary before, but not strict about what comes after
+    const regex = new RegExp(`\\b${escapedAbbr}`, 'gi');
     result = result.replace(regex, full);
+  }
+  
+  // Strict abbreviations - must be preceded by whitespace/start/digit AND followed by whitespace/end/punctuation
+  // This prevents "Liam." from becoming "Lia metros" BUT allows "5m." → "5 metros"
+  for (const [abbr, full] of Object.entries(strictAbbreviations)) {
+    const escapedAbbr = abbr.replace('.', '\\.');
+    // Match if preceded by space/start/digit AND followed by space/end/punctuation
+    // This allows "5m." and "30cm." to expand correctly
+    const regex = new RegExp(`(^|\\s|\\d)${escapedAbbr}(?=\\s|$|[,;:!?)]|$)`, 'gi');
+    result = result.replace(regex, (match, prefix) => {
+      // If preceded by digit, add space before the expanded word
+      if (/\d/.test(prefix)) {
+        return `${prefix} ${full}`;
+      }
+      return `${prefix}${full}`;
+    });
   }
   
   return result;
@@ -233,16 +260,61 @@ function removeInvisibleCharacters(text: string): string {
 /**
  * PROTOCOL 2.2: Punctuation as Prosodic Cues
  * Punctuation controls breathing, intonation, and pacing
+ * 
+ * CRITICAL FIX: TTS engines (especially Polly) interpret certain quote marks
+ * as measurement symbols:
+ * - ' (apostrophe/single quote) → read as "minutos" (minutes symbol ′)
+ * - " (straight double quote) → read as "segundos" (seconds symbol ″)
+ * 
+ * Solution: Convert all quotes to Spanish angular quotes «» which are:
+ * - Silent (TTS treats them as punctuation, not symbols)
+ * - Appropriate for Spanish text
+ * - Create natural prosodic pauses for dialogue
  */
 function normalizePunctuation(text: string): string {
   let result = text;
   
-  // === QUOTES: Normalize to consistent format ===
-  // Smart quotes to straight quotes (encoding safety)
-  result = result.replace(/[""„‟]/g, '"');
-  result = result.replace(/[''‚‛]/g, "'");
+  // === QUOTES: Convert ALL quotes to Spanish angular quotes (silent) ===
+  // This prevents TTS from reading " as "segundos" and ' as "minutos"
   
-  // Spanish angular quotes - keep but ensure spacing
+  // Smart double quotes → Spanish angular quotes
+  result = result.replace(/[""„‟]/g, (match, offset, str) => {
+    // Determine if opening or closing based on context
+    const before = str.charAt(offset - 1);
+    const isOpening = /[\s\n(—\-]/.test(before) || offset === 0;
+    return isOpening ? '«' : '»';
+  });
+  
+  // Straight double quotes → Spanish angular quotes
+  result = result.replace(/"([^"]+)"/g, '«$1»');
+  // Handle remaining unmatched double quotes
+  result = result.replace(/"(\s)/g, '»$1');
+  result = result.replace(/(\s)"/g, '$1«');
+  result = result.replace(/^"/g, '«');
+  result = result.replace(/"$/g, '»');
+  
+  // Smart single quotes → remove or convert to safe character
+  // In Spanish, single quotes are rarely used for dialogue
+  // CRITICAL: U+0027 (apostrophe) is read as "minutos" by Polly
+  // Solution: Use U+2019 (RIGHT SINGLE QUOTATION MARK) which is silent
+  result = result.replace(/[''‚‛']/g, (match, offset, str) => {
+    // Check if it's a contraction (l'home, d'água, l'any)
+    const before = str.charAt(offset - 1);
+    const after = str.charAt(offset + 1);
+    if (/[a-záéíóúüñ]/i.test(before) && /[a-záéíóúüñ]/i.test(after)) {
+      // Keep contractions but use U+2019 (silent in TTS)
+      return '\u2019'; // RIGHT SINGLE QUOTATION MARK - safe for TTS
+    }
+    // For quotes, just remove - they're not standard in Spanish
+    return '';
+  });
+  
+  // Remove remaining straight single quotes that aren't contractions
+  // Prime symbol (′) and apostrophe variations that could be read as "minutos"
+  // Keep U+2019 which we use for safe contractions
+  result = result.replace(/(?<![a-záéíóúüñ])['′`](?![a-záéíóúüñ])/gi, '');
+  
+  // Spanish angular quotes - ensure proper spacing for prosody
   result = result.replace(/«\s*/g, '« ');
   result = result.replace(/\s*»/g, ' »');
   
@@ -557,11 +629,71 @@ export function preprocessTextForTTS(text: string, options: PreprocessOptions = 
  * Format: [word, IPA phoneme, display text]
  */
 const PRONUNCIATION_CORRECTIONS: Array<[string, string, string]> = [
-  // "piedra" - often mispronounced, correct IPA: /ˈpjeðɾa/
+  // Words with "dr" cluster - often mispronounced by TTS
+  // The "dr" cluster in Spanish should be pronounced as /ðɾ/
+  
+  // "piedra" family
   ['piedra', 'ˈpjeðɾa', 'piedra'],
   ['Piedra', 'ˈpjeðɾa', 'Piedra'],
   ['piedras', 'ˈpjeðɾas', 'piedras'],
   ['Piedras', 'ˈpjeðɾas', 'Piedras'],
+  
+  // "madre" family
+  ['madre', 'ˈmaðɾe', 'madre'],
+  ['Madre', 'ˈmaðɾe', 'Madre'],
+  ['madres', 'ˈmaðɾes', 'madres'],
+  ['madrastra', 'maˈðɾastɾa', 'madrastra'],
+  
+  // "padre" family
+  ['padre', 'ˈpaðɾe', 'padre'],
+  ['Padre', 'ˈpaðɾe', 'Padre'],
+  ['padres', 'ˈpaðɾes', 'padres'],
+  ['padrastro', 'paˈðɾastɾo', 'padrastro'],
+  ['padrino', 'paˈðɾino', 'padrino'],
+  ['madrina', 'maˈðɾina', 'madrina'],
+  
+  // "cuadro" family
+  ['cuadro', 'ˈkwaðɾo', 'cuadro'],
+  ['Cuadro', 'ˈkwaðɾo', 'Cuadro'],
+  ['cuadros', 'ˈkwaðɾos', 'cuadros'],
+  ['cuadra', 'ˈkwaðɾa', 'cuadra'],
+  ['cuadras', 'ˈkwaðɾas', 'cuadras'],
+  ['escuadra', 'esˈkwaðɾa', 'escuadra'],
+  ['cuadrilla', 'kwaˈðɾiʎa', 'cuadrilla'],
+  
+  // Other common "dr" words
+  ['ladrón', 'laˈðɾon', 'ladrón'],
+  ['ladrones', 'laˈðɾones', 'ladrones'],
+  ['ladrillo', 'laˈðɾiʎo', 'ladrillo'],
+  ['ladrillos', 'laˈðɾiʎos', 'ladrillos'],
+  ['madrugada', 'maðɾuˈɣaða', 'madrugada'],
+  ['madrugar', 'maðɾuˈɣaɾ', 'madrugar'],
+  ['podrido', 'poˈðɾiðo', 'podrido'],
+  ['podrida', 'poˈðɾiða', 'podrida'],
+  ['podría', 'poˈðɾia', 'podría'],
+  ['podrías', 'poˈðɾias', 'podrías'],
+  ['podríamos', 'poˈðɾiamos', 'podríamos'],
+  ['podrían', 'poˈðɾian', 'podrían'],
+  ['Pedro', 'ˈpeðɾo', 'Pedro'],
+  ['Alejandro', 'alexˈandɾo', 'Alejandro'],
+  ['Alejandra', 'alexˈandɾa', 'Alejandra'],
+  ['Andrea', 'anˈdɾea', 'Andrea'],
+  ['Andrés', 'anˈdɾes', 'Andrés'],
+  ['Sandra', 'ˈsandɾa', 'Sandra'],
+  ['vidrio', 'ˈbiðɾjo', 'vidrio'],
+  ['vidrios', 'ˈbiðɾjos', 'vidrios'],
+  ['vidriera', 'biˈðɾjeɾa', 'vidriera'],
+  ['cedro', 'ˈθeðɾo', 'cedro'],
+  ['cedros', 'ˈθeðɾos', 'cedros'],
+  ['ladra', 'ˈlaðɾa', 'ladra'],
+  ['ladrando', 'laˈðɾando', 'ladrando'],
+  ['adriático', 'aðɾiˈatiko', 'adriático'],
+  ['Adrián', 'aˈðɾian', 'Adrián'],
+  ['Adriana', 'aˈðɾiana', 'Adriana'],
+  ['cuadrado', 'kwaˈðɾaðo', 'cuadrado'],
+  ['cuadrados', 'kwaˈðɾaðos', 'cuadrados'],
+  ['cuadrada', 'kwaˈðɾaða', 'cuadrada'],
+  ['cuadradas', 'kwaˈðɾaðas', 'cuadradas'],
 ];
 
 /**
@@ -571,6 +703,7 @@ const PRONUNCIATION_CORRECTIONS: Array<[string, string, string]> = [
 function applyPronunciationCorrections(escapedText: string): string {
   let result = escapedText;
   
+  // First, apply specific word corrections from the lookup table
   for (const [word, ipa, display] of PRONUNCIATION_CORRECTIONS) {
     // Match word boundaries - the text is already XML-escaped so no special chars
     const regex = new RegExp(`\\b${word}\\b`, 'g');
@@ -578,7 +711,69 @@ function applyPronunciationCorrections(escapedText: string): string {
     result = result.replace(regex, phonemeTag);
   }
   
+  // Second, apply generic "dr" cluster fix for words NOT already corrected
+  // This catches words like "drama", "hidratante", "hidrógeno", "cuadrícula", etc.
+  // The "dr" cluster in Spanish should be pronounced as /ðɾ/ (voiced dental fricative + tap)
+  // Pattern: Match words containing "dr" that weren't already wrapped in <phoneme>
+  result = applyGenericDRClusterFix(result);
+  
   return result;
+}
+
+/**
+ * Apply generic fix for all words containing "dr" cluster
+ * Uses a safe tokenization approach to find remaining "dr" words
+ * and wrap them with IPA phoneme hints
+ * 
+ * This catches any word with "dr" that wasn't in the specific lookup table
+ * Works with accented characters (hidrógeno, cuadrícula, etc.)
+ */
+function applyGenericDRClusterFix(text: string): string {
+  // Split text into segments: phoneme tags vs regular text
+  // This avoids processing text that's already inside <phoneme> tags
+  const segments: string[] = [];
+  let lastIndex = 0;
+  
+  // Find all existing <phoneme>...</phoneme> blocks
+  const phonemePattern = /<phoneme[^>]*>.*?<\/phoneme>/g;
+  let match;
+  
+  while ((match = phonemePattern.exec(text)) !== null) {
+    // Add text before the phoneme tag
+    if (match.index > lastIndex) {
+      segments.push({ type: 'text', content: text.slice(lastIndex, match.index) } as any);
+    }
+    // Add the phoneme tag as-is
+    segments.push({ type: 'phoneme', content: match[0] } as any);
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text after last phoneme tag
+  if (lastIndex < text.length) {
+    segments.push({ type: 'text', content: text.slice(lastIndex) } as any);
+  }
+  
+  // Process each text segment (not phoneme segments)
+  const processedSegments = segments.map((seg: any) => {
+    if (seg.type === 'phoneme') {
+      return seg.content;
+    }
+    
+    // For text segments, find and fix "dr" clusters
+    // Pattern includes accented letters: [a-záéíóúüñA-ZÁÉÍÓÚÜÑ]
+    // Match words containing 'dr' (case insensitive)
+    const wordPattern = /([a-záéíóúüñA-ZÁÉÍÓÚÜÑ]*[Dd][Rr][a-záéíóúüñA-ZÁÉÍÓÚÜÑ]*)/g;
+    
+    return seg.content.replace(wordPattern, (word: string) => {
+      // Replace each "dr" cluster with phoneme-wrapped version
+      return word.replace(/([Dd])([Rr])/g, (drMatch: string, d: string, r: string) => {
+        const isUpper = d === 'D';
+        return `<phoneme alphabet="ipa" ph="ðɾ">${isUpper ? 'D' : 'd'}${r}</phoneme>`;
+      });
+    });
+  });
+  
+  return processedSegments.join('');
 }
 
 /**
