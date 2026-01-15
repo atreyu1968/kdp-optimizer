@@ -373,12 +373,13 @@ export async function synthesizeChapterWithGoogle(
     const chapters = await storage.getChaptersByProject(projectId);
     const chapter = chapters.find(ch => ch.id === chapterId);
     
-    // Prepare output path
+    // Prepare output path with unique suffix to avoid conflicts in multi-worker production
     const outputDir = path.join(process.cwd(), "uploads", "audiobooks", `project_${projectId}`);
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
-    const masteredPath = path.join(outputDir, `chapter_${chapterIndex}_mastered.mp3`);
+    const uniqueSuffix = `${job.id}_${Date.now()}`;
+    const masteredPath = path.join(outputDir, `chapter_${chapterIndex}_mastered_${uniqueSuffix}.mp3`);
     
     // Prepare ID3 metadata
     const id3Metadata: ID3Metadata = {

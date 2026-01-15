@@ -963,8 +963,10 @@ async function applyMasteringToJob(
     fs.mkdirSync(masteringDir, { recursive: true });
   }
   
+  // Use unique filename with jobId + timestamp to avoid conflicts in multi-worker production
   const safeFilename = sanitizeFilename(chapterTitle);
-  const masteredPath = path.join(masteringDir, `${safeFilename}.mp3`);
+  const uniqueSuffix = `${job.id}_${Date.now()}`;
+  const masteredPath = path.join(masteringDir, `${safeFilename}_${uniqueSuffix}.mp3`);
   
   const masteringOptions: MasteringOptions = {
     targetLoudness: -20,
