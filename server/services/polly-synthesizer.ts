@@ -614,9 +614,14 @@ export async function synthesizeChapter(
       fs.mkdirSync(masteringDir, { recursive: true });
     }
     
-    // Use chapter title for filename, with fallback to chapter ID
-    const safeFilename = chapterTitle ? sanitizeFilename(chapterTitle) : `chapter_${chapterId}`;
-    const masteredPath = path.join(masteringDir, `${safeFilename}.mp3`);
+    // Use chapter title + unique timestamp for local processing to avoid race conditions
+    // In production with parallel processing, multiple chapters can collide on sanitized names
+    const baseFilename = chapterTitle ? sanitizeFilename(chapterTitle) : `chapter_${chapterId}`;
+    const uniqueSuffix = `${chapterId}_${Date.now()}`;
+    const masteredPath = path.join(masteringDir, `${baseFilename}_${uniqueSuffix}.mp3`);
+    
+    // S3 key uses clean filename without timestamp (final destination)
+    const safeFilename = baseFilename;
     
     const masteringOptions: MasteringOptions = {
       targetLoudness: -20,    // ACX target: -20 LUFS
