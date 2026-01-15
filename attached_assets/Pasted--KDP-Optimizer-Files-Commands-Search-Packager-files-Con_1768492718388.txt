@@ -1,0 +1,200 @@
+
+
+
+KDP Optimizer
+Files
+Commands
+Search
+Packager files
+Config files
+/
+
+Databases
+Development Database
+62.84MB / 10GB
+Production Database
+63.79MB / 100GB
+Billing Period
+Renews monthly, 23 ene
+Hours of Compute Used
+0 hours
+npm run dev
+15m
+ • 
+16 minutes ago
+Time
+Deployment
+Source
+Log
+2026-01-15 15:30:57.19
+2a005a02
+User
+[Mastering] Error applying de-esser: Error: FFmpeg timeout after 1800s
+2026-01-15 15:32:50.29
+2a005a02
+User
+[Synthesis Resume] Project 19: 3/40 - Procesando: Capítulo 3, Capítulo 4
+2026-01-15 15:32:50.29
+2a005a02
+User
+[Synthesis Resume] Project 19: 3/40 - Procesando: Capítulo 3, Capítulo 4, Capítulo 5
+2026-01-15 15:32:50.29
+2a005a02
+User
+[Parallel] Starting batch 2/14: items 4-6 of 40
+2026-01-15 15:32:50.29
+2a005a02
+User
+[Polly] [PARALLEL] Starting chapter 5/40: "Capítulo 4" (active: 2)
+2026-01-15 15:32:50.29
+2a005a02
+User
+[Parallel] Batch 1/14 complete. Running: 3 succeeded, 0 failed
+2026-01-15 15:32:50.29
+2a005a02
+User
+[Polly] [PARALLEL] Starting chapter 4/40: "Capítulo 3" (active: 1)
+2026-01-15 15:32:50.29
+2a005a02
+User
+[Polly] [PARALLEL] Starting chapter 6/40: "Capítulo 5" (active: 3)
+2026-01-15 15:32:51.84
+9e6c6fcb
+User
+[Database] Connecting to database...
+2026-01-15 15:32:51.84
+9e6c6fcb
+User
+[Database] Database connection initialized
+2026-01-15 15:32:51.84
+9e6c6fcb
+User
+[Startup] Checking critical dependencies...
+2026-01-15 15:32:54.94
+9e6c6fcb
+User
+[Startup] ffmpeg: ffmpeg version 6.1.1 Copyright (c) 2000-2023 the FFmpeg developers
+2026-01-15 15:32:55.10
+9e6c6fcb
+User
+[Startup] ffprobe: ffprobe version 6.1.1 Copyright (c) 2007-2023 the FFmpeg developers
+2026-01-15 15:32:55.10
+9e6c6fcb
+User
+[Startup] NODE_ENV: production
+2026-01-15 15:32:55.10
+9e6c6fcb
+User
+[Startup] Database: configured
+2026-01-15 15:32:55.17
+9e6c6fcb
+User
+3:32:55 PM [express] serving on port 5000
+2026-01-15 15:33:00.85
+9e6c6fcb
+User
+[Recovery] Auto-recovery check on startup...
+2026-01-15 15:33:05.39
+2a005a02
+User
+at Timeout._onTimeout (file:///home/runner/workspace/dist/index.js:3270:14)
+2026-01-15 15:33:05.39
+2a005a02
+User
+at process.processTimers (node:internal/timers:519:7)
+2026-01-15 15:33:05.39
+2a005a02
+User
+[Mastering] Error applying de-esser: Error: FFmpeg timeout after 1800s
+2026-01-15 15:33:05.39
+2a005a02
+User
+at listOnTimeout (node:internal/timers:581:17)
+2026-01-15 15:33:05.39
+2a005a02
+User
+[Synthesis] Project 20: 1/40 - Procesando: Capítulo 1, Capítulo 2
+2026-01-15 15:33:07.19
+2a005a02
+User
+[Mastering] Using raw Polly audio as fallback for chapter 589
+2026-01-15 15:33:07.19
+2a005a02
+User
+[Mastering] Failed for chapter 589: Failed to apply de-esser
+2026-01-15 15:33:24.59
+2a005a02
+User
+[Polly] Preprocessed text for chapter 553: 8333 -> 8357 chars, rate: 90%
+2026-01-15 15:33:28.19
+2a005a02
+User
+[Polly] Preprocessed text for chapter 554: 9243 -> 9266 chars, rate: 90%
+2026-01-15 15:33:29.30
+2a005a02
+User
+[Polly] Preprocessed text for chapter 552: 11136 -> 11166 chars, rate: 90%
+2026-01-15 15:33:31.90
+2a005a02
+User
+[Polly] [PARALLEL] Failed chapter "Capítulo 5": insert or update on table "audiobook_synthesis_jobs" violates foreign key constraint "audiobook_synthesis_jobs_chapter_id_audiobook_chapters_id_fk"
+2026-01-15 15:33:32.60
+2a005a02
+User
+[Polly] [PARALLEL] Failed chapter "Capítulo 4": insert or update on table "audiobook_synthesis_jobs" violates foreign key constraint "audiobook_synthesis_jobs_chapter_id_audiobook_chapters_id_fk"
+2026-01-15 15:33:37.69
+2a005a02
+User
+[Polly] [PARALLEL] Failed chapter "Capítulo 3": insert or update on table "audiobook_synthesis_jobs" violates foreign key constraint "audiobook_synthesis_jobs_chapter_id_audiobook_chapters_id_fk"
+2026-01-15 15:33:38.99
+2a005a02
+User
+[Synthesis Resume] Project 19: 6/40 - Capítulo 5
+2026-01-15 15:33:38.99
+2a005a02
+User
+[Synthesis Resume] Project 19: 6/40 - Capítulo 4
+2026-01-15 15:33:40.99
+2a005a02
+User
+[Synthesis Resume] Project 19: 6/40 - Procesando: Capítulo 6, Capítulo 7
+2026-01-15 15:33:40.99
+2a005a02
+User
+[Synthesis Resume] Project 19: 6/40 - Procesando: Capítulo 6
+2026-01-15 15:33:40.99
+2a005a02
+User
+[Polly] [PARALLEL] Starting chapter 7/40: "Capítulo 6" (active: 1)
+2026-01-15 15:33:40.99
+2a005a02
+User
+[Polly] [PARALLEL] Starting chapter 8/40: "Capítulo 7" (active: 2)
+2026-01-15 15:33:40.99
+2a005a02
+User
+[Synthesis Resume] Project 19: 6/40 - Procesando: Capítulo 6, Capítulo 7, Capítulo 8
+2026-01-15 15:33:40.99
+2a005a02
+User
+[Parallel] Batch 2/14 complete. Running: 3 succeeded, 3 failed
+2026-01-15 15:33:40.99
+2a005a02
+User
+[Parallel] Starting batch 3/14: items 7-9 of 40
+2026-01-15 15:33:40.99
+2a005a02
+User
+[Synthesis Resume] Project 19: 6/40 - Capítulo 3
+2026-01-15 15:33:40.99
+2a005a02
+User
+[Polly] [PARALLEL] Starting chapter 9/40: "Capítulo 8" (active: 3)
+2026-01-15 15:33:47.99
+2a005a02
+User
+[Polly] Preprocessed text for chapter 556: 9909 -> 9936 chars, rate: 90%
+2026-01-15 15:33:48.39
+9e6c6fcb
+User
+3:33:48 PM [express] GET /api/audiobooks/projects/20/jobs 304 in 82ms :: [{"id":536,"chapterId":592,…

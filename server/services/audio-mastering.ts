@@ -154,7 +154,10 @@ async function analyzeLoudness(
   inputPath: string,
   options: Required<MasteringOptions>
 ): Promise<LoudnormAnalysis | null> {
-  console.log(`[Mastering] Pass 1: Analyzing loudness for ${inputPath}`);
+  // Analysis timeout: 5 minutes max
+  const ANALYSIS_TIMEOUT_MS = 5 * 60 * 1000;
+  
+  console.log(`[Mastering] Pass 1: Analyzing loudness (timeout: 5min)`);
   
   const args = [
     '-i', inputPath,
@@ -164,16 +167,19 @@ async function analyzeLoudness(
   ];
   
   try {
-    const result = await runFFmpeg(args);
+    const startTime = Date.now();
+    const result = await runFFmpeg(args, ANALYSIS_TIMEOUT_MS);
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     
     if (result.code !== 0) {
-      console.error('[Mastering] FFmpeg analysis failed:', result.stderr);
+      console.error(`[Mastering] FFmpeg analysis failed after ${elapsed}s:`, result.stderr.substring(0, 300));
       return null;
     }
     
+    console.log(`[Mastering] Analysis complete in ${elapsed}s`);
     return parseLoudnormOutput(result.stderr);
   } catch (error) {
-    console.error('[Mastering] Error during loudness analysis:', error);
+    console.error('[Mastering] Error during loudness analysis:', error instanceof Error ? error.message : error);
     return null;
   }
 }
@@ -188,7 +194,10 @@ async function applyLoudnessCorrection(
   analysis: LoudnormAnalysis,
   options: Required<MasteringOptions>
 ): Promise<boolean> {
-  console.log(`[Mastering] Pass 2: Applying loudness correction`);
+  // Correction timeout: 5 minutes max
+  const CORRECTION_TIMEOUT_MS = 5 * 60 * 1000;
+  
+  console.log(`[Mastering] Pass 2: Applying loudness correction (timeout: 5min)`);
   console.log(`[Mastering] Measured values: I=${analysis.input_i}, TP=${analysis.input_tp}, LRA=${analysis.input_lra}`);
   
   // Build the loudnorm filter with measured values, offset and linear mode
@@ -216,16 +225,19 @@ async function applyLoudnessCorrection(
   ];
   
   try {
-    const result = await runFFmpeg(args);
+    const startTime = Date.now();
+    const result = await runFFmpeg(args, CORRECTION_TIMEOUT_MS);
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     
     if (result.code !== 0) {
-      console.error('[Mastering] FFmpeg correction failed:', result.stderr);
+      console.error(`[Mastering] FFmpeg correction failed after ${elapsed}s:`, result.stderr.substring(0, 300));
       return false;
     }
     
+    console.log(`[Mastering] Loudness correction complete in ${elapsed}s`);
     return true;
   } catch (error) {
-    console.error('[Mastering] Error during loudness correction:', error);
+    console.error('[Mastering] Error during loudness correction:', error instanceof Error ? error.message : error);
     return false;
   }
 }
@@ -233,12 +245,17 @@ async function applyLoudnessCorrection(
 /**
  * Apply de-esser to reduce sibilance (harsh 's', 'sh', 'ch' sounds)
  * Uses FFmpeg equalizer to attenuate frequencies 4-8kHz where sibilants reside
+ * 
+ * NOTE: De-esser is optional - if it fails or times out, we skip it and continue
  */
 async function applyDeEsser(
   inputPath: string,
   outputPath: string,
   options: Required<MasteringOptions>
 ): Promise<boolean> {
+  // De-esser timeout: 2 minutes max (should be very fast for audio processing)
+  const DE_ESSER_TIMEOUT_MS = 2 * 60 * 1000;
+  
   if (!options.deEsser) {
     // If de-esser disabled, just copy the file
     try {
@@ -249,7 +266,7 @@ async function applyDeEsser(
     }
   }
   
-  console.log(`[Mastering] Applying de-esser (${options.deEsserAmount}dB reduction at 5-8kHz)`);
+  console.log(`[Mastering] Applying de-esser (${options.deEsserAmount}dB reduction at 5-8kHz, timeout: 2min)`);
   
   // Multi-band de-esser targeting sibilant frequencies (5-8kHz)
   // Uses highshelf filter to gently reduce high frequencies
@@ -270,17 +287,31 @@ async function applyDeEsser(
   ];
   
   try {
-    const result = await runFFmpeg(args);
+    const startTime = Date.now();
+    const result = await runFFmpeg(args, DE_ESSER_TIMEOUT_MS);
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     
     if (result.code !== 0) {
-      console.error('[Mastering] FFmpeg de-esser failed:', result.stderr);
-      return false;
+      console.error(`[Mastering] FFmpeg de-esser failed after ${elapsed}s:`, result.stderr.substring(0, 300));
+      // Skip de-esser on failure - copy original file
+      console.log('[Mastering] Skipping de-esser, using original audio');
+      fs.copyFileSync(inputPath, outputPath);
+      return true;
     }
     
+    console.log(`[Mastering] De-esser complete in ${elapsed}s`);
     return true;
   } catch (error) {
-    console.error('[Mastering] Error applying de-esser:', error);
-    return false;
+    console.error('[Mastering] De-esser error (skipping):', error instanceof Error ? error.message : error);
+    // On timeout or error, skip de-esser and use original audio
+    try {
+      fs.copyFileSync(inputPath, outputPath);
+      console.log('[Mastering] Skipped de-esser, copied original audio');
+      return true;
+    } catch (copyError) {
+      console.error('[Mastering] Failed to copy original audio:', copyError);
+      return false;
+    }
   }
 }
 
@@ -293,7 +324,10 @@ async function addRoomTone(
   outputPath: string,
   options: Required<MasteringOptions>
 ): Promise<boolean> {
-  console.log(`[Mastering] Adding room tone: ${options.silenceStart}ms start, ${options.silenceEnd}ms end`);
+  // Room tone timeout: 2 minutes max (simple operation)
+  const ROOM_TONE_TIMEOUT_MS = 2 * 60 * 1000;
+  
+  console.log(`[Mastering] Adding room tone: ${options.silenceStart}ms start, ${options.silenceEnd}ms end (timeout: 2min)`);
   
   // Calculate silence durations in samples
   const startSamples = Math.round((options.silenceStart / 1000) * options.sampleRate);
@@ -318,16 +352,19 @@ async function addRoomTone(
   ];
   
   try {
-    const result = await runFFmpeg(args);
+    const startTime = Date.now();
+    const result = await runFFmpeg(args, ROOM_TONE_TIMEOUT_MS);
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     
     if (result.code !== 0) {
-      console.error('[Mastering] FFmpeg room tone failed:', result.stderr);
+      console.error(`[Mastering] FFmpeg room tone failed after ${elapsed}s:`, result.stderr.substring(0, 300));
       return false;
     }
     
+    console.log(`[Mastering] Room tone added in ${elapsed}s`);
     return true;
   } catch (error) {
-    console.error('[Mastering] Error adding room tone:', error);
+    console.error('[Mastering] Error adding room tone:', error instanceof Error ? error.message : error);
     return false;
   }
 }
