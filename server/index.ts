@@ -26,7 +26,6 @@ function checkDependencies() {
   
   // Check environment
   console.log('[Startup] NODE_ENV:', process.env.NODE_ENV);
-  console.log('[Startup] AWS credentials:', process.env.AWS_ACCESS_KEY_ID ? 'configured' : 'MISSING');
   console.log('[Startup] Database:', process.env.DATABASE_URL ? 'configured' : 'MISSING');
 }
 
