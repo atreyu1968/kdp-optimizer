@@ -607,12 +607,15 @@ export async function synthesizeChapter(
     });
     
     console.log(`[Polly] Synthesis complete for chapter ${chapterId}, starting mastering...`);
+    console.log(`[Polly] Raw audio URL length: ${rawAudioUrl.length}`);
+    console.log(`[Polly] Raw audio URL preview: ${rawAudioUrl.substring(0, 100)}...`);
     
     // Apply ACX-compliant mastering (2-pass loudnorm + room tone)
     const masteringDir = path.join(os.tmpdir(), "audiobook-mastered");
     if (!fs.existsSync(masteringDir)) {
       fs.mkdirSync(masteringDir, { recursive: true });
     }
+    console.log(`[Polly] Mastering directory ready: ${masteringDir}`);
     
     // Use chapter title + unique timestamp for local processing to avoid race conditions
     // In production with parallel processing, multiple chapters can collide on sanitized names
@@ -645,7 +648,11 @@ export async function synthesizeChapter(
       coverImageBase64: project?.coverImageUrl ?? undefined,
     };
     
+    console.log(`[Polly] Starting masterAudioFromUrl for chapter ${chapterId} at ${new Date().toISOString()}`);
+    const masteringStartTime = Date.now();
     const masteringResult = await masterAudioFromUrl(rawAudioUrl, masteredPath, masteringOptions, metadata);
+    const masteringElapsed = ((Date.now() - masteringStartTime) / 1000).toFixed(1);
+    console.log(`[Polly] masterAudioFromUrl completed in ${masteringElapsed}s, success: ${masteringResult.success}`);
     
     if (!masteringResult.success) {
       console.error(`[Mastering] Failed for chapter ${chapterId}:`, masteringResult.error);
