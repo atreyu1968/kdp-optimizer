@@ -72,7 +72,7 @@ function decryptCredential(encrypted: string, iv: string, authTag: string): stri
   const ivBuffer = Buffer.from(iv, "base64");
   const authTagBuffer = Buffer.from(authTag, "base64");
   
-  const decipher = crypto.createDecipheriv("aes-256-gcm", masterKey, ivBuffer);
+  const decipher = crypto.createDecipheriv("aes-256-gcm", masterKey, ivBuffer, { authTagLength: 16 });
   decipher.setAuthTag(authTagBuffer);
   
   let decrypted = decipher.update(encrypted, "base64", "utf8");
