@@ -547,22 +547,40 @@ async function getAudioDuration(filePath: string): Promise<number | null> {
 
 /**
  * Download audio from URL to local file
+ * Uses a 5-minute timeout for downloads to fail fast on network issues
  */
 async function downloadAudio(url: string, outputPath: string): Promise<boolean> {
-  console.log(`[Mastering] Downloading audio from URL`);
+  const startTime = Date.now();
+  const DOWNLOAD_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes in milliseconds
+  const DOWNLOAD_TIMEOUT_US = DOWNLOAD_TIMEOUT_MS * 1000; // Convert to microseconds for ffmpeg
+  
+  console.log(`[Mastering] Downloading audio from URL (timeout: 5 min)`);
+  console.log(`[Mastering] URL preview: ${url.substring(0, 80)}...`);
   
   const args = [
     '-y',
+    '-rw_timeout', DOWNLOAD_TIMEOUT_US.toString(), // Read/write timeout in microseconds for HTTP(S)
     '-i', url,
     '-c', 'copy',
     outputPath
   ];
   
   try {
-    const result = await runFFmpeg(args);
-    return result.code === 0;
+    // Process timeout matches the network timeout
+    const result = await runFFmpeg(args, DOWNLOAD_TIMEOUT_MS);
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    
+    if (result.code === 0) {
+      console.log(`[Mastering] Download complete in ${elapsed}s`);
+      return true;
+    } else {
+      console.error(`[Mastering] Download failed with code ${result.code} after ${elapsed}s`);
+      console.error(`[Mastering] FFmpeg stderr: ${result.stderr.substring(0, 500)}`);
+      return false;
+    }
   } catch (error) {
-    console.error('[Mastering] Error downloading audio:', error);
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.error(`[Mastering] Download error after ${elapsed}s:`, error);
     return false;
   }
 }
