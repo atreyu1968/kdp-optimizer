@@ -658,6 +658,16 @@ export async function masterAudio(
       };
     }
     
+    // Verify the output file was actually created
+    if (!fs.existsSync(outputPath)) {
+      console.error(`[Mastering] CRITICAL: Output file not created by FFmpeg: ${outputPath}`);
+      return {
+        success: false,
+        outputPath: '',
+        error: 'FFmpeg completed but output file not found - possible disk space issue',
+      };
+    }
+    
     // Verify final loudness meets ACX requirements
     const finalAnalysis = await verifyLoudness(outputPath, opts);
     
@@ -734,6 +744,14 @@ export async function masterAudioFromUrl(
   
   // Apply ID3 metadata after mastering if provided
   if (result.success && metadata) {
+    // Verify the mastered file exists before attempting to add metadata
+    if (!fs.existsSync(outputPath)) {
+      console.error(`[Mastering] CRITICAL: Mastered file not found after creation: ${outputPath}`);
+      console.error(`[Mastering] This may indicate disk space issues or filesystem problems`);
+      // Return success without metadata - the audio was created but may have been removed
+      return result;
+    }
+    
     // Use unique temp path with timestamp to avoid race conditions
     const tempOutputPath = outputPath.replace('.mp3', `_temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.mp3`);
     const success = await addID3Metadata(outputPath, tempOutputPath, metadata);
