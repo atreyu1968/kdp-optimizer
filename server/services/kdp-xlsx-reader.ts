@@ -1,33 +1,59 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { readFileSync } from 'fs';
+
+/**
+ * Converts an ExcelJS worksheet to JSON array (similar to xlsx's sheet_to_json)
+ */
+function worksheetToJson(worksheet: ExcelJS.Worksheet): Record<string, any>[] {
+  const rows: Record<string, any>[] = [];
+  const headers: string[] = [];
+  
+  worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    if (rowNumber === 1) {
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        headers.push(cell.value?.toString() || '');
+      });
+    } else {
+      const rowData: Record<string, any> = {};
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        const header = headers[colNumber - 1];
+        if (header) {
+          rowData[header] = cell.value ?? null;
+        }
+      });
+      if (Object.keys(rowData).length > 0) {
+        rows.push(rowData);
+      }
+    }
+  });
+  
+  return rows;
+}
 
 /**
  * Lee un archivo XLSX de KDP y muestra su estructura
  */
-export function analyzeKdpXlsx(filePath: string) {
-  // Leer el archivo
+export async function analyzeKdpXlsx(filePath: string) {
   const fileBuffer = readFileSync(filePath);
-  const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(fileBuffer);
 
   console.log('=== Análisis de archivo KDP XLSX ===\n');
   
-  // Información del workbook
-  console.log(`Número de hojas: ${workbook.SheetNames.length}`);
-  console.log(`Nombres de hojas: ${workbook.SheetNames.join(', ')}\n`);
+  const sheetNames = workbook.worksheets.map(ws => ws.name);
+  console.log(`Número de hojas: ${sheetNames.length}`);
+  console.log(`Nombres de hojas: ${sheetNames.join(', ')}\n`);
 
-  // Analizar cada hoja
-  workbook.SheetNames.forEach((sheetName) => {
-    console.log(`\n--- Hoja: "${sheetName}" ---`);
-    const worksheet = workbook.Sheets[sheetName];
+  for (const worksheet of workbook.worksheets) {
+    console.log(`\n--- Hoja: "${worksheet.name}" ---`);
     
-    // Convertir a JSON para ver los datos
-    const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+    const jsonData = worksheetToJson(worksheet);
     
     console.log(`Filas de datos: ${jsonData.length}`);
     
     if (jsonData.length > 0) {
       console.log('\nColumnas encontradas:');
-      const firstRow = jsonData[0] as Record<string, any>;
+      const firstRow = jsonData[0];
       Object.keys(firstRow).forEach((key, index) => {
         const value = firstRow[key];
         const valueType = typeof value;
@@ -40,15 +66,14 @@ export function analyzeKdpXlsx(filePath: string) {
         console.log(`\nFila ${index + 1}:`, JSON.stringify(row, null, 2));
       });
     }
-  });
+  }
 
   return {
-    sheetNames: workbook.SheetNames,
+    sheetNames,
     workbook
   };
 }
 
-// Ejecutar análisis si se ejecuta directamente
 if (import.meta.url === `file://${process.argv[1]}`) {
   const filePath = process.argv[2];
   if (!filePath) {
@@ -57,10 +82,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(1);
   }
   
-  try {
-    analyzeKdpXlsx(filePath);
-  } catch (error) {
+  analyzeKdpXlsx(filePath).catch((error) => {
     console.error('Error al leer el archivo:', error);
     process.exit(1);
-  }
+  });
 }
