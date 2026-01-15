@@ -286,7 +286,7 @@ export function GoogleCredentialsManager() {
                       <FormLabel>Credenciales JSON</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder='{"type": "service_account", "project_id": "...", ...}'
+                          placeholder="Paste your Google Cloud service account JSON here..."
                           className="font-mono text-xs min-h-[200px]"
                           {...field}
                           data-testid="textarea-credential-json"

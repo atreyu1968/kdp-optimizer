@@ -128,10 +128,10 @@ export async function exportOptimizationToPDF(result: OptimizationResult): Promi
     pdf.setFontSize(9);
     pdf.setFont("helvetica", "normal");
     
-    // Limpiar HTML de la descripción
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = marketResult.description;
-    const descriptionText = tempDiv.textContent || tempDiv.innerText || "";
+    // Limpiar HTML de la descripción (usando DOMParser para evitar XSS)
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(marketResult.description, "text/html");
+    const descriptionText = doc.body.textContent || "";
     
     const descLines = pdf.splitTextToSize(descriptionText, contentWidth - 5);
     descLines.forEach((line: string) => {
