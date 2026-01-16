@@ -10,6 +10,7 @@ import Publications from "@/pages/publications";
 import Aura from "@/pages/aura";
 import AudiobookForge from "@/pages/audiobook-forge";
 import SocialContentRoom from "@/pages/social-content-room";
+import Reeditor from "@/pages/reeditor";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/aura/:rest*" component={Aura} />
       <Route path="/audiobooks" component={AudiobookForge} />
       <Route path="/audiobooks/:rest*" component={AudiobookForge} />
+      <Route path="/reeditor" component={Reeditor} />
       <Route component={NotFound} />
     </Switch>
   );

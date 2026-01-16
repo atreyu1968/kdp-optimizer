@@ -1081,3 +1081,154 @@ MANDATORY REQUIREMENTS:
     throw error;
   }
 }
+
+/**
+ * Reduce text following custom guidelines while preserving narrative essence.
+ * Processes text in chunks to handle long novels.
+ * 
+ * @param text - Original text to reduce
+ * @param targetWordCount - Target word count for the reduced text
+ * @param guidelines - Custom reduction guidelines provided by user
+ * @param language - Language of the text
+ * @returns Reduced text
+ */
+export async function reduceTextWithGuidelines(
+  text: string,
+  targetWordCount: number,
+  guidelines: string,
+  language: string = "es"
+): Promise<string> {
+  const originalWordCount = text.split(/\s+/).filter(Boolean).length;
+  const reductionRatio = targetWordCount / originalWordCount;
+  const reductionPercentage = Math.round((1 - reductionRatio) * 100);
+  
+  console.log(
+    `[Text Reduction] Starting reduction:\n` +
+    `  Original: ${originalWordCount.toLocaleString()} words\n` +
+    `  Target: ${targetWordCount.toLocaleString()} words\n` +
+    `  Reduction: ${reductionPercentage}%`
+  );
+
+  // For very long texts, process in chunks (chapters/paragraphs)
+  const CHUNK_SIZE = 15000; // ~3750 words per chunk
+  const chunks = splitTextIntoChunks(text, CHUNK_SIZE);
+  const reducedChunks: string[] = [];
+  
+  console.log(`[Text Reduction] Processing ${chunks.length} chunks...`);
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    const chunkWordCount = chunk.split(/\s+/).filter(Boolean).length;
+    const targetChunkWords = Math.round(chunkWordCount * reductionRatio);
+    
+    console.log(`[Text Reduction] Chunk ${i + 1}/${chunks.length}: ${chunkWordCount} -> ~${targetChunkWords} words`);
+    
+    const reducedChunk = await reduceChunk(
+      chunk,
+      targetChunkWords,
+      guidelines,
+      language,
+      i + 1,
+      chunks.length
+    );
+    
+    reducedChunks.push(reducedChunk);
+    
+    // Small delay between chunks to avoid rate limits
+    if (i < chunks.length - 1) {
+      await delayBetweenCalls(500);
+    }
+  }
+
+  const finalText = reducedChunks.join("\n\n");
+  const finalWordCount = finalText.split(/\s+/).filter(Boolean).length;
+  
+  console.log(
+    `[Text Reduction] Complete:\n` +
+    `  Final: ${finalWordCount.toLocaleString()} words\n` +
+    `  Actual reduction: ${Math.round((1 - finalWordCount / originalWordCount) * 100)}%`
+  );
+
+  return finalText;
+}
+
+/**
+ * Split text into processable chunks, respecting paragraph boundaries
+ */
+function splitTextIntoChunks(text: string, maxChunkSize: number): string[] {
+  const paragraphs = text.split(/\n\n+/);
+  const chunks: string[] = [];
+  let currentChunk = "";
+
+  for (const paragraph of paragraphs) {
+    if (currentChunk.length + paragraph.length > maxChunkSize && currentChunk.length > 0) {
+      chunks.push(currentChunk.trim());
+      currentChunk = paragraph;
+    } else {
+      currentChunk += (currentChunk ? "\n\n" : "") + paragraph;
+    }
+  }
+
+  if (currentChunk.trim()) {
+    chunks.push(currentChunk.trim());
+  }
+
+  return chunks;
+}
+
+/**
+ * Reduce a single chunk of text
+ */
+async function reduceChunk(
+  chunk: string,
+  targetWords: number,
+  guidelines: string,
+  language: string,
+  chunkNum: number,
+  totalChunks: number
+): Promise<string> {
+  const systemPrompt = `You are a professional literary editor specializing in text condensation. Your task is to reduce text while preserving its essence, narrative flow, and style.
+
+CRITICAL RULES:
+1. Maintain the author's voice and writing style
+2. Preserve all essential plot points and character development
+3. Keep dialogue natural and impactful
+4. Maintain narrative coherence
+5. Never change the meaning or intent of scenes
+6. Output ONLY the reduced text, no explanations
+
+Language: ${language}`;
+
+  const userPrompt = `Reduce this text to approximately ${targetWords} words following these specific guidelines from the author:
+
+=== AUTHOR'S REDUCTION GUIDELINES ===
+${guidelines}
+=====================================
+
+${totalChunks > 1 ? `[This is section ${chunkNum} of ${totalChunks} - maintain continuity]` : ""}
+
+=== ORIGINAL TEXT ===
+${chunk}
+=====================
+
+Provide ONLY the reduced text, maintaining the original language (${language}). Do not add any explanations or comments.`;
+
+  try {
+    const response = await withRetry(() =>
+      openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.4,
+        max_tokens: 8000,
+      })
+    );
+
+    return response.choices[0].message.content || chunk;
+  } catch (error) {
+    console.error(`[Text Reduction] Error in chunk ${chunkNum}:`, error);
+    throw error;
+  }
+}

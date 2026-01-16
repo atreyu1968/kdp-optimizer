@@ -2978,6 +2978,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // REEDITOR - Text Reduction API
+  // ============================================
+  
+  /**
+   * POST /api/reeditor/reduce
+   * Reduce text following custom guidelines
+   */
+  app.post("/api/reeditor/reduce", async (req, res) => {
+    try {
+      const { text, targetWordCount, guidelines, language = "es" } = req.body;
+
+      if (!text || typeof text !== "string") {
+        res.status(400).json({ error: "Text is required" });
+        return;
+      }
+
+      if (!targetWordCount || typeof targetWordCount !== "number" || targetWordCount < 100) {
+        res.status(400).json({ error: "Target word count must be at least 100" });
+        return;
+      }
+
+      if (!guidelines || typeof guidelines !== "string" || guidelines.trim().length < 10) {
+        res.status(400).json({ error: "Please provide reduction guidelines (at least 10 characters)" });
+        return;
+      }
+
+      const originalWordCount = text.split(/\s+/).filter(Boolean).length;
+      
+      if (targetWordCount >= originalWordCount) {
+        res.status(400).json({ 
+          error: `Target word count (${targetWordCount}) must be less than original (${originalWordCount})` 
+        });
+        return;
+      }
+
+      console.log(`[Reeditor] Starting text reduction: ${originalWordCount} -> ${targetWordCount} words`);
+
+      const { reduceTextWithGuidelines } = await import("./ai/openai-client");
+      
+      const reducedText = await reduceTextWithGuidelines(
+        text,
+        targetWordCount,
+        guidelines,
+        language
+      );
+
+      const finalWordCount = reducedText.split(/\s+/).filter(Boolean).length;
+
+      res.json({
+        success: true,
+        originalWordCount,
+        targetWordCount,
+        finalWordCount,
+        reductionPercentage: Math.round((1 - finalWordCount / originalWordCount) * 100),
+        reducedText,
+      });
+    } catch (error) {
+      console.error("[Reeditor] Error reducing text:", error);
+      res.status(500).json({ 
+        error: "Failed to reduce text",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  /**
+   * POST /api/reeditor/analyze
+   * Analyze text to get word count and estimate processing time
+   */
+  app.post("/api/reeditor/analyze", async (req, res) => {
+    try {
+      const { text } = req.body;
+
+      if (!text || typeof text !== "string") {
+        res.status(400).json({ error: "Text is required" });
+        return;
+      }
+
+      const wordCount = text.split(/\s+/).filter(Boolean).length;
+      const charCount = text.length;
+      const paragraphCount = text.split(/\n\n+/).filter(Boolean).length;
+      
+      // Estimate processing time based on word count
+      // ~3750 words per chunk, ~15 seconds per chunk
+      const estimatedChunks = Math.ceil(charCount / 15000);
+      const estimatedMinutes = Math.ceil((estimatedChunks * 15) / 60);
+
+      res.json({
+        wordCount,
+        charCount,
+        paragraphCount,
+        estimatedChunks,
+        estimatedMinutes,
+      });
+    } catch (error) {
+      console.error("[Reeditor] Error analyzing text:", error);
+      res.status(500).json({ error: "Failed to analyze text" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

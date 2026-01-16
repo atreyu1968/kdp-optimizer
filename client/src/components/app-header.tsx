@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Library, PlusCircle, Calendar, BarChart3, Headphones } from "lucide-react";
+import { Library, PlusCircle, Calendar, BarChart3, Headphones, Scissors } from "lucide-react";
 import logoImage from "@/assets/logo.png";
 
 export function AppHeader() {
@@ -84,6 +84,18 @@ export function AppHeader() {
                 <Headphones className="h-4 w-4" />
                 <span className="hidden sm:inline">Audiolibros</span>
                 <span className="sm:hidden">Audio</span>
+              </Link>
+            </Button>
+            <Button
+              variant={location === "/reeditor" ? "default" : "ghost"}
+              size="sm"
+              className="gap-2"
+              asChild
+            >
+              <Link href="/reeditor" data-testid="link-reeditor">
+                <Scissors className="h-4 w-4" />
+                <span className="hidden sm:inline">Reeditor</span>
+                <span className="sm:hidden">Edit</span>
               </Link>
             </Button>
           </nav>
