@@ -14,12 +14,13 @@ import { masterAudioFromUrl, type MasteringOptions, type ID3Metadata } from "./a
 // Qwen TTS has ~6000 character limit per request for optimal performance
 const MAX_CHARS_PER_REQUEST = 5500;
 
-// Concurrency settings (same as other synthesizers)
-const PARALLEL_CHAPTER_LIMIT = 3;
+// Concurrency settings - reduced for Qwen due to rate limits
+const PARALLEL_CHAPTER_LIMIT = 1;
+const DELAY_BETWEEN_REQUESTS_MS = 500;
 
-// DashScope API endpoints
-const DASHSCOPE_INTL_URL = "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/text2audio/generation";
-const DASHSCOPE_CN_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text2audio/generation";
+// DashScope API endpoints (multimodal-generation for TTS)
+const DASHSCOPE_INTL_URL = "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
+const DASHSCOPE_CN_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
 
 // Available Qwen TTS voices with their characteristics
 export const QWEN_VOICES = [
@@ -181,9 +182,9 @@ async function synthesizeWithQwen(
     model: "qwen3-tts-flash",
     input: {
       text: text,
+      voice: voiceId,
     },
     parameters: {
-      voice: voiceId,
       format: "mp3",
       sample_rate: 24000,
     },
@@ -224,7 +225,9 @@ async function synthesizeWithQwen(
   }
   
   const result = await response.json() as {
-    output?: { audio?: string };
+    output?: { 
+      audio?: { url?: string } | string;
+    };
     code?: string;
     message?: string;
   };
@@ -233,12 +236,31 @@ async function synthesizeWithQwen(
     throw new Error(`Qwen TTS error: ${result.code} - ${result.message}`);
   }
   
-  if (!result.output?.audio) {
+  // Handle both URL response and base64 response formats
+  let audioBuffer: Buffer;
+  
+  if (result.output?.audio) {
+    const audioData = result.output.audio;
+    
+    if (typeof audioData === "object" && audioData.url) {
+      // Audio is returned as a URL - download it
+      console.log(`[Qwen TTS] Downloading audio from URL...`);
+      const audioResponse = await fetch(audioData.url);
+      if (!audioResponse.ok) {
+        throw new Error(`Failed to download audio: ${audioResponse.status}`);
+      }
+      const arrayBuffer = await audioResponse.arrayBuffer();
+      audioBuffer = Buffer.from(arrayBuffer);
+    } else if (typeof audioData === "string") {
+      // Audio is returned as base64
+      audioBuffer = Buffer.from(audioData, "base64");
+    } else {
+      throw new Error("Unexpected audio format from Qwen TTS");
+    }
+  } else {
     throw new Error("No audio received from Qwen TTS");
   }
   
-  // Decode base64 audio
-  const audioBuffer = Buffer.from(result.output.audio, "base64");
   console.log(`[Qwen TTS] Received audio: ${audioBuffer.length} bytes`);
   
   return audioBuffer;
@@ -360,6 +382,11 @@ export async function synthesizeChapterWithQwen(
       
       if (chunkAudio) {
         audioChunks.push(chunkAudio);
+      }
+      
+      // Add delay between chunks to avoid rate limiting
+      if (i < chunks.length - 1) {
+        await new Promise(r => setTimeout(r, DELAY_BETWEEN_REQUESTS_MS));
       }
     }
     
