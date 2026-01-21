@@ -18,6 +18,7 @@ import { parseWordDocument } from "./services/word-parser";
 import { parseEpubDocument, applyPLSLexicon } from "./services/epub-parser";
 import { synthesizeProject, getAvailableVoices, validateAwsCredentials, recoverPendingJobs } from "./services/polly-synthesizer";
 import { getGoogleVoices, isGoogleTTSConfigured, synthesizeProjectWithGoogle } from "./services/google-tts-synthesizer";
+import { getQwenVoices, isQwenTTSConfigured, synthesizeChapterWithQwen, processProjectWithQwen } from "./services/qwen-tts-synthesizer";
 import * as googleCredentialsManager from "./services/google-credentials-manager";
 import type { IVooxMetadata } from "@shared/schema";
 import multer from "multer";
@@ -2427,16 +2428,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Iniciar síntesis de un proyecto
+  // Iniciar síntesis de un proyecto (soporta Polly, Google y Qwen TTS)
   app.post("/api/audiobooks/projects/:id/synthesize", async (req, res) => {
     try {
-      // Verificar credenciales AWS antes de empezar
-      if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-        console.error("[Synthesis] ERROR: Credenciales AWS no configuradas");
-        res.status(500).json({ error: "Las credenciales de AWS no están configuradas. Configúralas en la pestaña Secrets." });
-        return;
-      }
-
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         res.status(400).json({ error: "Invalid project ID" });
@@ -2450,18 +2444,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
+      const ttsProvider = project.ttsProvider || "polly";
+
+      // Verificar credenciales según proveedor
+      if (ttsProvider === "polly") {
+        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+          console.error("[Synthesis] ERROR: Credenciales AWS no configuradas");
+          res.status(500).json({ error: "Las credenciales de AWS no están configuradas. Configúralas en la pestaña Secrets." });
+          return;
+        }
+      } else if (ttsProvider === "google") {
+        if (!isGoogleTTSConfigured()) {
+          res.status(500).json({ error: "Google Cloud TTS no está configurado." });
+          return;
+        }
+      } else if (ttsProvider === "qwen") {
+        if (!isQwenTTSConfigured()) {
+          res.status(500).json({ error: "Qwen TTS no está configurado. Configura DASHSCOPE_API_KEY en Secrets." });
+          return;
+        }
+      }
+
       res.json({ 
         success: true, 
-        message: "Síntesis iniciada. El proceso puede tardar varios minutos." 
+        message: `Síntesis iniciada con ${ttsProvider === "polly" ? "Amazon Polly" : ttsProvider === "google" ? "Google Cloud TTS" : "Qwen TTS"}. El proceso puede tardar varios minutos.` 
       });
 
-      // Iniciar síntesis en segundo plano con mejor error handling
+      // Iniciar síntesis en segundo plano según proveedor
       setImmediate(async () => {
         try {
-          console.log(`[Synthesis] Starting project ${id}...`);
-          await synthesizeProject(id, (completed, total, currentChapter) => {
-            console.log(`[Synthesis] Project ${id}: ${completed}/${total} - ${currentChapter}`);
-          });
+          console.log(`[Synthesis] Starting project ${id} with ${ttsProvider}...`);
+          
+          if (ttsProvider === "qwen") {
+            const { processProjectWithQwen } = await import("./services/qwen-tts-synthesizer");
+            await processProjectWithQwen(id, project.voiceId, project.speechRate || "medium", (completed, total, currentChapter) => {
+              console.log(`[Synthesis Qwen] Project ${id}: ${completed}/${total} - ${currentChapter}`);
+            });
+          } else if (ttsProvider === "google") {
+            await synthesizeProjectWithGoogle(id, (completed, total, currentChapter) => {
+              console.log(`[Synthesis Google] Project ${id}: ${completed}/${total} - ${currentChapter}`);
+            });
+          } else {
+            await synthesizeProject(id, (completed, total, currentChapter) => {
+              console.log(`[Synthesis Polly] Project ${id}: ${completed}/${total} - ${currentChapter}`);
+            });
+          }
+          
           console.log(`[Synthesis] Completed project ${id}`);
         } catch (synthesisError) {
           console.error(`[Synthesis] Error in project ${id}:`, synthesisError instanceof Error ? synthesisError.message : synthesisError);
@@ -2528,6 +2556,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ configured: isGoogleTTSConfigured() });
     } catch (error) {
       res.json({ configured: false });
+    }
+  });
+
+  // ============================================================================
+  // QWEN 3 TTS API ENDPOINTS
+  // ============================================================================
+
+  // Obtener voces disponibles de Qwen TTS
+  app.get("/api/audiobooks/qwen-voices", async (req, res) => {
+    try {
+      if (!isQwenTTSConfigured()) {
+        res.json({ configured: false, voices: [] });
+        return;
+      }
+      const { languageCode } = req.query;
+      const voices = await getQwenVoices(languageCode as string | undefined);
+      res.json({ configured: true, voices });
+    } catch (error) {
+      console.error("Error fetching Qwen voices:", error);
+      res.status(500).json({ configured: false, error: "Failed to fetch Qwen voices" });
+    }
+  });
+
+  // Verificar si Qwen TTS está configurado
+  app.get("/api/audiobooks/qwen-status", async (req, res) => {
+    try {
+      res.json({ configured: isQwenTTSConfigured() });
+    } catch (error) {
+      res.json({ configured: false });
+    }
+  });
+
+  // Iniciar síntesis con Qwen TTS para un proyecto
+  app.post("/api/audiobooks/projects/:id/synthesize-qwen", async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      if (isNaN(projectId)) {
+        res.status(400).json({ error: "Invalid project ID" });
+        return;
+      }
+
+      if (!isQwenTTSConfigured()) {
+        res.status(400).json({ error: "Qwen TTS not configured. Please set DASHSCOPE_API_KEY." });
+        return;
+      }
+
+      const { voiceId, speechRate } = req.body;
+      
+      if (!voiceId) {
+        res.status(400).json({ error: "Voice ID is required" });
+        return;
+      }
+
+      const project = await storage.getAudiobookProject(projectId);
+      if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+      }
+
+      // Update project status
+      await storage.updateAudiobookProject(projectId, { status: "synthesizing" });
+
+      // Start synthesis in background
+      res.json({ message: "Synthesis started with Qwen TTS", projectId, voiceId });
+
+      // Process all chapters
+      try {
+        const result = await processProjectWithQwen(
+          projectId,
+          voiceId,
+          speechRate || "medium",
+          (completed, total, chapterTitle) => {
+            console.log(`[Qwen TTS] Progress: ${completed}/${total} - ${chapterTitle}`);
+          }
+        );
+
+        // Update project status based on results
+        if (result.failed === 0) {
+          await storage.updateAudiobookProject(projectId, { status: "completed" });
+        } else if (result.succeeded > 0) {
+          await storage.updateAudiobookProject(projectId, { status: "completed" });
+        } else {
+          await storage.updateAudiobookProject(projectId, { status: "failed" });
+        }
+
+        console.log(`[Qwen TTS] Project ${projectId} completed: ${result.succeeded} succeeded, ${result.failed} failed`);
+      } catch (error) {
+        console.error(`[Qwen TTS] Project ${projectId} failed:`, error);
+        await storage.updateAudiobookProject(projectId, { status: "failed" });
+      }
+
+    } catch (error) {
+      console.error("Error starting Qwen synthesis:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to start Qwen synthesis" });
+      }
     }
   });
 

@@ -82,7 +82,7 @@ interface GoogleVoice {
   voiceType: string;
 }
 
-type TTSProvider = "polly" | "google";
+type TTSProvider = "polly" | "google" | "qwen";
 
 interface ProjectDetailProps {
   projectId: number;
@@ -1188,17 +1188,36 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
   const googleVoices = googleVoicesData || [];
   const isGoogleConfigured = hasGoogleCredentials;
 
+  // Query para status de Qwen TTS
+  const { data: qwenStatus } = useQuery<{ configured: boolean }>({
+    queryKey: ["/api/audiobooks/qwen-status"],
+    enabled: open,
+  });
+
+  // Query para voces de Qwen TTS
+  const { data: qwenVoicesData, isLoading: loadingQwenVoices } = useQuery<{ configured: boolean; voices: GoogleVoice[] }>({
+    queryKey: ["/api/audiobooks/qwen-voices"],
+    enabled: open && ttsProvider === "qwen" && qwenStatus?.configured,
+  });
+
+  const qwenVoices = qwenVoicesData?.voices || [];
+  const isQwenConfigured = qwenStatus?.configured || false;
+
   // Motores disponibles según el proveedor
   const availableEngines = ttsProvider === "polly"
     ? pollyVoices ? Array.from(new Set(pollyVoices.map(v => v.engine))).sort() : []
-    : googleVoices ? Array.from(new Set(googleVoices.map(v => v.voiceType))).sort() : [];
+    : ttsProvider === "google"
+    ? googleVoices ? Array.from(new Set(googleVoices.map(v => v.voiceType))).sort() : []
+    : ["flash"]; // Qwen uses flash model
 
   // Voces filtradas según proveedor y motor
   const filteredVoices = ttsProvider === "polly"
     ? pollyVoices?.filter(v => !engine || v.engine === engine) || []
-    : googleVoices?.filter(v => !engine || v.voiceType === engine) || [];
+    : ttsProvider === "google"
+    ? googleVoices?.filter(v => !engine || v.voiceType === engine) || []
+    : qwenVoices || [];
 
-  const loadingVoices = ttsProvider === "polly" ? loadingPollyVoices : loadingGoogleVoices;
+  const loadingVoices = ttsProvider === "polly" ? loadingPollyVoices : ttsProvider === "google" ? loadingGoogleVoices : loadingQwenVoices;
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -1248,8 +1267,13 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
         if (selectedVoice) {
           formData.append("voiceLocale", selectedVoice.languageCode);
         }
-      } else {
+      } else if (ttsProvider === "google") {
         const selectedVoice = googleVoices?.find(v => v.id === voiceId);
+        if (selectedVoice) {
+          formData.append("voiceLocale", selectedVoice.languageCode);
+        }
+      } else if (ttsProvider === "qwen") {
+        const selectedVoice = qwenVoices?.find(v => v.id === voiceId);
         if (selectedVoice) {
           formData.append("voiceLocale", selectedVoice.languageCode);
         }
@@ -1288,7 +1312,9 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
 
   const selectedVoice = ttsProvider === "polly"
     ? pollyVoices?.find(v => v.id === voiceId && v.engine === engine)
-    : googleVoices?.find(v => v.id === voiceId && v.voiceType === engine);
+    : ttsProvider === "google"
+    ? googleVoices?.find(v => v.id === voiceId && v.voiceType === engine)
+    : qwenVoices?.find(v => v.id === voiceId);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -1376,14 +1402,22 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
                   Google Cloud TTS (Neural2, WaveNet)
                   {!isGoogleConfigured && " - No configurado"}
                 </SelectItem>
+                <SelectItem value="qwen" disabled={!isQwenConfigured} data-testid="provider-option-qwen">
+                  Qwen 3 TTS (49 voces, 10 idiomas)
+                  {!isQwenConfigured && " - No configurado"}
+                </SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
               {ttsProvider === "polly" 
                 ? "Amazon Polly ofrece voces Generative (mejor calidad) y Long-form para audiolibros."
-                : isGoogleConfigured 
+                : ttsProvider === "google"
+                ? isGoogleConfigured 
                   ? "Google Cloud TTS Neural2 ofrece voces naturales de alta calidad."
-                  : "Añade credenciales de Google Cloud en la pestaña Configuración."}
+                  : "Añade credenciales de Google Cloud en la pestaña Configuración."
+                : isQwenConfigured
+                  ? "Qwen 3 TTS de Alibaba Cloud. Voces muy naturales en 10 idiomas."
+                  : "Configura DASHSCOPE_API_KEY en Secrets para usar Qwen TTS."}
             </p>
           </div>
 
@@ -1429,9 +1463,11 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
                          eng === "neural" ? "Neural (alta calidad)" :
                          eng === "generative" ? "Generative (mejor calidad)" : 
                          eng === "standard" ? "Standard (básico)" : eng)
-                      : (eng === "Neural2" ? "Neural2 (recomendado)" :
+                      : ttsProvider === "google"
+                      ? (eng === "Neural2" ? "Neural2 (recomendado)" :
                          eng === "Journey" ? "Journey (narrativo)" :
-                         eng === "WaveNet" ? "WaveNet (alta calidad)" : eng)}
+                         eng === "WaveNet" ? "WaveNet (alta calidad)" : eng)
+                      : (eng === "flash" ? "Flash (rápido y natural)" : eng)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1443,15 +1479,18 @@ function NewProjectDialog({ onSuccess }: { onSuccess: () => void }) {
                    engine === "generative" ? "Máxima calidad y naturalidad. Recomendado." :
                    engine === "standard" ? "Voces básicas, menor costo." :
                    "Selecciona un motor para ver las voces disponibles.")
-                : (engine === "Neural2" ? "Voces premium de Google. Alta naturalidad." :
+                : ttsProvider === "google"
+                ? (engine === "Neural2" ? "Voces premium de Google. Alta naturalidad." :
                    engine === "Journey" ? "Optimizado para narración larga." :
                    engine === "WaveNet" ? "Voces de alta calidad basadas en redes neuronales." :
-                   "Selecciona un tipo de voz para ver las opciones disponibles.")}
+                   "Selecciona un tipo de voz para ver las opciones disponibles.")
+                : (engine === "flash" ? "Modelo Flash de Qwen. Rápido y natural." :
+                   "Selecciona un motor para ver las voces disponibles.")}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="voice">Voz {ttsProvider === "polly" ? "de Amazon Polly" : "de Google Cloud"}</Label>
+            <Label htmlFor="voice">Voz {ttsProvider === "polly" ? "de Amazon Polly" : ttsProvider === "google" ? "de Google Cloud" : "de Qwen TTS"}</Label>
             <Select value={voiceId} onValueChange={setVoiceId} disabled={!engine}>
               <SelectTrigger data-testid="select-voice-trigger">
                 <SelectValue placeholder={!engine ? "Primero selecciona un motor" : "Selecciona una voz"} />
