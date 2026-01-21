@@ -11,12 +11,12 @@ import { storage } from "../storage";
 import { preprocessTextForTTS } from "./text-preprocessor";
 import { masterAudioFromUrl, type MasteringOptions, type ID3Metadata } from "./audio-mastering";
 
-// Qwen TTS has ~6000 character limit per request for optimal performance
-const MAX_CHARS_PER_REQUEST = 5500;
+// Qwen TTS has 600 character limit per request
+const MAX_CHARS_PER_REQUEST = 500;
 
 // Concurrency settings - reduced for Qwen due to rate limits
 const PARALLEL_CHAPTER_LIMIT = 1;
-const DELAY_BETWEEN_REQUESTS_MS = 500;
+const DELAY_BETWEEN_REQUESTS_MS = 200;
 
 // DashScope API endpoints (multimodal-generation for TTS)
 const DASHSCOPE_INTL_URL = "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
