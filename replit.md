@@ -13,16 +13,16 @@ Preferred communication style: Simple, everyday language in Spanish.
 The frontend uses React (TypeScript), Vite, Shadcn/ui (Radix UI + Tailwind CSS), Wouter for routing, and React Hook Form with Zod. It features a multi-step wizard, responsive design, light/dark modes, and a library page. React Query manages server state, requiring explicit refetch calls after data mutations. Server-Sent Events (SSE) provide real-time progress updates.
 
 ### Backend
-The backend is built with Node.js and Express.js (TypeScript, ES modules), offering RESTful APIs with SSE for real-time progress. It includes services for Metadata Generation, Progress Emitter, Storage, and Publication Scheduling. Key architectural decisions include asynchronous processing, session management, centralized error handling, and robust OpenAI API rate limiting with retry logic. A Publication Management Module handles scheduling with daily limits and market prioritization.
+The backend is built with Node.js and Express.js (TypeScript, ES modules), offering RESTful APIs with SSE for real-time progress. It includes services for Metadata Generation, Progress Emitter, Storage, and Publication Scheduling. Key architectural decisions include asynchronous processing, session management, centralized error handling, and robust DeepSeek API rate limiting with retry logic. A Publication Management Module handles scheduling with daily limits and market prioritization.
 
 ### Data Storage
-PostgreSQL, accessed via Drizzle ORM, is used for data storage. The schema supports both KDP Optimizer functionalities (Manuscripts, Optimizations, Publications, Tasks, BlockedDates) and the Aura System (PenNames, BookSeries, AuraBooks, KdpSales, AuraBookInsights, KenpMonthlyData, AuraBookEvents).
+Replit's built-in PostgreSQL database, accessed via Drizzle ORM with the `pg` driver (`drizzle-orm/node-postgres`), is used for data storage. The schema supports both KDP Optimizer functionalities (Manuscripts, Optimizations, Publications, Tasks, BlockedDates) and the Aura System (PenNames, BookSeries, AuraBooks, KdpSales, AuraBookInsights, KenpMonthlyData, AuraBookEvents).
 
 ### UI/UX Decisions
 The application utilizes Shadcn/ui for a modern, accessible interface, incorporating a multi-step wizard, light/dark modes, and responsive design. A library page facilitates saved manuscript management with search and filtering. Calendar and statistics views provide visual data and analytics.
 
 ### Technical Implementations
-*   **AI-driven Metadata Generation**: Leverages OpenAI's GPT-4o-mini for in-depth manuscript analysis and metadata creation.
+*   **AI-driven Metadata Generation**: Leverages DeepSeek API (`deepseek-chat` model) for in-depth manuscript analysis and metadata creation. Uses the OpenAI-compatible SDK with DeepSeek's base URL (`https://api.deepseek.com`). Configuration: `DEEPSEEK_API_KEY` environment variable.
 *   **Real-time Progress**: Achieved using Server-Sent Events (SSE).
 *   **KDP Validation System**: Validates generated metadata against Amazon's rules.
 *   **Publication Scheduling**: Manages daily publication limits and market priorities.
@@ -40,10 +40,10 @@ The application utilizes Shadcn/ui for a modern, accessible interface, incorpora
 *   **EPUB3 Parser with SSML Support**: Dedicated EPUB3 parser (`server/services/epub-parser.ts`) that extracts content from EPUB files while preserving SSML annotations. Supports: ssml:ph (phoneme pronunciation), ssml:alphabet (IPA, x-sampa), and PLS (Pronunciation Lexicon Specification) files. SSML annotations are stored in the database and used directly by Polly/Google TTS synthesizers for accurate pronunciation of proper nouns, neologisms, and heteronyms.
 *   **Sala de Contenido Social (Social Content Room)**: Feature that generates platform-specific social media posts for book promotion across Instagram, Facebook, Twitter/X, Pinterest, TikTok, and LinkedIn. Uses Marketing Kit data when available, with graceful fallback to generic content. Supports cover image uploads (10MB limit, JPEG/PNG/WebP), drag-and-drop interface, copy-to-clipboard functionality, and optimal posting times. Access via `/social-content-room/:manuscriptId` or through Library page. Security: Path traversal protection in cover deletion, file cleanup on errors.
 *   **Qwen 3 TTS Integration**: AudiobookForge now supports Qwen 3 TTS from Alibaba Cloud DashScope as a third TTS provider alongside Amazon Polly and Google Cloud TTS. Features: 49 voices, 10 languages (English, Spanish, German, French, Italian, Portuguese, Chinese, Japanese, Korean, Russian), chunked synthesis for long texts, parallel chapter processing, and ACX-compliant audio mastering. Configuration: `DASHSCOPE_API_KEY` (API key from Alibaba Cloud Model Studio), optional `DASHSCOPE_REGION` (intl or cn, defaults to intl). API endpoints: `/api/audiobooks/qwen-status`, `/api/audiobooks/qwen-voices`, `/api/audiobooks/projects/:id/synthesize-qwen`.
-*   **Reeditor**: AI-powered text reduction tool for novels. Accepts .txt/.docx uploads, custom user guidelines, and target word count. Uses GPT-4o to reduce text while preserving author voice and key plot points. Processes in ~15k character chunks to avoid token limits. Access via `/reeditor`. API endpoints: `/api/reeditor/analyze`, `/api/reeditor/reduce`.
+*   **Reeditor**: AI-powered text reduction tool for novels. Accepts .txt/.docx uploads, custom user guidelines, and target word count. Uses DeepSeek (`deepseek-chat`) to reduce text while preserving author voice and key plot points. Processes in ~15k character chunks to avoid token limits. Access via `/reeditor`. API endpoints: `/api/reeditor/analyze`, `/api/reeditor/reduce`.
 
 ## External Dependencies
-*   **AI Services**: OpenAI API (GPT-4o-mini).
-*   **Database**: Neon Database (PostgreSQL).
+*   **AI Services**: DeepSeek API (`deepseek-chat` model, OpenAI-compatible SDK).
+*   **Database**: Replit built-in PostgreSQL (pg driver via `drizzle-orm/node-postgres`).
 *   **Third-Party UI Libraries**: Radix UI, Embla Carousel, React Dropzone, Lucide React, date-fns, jspdf, Recharts, xlsx (SheetJS).
 *   **Font Services**: Google Fonts (Inter, JetBrains Mono).
