@@ -4,8 +4,8 @@ import { landingPageContentSchema } from "@shared/schema";
 import { kdpFictionCategories, kdpNonfictionCategories, findMatchingCategories } from "../data/kdp-categories-list.js";
 
 const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.DEEPSEEK_API_KEY,
+  baseURL: "https://api.deepseek.com",
 });
 
 /**
@@ -178,7 +178,7 @@ Return JSON with:
 
   const response = await withRetry(async () => {
     return await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "deepseek-chat",
       messages: [
         {
           role: "system",
@@ -400,7 +400,7 @@ Remember: Write natively in ${locale} with cultural relevance. Your goal is text
 
   const response = await withRetry(async () => {
     return await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "deepseek-chat",
       messages: [
         {
           role: "system",
@@ -502,7 +502,7 @@ Remember: Write for ${locale} native speakers. Generate keywords that feel like 
 
   const response = await withRetry(async () => {
     return await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "deepseek-chat",
       messages: [
         {
           role: "system",
@@ -677,7 +677,7 @@ Return JSON with:
 
   const response = await withRetry(async () => {
     return await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "deepseek-chat",
       messages: [
         {
           role: "system",
@@ -820,7 +820,7 @@ Return JSON with:
 
   const response = await withRetry(async () => {
     return await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "deepseek-chat",
       messages: [
         {
           role: "system",
@@ -932,7 +932,7 @@ Return JSON with:
 
   const response = await withRetry(async () => {
     return await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "deepseek-chat",
       messages: [
         {
           role: "system",
@@ -1048,7 +1048,7 @@ MANDATORY REQUIREMENTS:
   try {
     const response = await withRetry(() =>
       openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "deepseek-chat",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -1216,7 +1216,7 @@ Provide ONLY the reduced text, maintaining the original language (${language}). 
   try {
     const response = await withRetry(() =>
       openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "deepseek-chat",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

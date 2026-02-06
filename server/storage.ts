@@ -1,5 +1,5 @@
-import { drizzle } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
 import { eq, desc, and, gte, lte, lt, inArray, sql } from "drizzle-orm";
 import { 
   manuscripts, 
@@ -246,8 +246,8 @@ export class DbStorage implements IStorage {
       throw new Error("DATABASE_URL environment variable is not configured. Please configure your database in the Database tool.");
     }
     console.log("[Database] Connecting to database...");
-    const sql = neon(databaseUrl);
-    this.db = drizzle(sql);
+    const pool = new pg.Pool({ connectionString: databaseUrl });
+    this.db = drizzle(pool);
     console.log("[Database] Database connection initialized");
   }
 
@@ -715,8 +715,7 @@ export class DbStorage implements IStorage {
     let kenpDataReassigned = 0;
     let salesDataReassigned = 0;
     
-    // Neon HTTP driver doesn't support transactions, so we do sequential updates
-    // This is safe because we're only reassigning data, not deleting it yet
+    // Sequential updates for pen name consolidation
     try {
       for (const duplicateId of duplicateIds) {
         // Reasignar libros
@@ -1448,6 +1447,10 @@ export class MemStorage implements IStorage {
   }
 
   async getAllManuscripts(): Promise<Manuscript[]> {
+    throw new Error("MemStorage does not support manuscript operations");
+  }
+
+  async updateManuscript(id: number, data: Partial<InsertManuscript>): Promise<Manuscript> {
     throw new Error("MemStorage does not support manuscript operations");
   }
 

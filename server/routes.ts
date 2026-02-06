@@ -312,8 +312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/health/db", async (req, res) => {
     try {
       const dbUrl = process.env.DATABASE_URL || "NOT_SET";
-      const dbType = dbUrl.includes("helium") ? "development" : 
-                     dbUrl.includes("neon") ? "neon" : "unknown";
+      const dbType = dbUrl.includes("localhost") || dbUrl.includes("replit") ? "replit-pg" : "external";
       
       // Intentar una consulta simple
       const manuscripts = await storage.getAllManuscripts();
@@ -357,9 +356,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("[/api/optimize] Recibida petición de optimización");
       
-      // Verificar que tenemos las credenciales de OpenAI antes de empezar
-      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-        console.error("[/api/optimize] ERROR: AI_INTEGRATIONS_OPENAI_API_KEY no está configurada");
+      if (!process.env.DEEPSEEK_API_KEY) {
+        console.error("[/api/optimize] ERROR: DEEPSEEK_API_KEY no está configurada");
         res.status(500).json({ error: "El servicio de IA no está configurado correctamente. Contacta al administrador." });
         return;
       }

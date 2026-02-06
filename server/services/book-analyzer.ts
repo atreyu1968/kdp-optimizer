@@ -3,8 +3,8 @@ import { storage } from "../storage";
 import type { AuraBook, KdpSale } from "@shared/schema";
 
 const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY!,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.DEEPSEEK_API_KEY!,
+  baseURL: "https://api.deepseek.com",
 });
 
 /**
@@ -310,7 +310,7 @@ Explica por qué esta clasificación "${preassignedCategory}" es correcta y prop
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "deepseek-chat",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
