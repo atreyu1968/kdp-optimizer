@@ -4,3 +4,9 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+.cache
+.env
+attached_assets
+*.log
+tmp/
+uploads/
