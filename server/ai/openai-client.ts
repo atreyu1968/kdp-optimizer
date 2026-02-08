@@ -8,6 +8,46 @@ const openai = new OpenAI({
   baseURL: "https://api.deepseek.com",
 });
 
+function safeParseJSON(content: string | null | undefined): any {
+  if (!content) return {};
+  
+  let cleaned = content.trim();
+  
+  cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  cleaned = cleaned.trim();
+  
+  try {
+    return JSON.parse(cleaned);
+  } catch (_e) {
+    // ignore
+  }
+  
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    try {
+      return JSON.parse(cleaned.substring(firstBrace, lastBrace + 1));
+    } catch (_e2) {
+      // ignore
+    }
+  }
+  
+  try {
+    const fixedQuotes = cleaned
+      .substring(firstBrace !== -1 ? firstBrace : 0, lastBrace !== -1 ? lastBrace + 1 : cleaned.length)
+      .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+      .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
+      .replace(/,\s*([}\]])/g, "$1")
+      .replace(/([{,]\s*)(\w+)\s*:/g, '$1"$2":');
+    return JSON.parse(fixedQuotes);
+  } catch (_e3) {
+    // ignore
+  }
+  
+  console.error("[AI JSON Parse] Failed to parse response, raw content (first 500 chars):", cleaned.substring(0, 500));
+  return {};
+}
+
 /**
  * Prepara el manuscrito para análisis por IA usando muestreo estratégico.
  * 
@@ -192,7 +232,7 @@ Return JSON with:
     });
   });
 
-  const result = JSON.parse(response.choices[0].message.content || "{}");
+  const result = safeParseJSON(response.choices[0].message.content);
   return {
     seedKeywords: result.seedKeywords || [],
     themes: result.themes || [],
@@ -414,7 +454,7 @@ Remember: Write natively in ${locale} with cultural relevance. Your goal is text
     });
   });
 
-  const result = JSON.parse(response.choices[0].message.content || "{}");
+  const result = safeParseJSON(response.choices[0].message.content);
   return {
     title: result.title || originalTitle,
     subtitle: result.subtitle || "",
@@ -516,7 +556,7 @@ Remember: Write for ${locale} native speakers. Generate keywords that feel like 
     });
   });
 
-  const result = JSON.parse(response.choices[0].message.content || "{}");
+  const result = safeParseJSON(response.choices[0].message.content);
   return result.keywords || keywords;
 }
 
@@ -691,7 +731,7 @@ Return JSON with:
     });
   });
 
-  const result = JSON.parse(response.choices[0].message.content || "{}");
+  const result = safeParseJSON(response.choices[0].message.content);
   
   // Normalize nicheCategories to ensure proper structure
   const normalizeNicheCategories = (categories: unknown): { category: string; competitiveness: "baja" | "media" | "alta"; reason: string }[] => {
@@ -834,7 +874,7 @@ Return JSON with:
     });
   });
 
-  const result = JSON.parse(response.choices[0].message.content || "{}");
+  const result = safeParseJSON(response.choices[0].message.content);
   return {
     seoTitle: result.seoTitle || `${bookTitle} - ${genre}`,
     seoDescription: result.seoDescription || "",
@@ -946,13 +986,7 @@ Return JSON with:
     });
   });
 
-  let result: Record<string, unknown>;
-  try {
-    result = JSON.parse(response.choices[0].message.content || "{}");
-  } catch (parseError) {
-    console.error("[Landing Page] Failed to parse AI response, using defaults");
-    result = {};
-  }
+  const result = safeParseJSON(response.choices[0].message.content);
   
   // Helper to normalize string arrays
   const normalizeStringArray = (value: unknown, defaults: string[] = []): string[] => {
@@ -1058,10 +1092,7 @@ MANDATORY REQUIREMENTS:
       })
     );
 
-    let content = response.choices[0].message.content || "{}";
-    // Clean markdown code blocks if present
-    content = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
-    let result = JSON.parse(content);
+    const result = safeParseJSON(response.choices[0].message.content);
     
     // Validation and cleanup
     return {

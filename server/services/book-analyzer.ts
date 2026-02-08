@@ -324,7 +324,14 @@ Explica por qué esta clasificación "${preassignedCategory}" es correcta y prop
       throw new Error("No response from OpenAI");
     }
 
-    const recommendation = JSON.parse(content) as AIRecommendation;
+    let cleaned = content.trim();
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    }
+    const recommendation = JSON.parse(cleaned) as AIRecommendation;
     
     // Validar que la respuesta tenga la estructura correcta
     if (!recommendation.category || !recommendation.actions || !recommendation.rationale) {
