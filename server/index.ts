@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { execSync } from "child_process";
 import path from "path";
+import crypto from "crypto";
 
 // Verify critical dependencies on startup
 function checkDependencies() {
@@ -44,6 +45,94 @@ app.use((req, res, next) => {
 
 // Servir archivos estáticos (portadas de libros, etc.)
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
+// ============================================================
+// Password protection system
+// ============================================================
+const AUTH_TOKEN_COOKIE = 'kdp_auth_token';
+const validTokens = new Set<string>();
+
+function generateToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function isAuthenticated(req: express.Request): boolean {
+  const cookieHeader = req.headers.cookie || '';
+  const cookies = Object.fromEntries(
+    cookieHeader.split(';').map(c => {
+      const [key, ...val] = c.trim().split('=');
+      return [key, val.join('=')];
+    })
+  );
+  const token = cookies[AUTH_TOKEN_COOKIE];
+  return !!token && validTokens.has(token);
+}
+
+app.post('/api/auth/login', (req, res) => {
+  const { password } = req.body;
+  const appPassword = process.env.APP_PASSWORD;
+  if (!appPassword) {
+    res.json({ success: true });
+    return;
+  }
+  if (password === appPassword) {
+    const token = generateToken();
+    validTokens.add(token);
+    res.cookie(AUTH_TOKEN_COOKIE, token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      path: '/',
+    });
+    res.json({ success: true });
+  } else {
+    res.status(401).json({ success: false, error: 'Contraseña incorrecta' });
+  }
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  const cookieHeader = req.headers.cookie || '';
+  const cookies = Object.fromEntries(
+    cookieHeader.split(';').map(c => {
+      const [key, ...val] = c.trim().split('=');
+      return [key, val.join('=')];
+    })
+  );
+  const token = cookies[AUTH_TOKEN_COOKIE];
+  if (token) validTokens.delete(token);
+  res.clearCookie(AUTH_TOKEN_COOKIE, { path: '/' });
+  res.json({ success: true });
+});
+
+app.get('/api/auth/check', (req, res) => {
+  const appPassword = process.env.APP_PASSWORD;
+  if (!appPassword) {
+    res.json({ authenticated: true, passwordRequired: false });
+    return;
+  }
+  res.json({ authenticated: isAuthenticated(req), passwordRequired: true });
+});
+
+app.use((req, res, next) => {
+  const appPassword = process.env.APP_PASSWORD;
+  if (!appPassword) {
+    next();
+    return;
+  }
+  if (req.path.startsWith('/api/auth/')) {
+    next();
+    return;
+  }
+  if (!req.path.startsWith('/api/')) {
+    next();
+    return;
+  }
+  if (isAuthenticated(req)) {
+    next();
+    return;
+  }
+  res.status(401).json({ error: 'No autorizado' });
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
