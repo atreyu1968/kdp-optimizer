@@ -629,151 +629,303 @@ export function preprocessTextForTTS(text: string, options: PreprocessOptions = 
  * Format: [word, IPA phoneme, display text]
  */
 const PRONUNCIATION_CORRECTIONS: Array<[string, string, string]> = [
+  // ============================================================
   // Words with "dr" cluster - often mispronounced by TTS
   // The "dr" cluster in Spanish should be pronounced as /ðɾ/
-  
-  // "piedra" family
+  // IMPORTANT: Each word must be listed with its COMPLETE IPA.
+  // The generic handler was removed because wrapping only "dr"
+  // in <phoneme> tags fragmented words and caused Polly to
+  // spell them out letter by letter.
+  // ============================================================
+
+  // --- "piedra" family ---
   ['piedra', 'ˈpjeðɾa', 'piedra'],
   ['Piedra', 'ˈpjeðɾa', 'Piedra'],
   ['piedras', 'ˈpjeðɾas', 'piedras'],
   ['Piedras', 'ˈpjeðɾas', 'Piedras'],
-  
-  // "madre" family
+  ['empedrado', 'empeˈðɾaðo', 'empedrado'],
+
+  // --- "madre" family ---
   ['madre', 'ˈmaðɾe', 'madre'],
   ['Madre', 'ˈmaðɾe', 'Madre'],
   ['madres', 'ˈmaðɾes', 'madres'],
   ['madrastra', 'maˈðɾastɾa', 'madrastra'],
-  
-  // "padre" family
+  ['madrina', 'maˈðɾina', 'madrina'],
+  ['madrinas', 'maˈðɾinas', 'madrinas'],
+  ['madriguera', 'maðɾiˈɣeɾa', 'madriguera'],
+  ['madrigueras', 'maðɾiˈɣeɾas', 'madrigueras'],
+  ['madrugada', 'maðɾuˈɣaða', 'madrugada'],
+  ['madrugadas', 'maðɾuˈɣaðas', 'madrugadas'],
+  ['madrugar', 'maðɾuˈɣaɾ', 'madrugar'],
+  ['madrugó', 'maðɾuˈɣo', 'madrugó'],
+  ['madero', 'maˈðeɾo', 'madero'],
+  ['maderos', 'maˈðeɾos', 'maderos'],
+  ['Madrid', 'maˈðɾið', 'Madrid'],
+
+  // --- "padre" family ---
   ['padre', 'ˈpaðɾe', 'padre'],
   ['Padre', 'ˈpaðɾe', 'Padre'],
   ['padres', 'ˈpaðɾes', 'padres'],
   ['padrastro', 'paˈðɾastɾo', 'padrastro'],
   ['padrino', 'paˈðɾino', 'padrino'],
-  ['madrina', 'maˈðɾina', 'madrina'],
-  
-  // "cuadro" family
+  ['padrinos', 'paˈðɾinos', 'padrinos'],
+  ['padrón', 'paˈðɾon', 'padrón'],
+
+  // --- "cuadro" family ---
   ['cuadro', 'ˈkwaðɾo', 'cuadro'],
   ['Cuadro', 'ˈkwaðɾo', 'Cuadro'],
   ['cuadros', 'ˈkwaðɾos', 'cuadros'],
   ['cuadra', 'ˈkwaðɾa', 'cuadra'],
   ['cuadras', 'ˈkwaðɾas', 'cuadras'],
   ['escuadra', 'esˈkwaðɾa', 'escuadra'],
+  ['escuadras', 'esˈkwaðɾas', 'escuadras'],
+  ['escuadrón', 'eskwaˈðɾon', 'escuadrón'],
   ['cuadrilla', 'kwaˈðɾiʎa', 'cuadrilla'],
-  
-  // Other common "dr" words
+  ['cuadrado', 'kwaˈðɾaðo', 'cuadrado'],
+  ['cuadrados', 'kwaˈðɾaðos', 'cuadrados'],
+  ['cuadrada', 'kwaˈðɾaða', 'cuadrada'],
+  ['cuadradas', 'kwaˈðɾaðas', 'cuadradas'],
+  ['cuadrícula', 'kwaˈðɾikula', 'cuadrícula'],
+  ['cuadrante', 'kwaˈðɾante', 'cuadrante'],
+
+  // --- "ladrón" family ---
   ['ladrón', 'laˈðɾon', 'ladrón'],
   ['ladrones', 'laˈðɾones', 'ladrones'],
+  ['ladrona', 'laˈðɾona', 'ladrona'],
   ['ladrillo', 'laˈðɾiʎo', 'ladrillo'],
   ['ladrillos', 'laˈðɾiʎos', 'ladrillos'],
-  ['madrugada', 'maðɾuˈɣaða', 'madrugada'],
-  ['madrugar', 'maðɾuˈɣaɾ', 'madrugar'],
+  ['ladra', 'ˈlaðɾa', 'ladra'],
+  ['ladrando', 'laˈðɾando', 'ladrando'],
+  ['ladrar', 'laˈðɾaɾ', 'ladrar'],
+  ['ladrido', 'laˈðɾiðo', 'ladrido'],
+  ['ladridos', 'laˈðɾiðos', 'ladridos'],
+
+  // --- "vidrio" family ---
+  ['vidrio', 'ˈbiðɾjo', 'vidrio'],
+  ['vidrios', 'ˈbiðɾjos', 'vidrios'],
+  ['vidriera', 'biˈðɾjeɾa', 'vidriera'],
+  ['vidrieras', 'biˈðɾjeɾas', 'vidrieras'],
+  ['vidrioso', 'biˈðɾjoso', 'vidrioso'],
+
+  // --- "podrido" / "poder" conditional ---
   ['podrido', 'poˈðɾiðo', 'podrido'],
   ['podrida', 'poˈðɾiða', 'podrida'],
+  ['podridos', 'poˈðɾiðos', 'podridos'],
+  ['podridas', 'poˈðɾiðas', 'podridas'],
+  ['podredumbre', 'poðɾeˈðumbɾe', 'podredumbre'],
   ['podría', 'poˈðɾia', 'podría'],
   ['podrías', 'poˈðɾias', 'podrías'],
   ['podríamos', 'poˈðɾiamos', 'podríamos'],
   ['podrían', 'poˈðɾian', 'podrían'],
+  ['podrá', 'poˈðɾa', 'podrá'],
+  ['podrás', 'poˈðɾas', 'podrás'],
+  ['podremos', 'poˈðɾemos', 'podremos'],
+  ['podréis', 'poˈðɾeis', 'podréis'],
+  ['podrán', 'poˈðɾan', 'podrán'],
+
+  // --- "venir" future/conditional (vendr-) ---
+  ['vendría', 'benˈdɾia', 'vendría'],
+  ['vendrías', 'benˈdɾias', 'vendrías'],
+  ['vendríamos', 'benˈdɾiamos', 'vendríamos'],
+  ['vendrían', 'benˈdɾian', 'vendrían'],
+  ['vendrá', 'benˈdɾa', 'vendrá'],
+  ['vendrás', 'benˈdɾas', 'vendrás'],
+  ['vendremos', 'benˈdɾemos', 'vendremos'],
+  ['vendrán', 'benˈdɾan', 'vendrán'],
+
+  // --- "tener" future/conditional (tendr-) ---
+  ['tendría', 'tenˈdɾia', 'tendría'],
+  ['tendrías', 'tenˈdɾias', 'tendrías'],
+  ['tendríamos', 'tenˈdɾiamos', 'tendríamos'],
+  ['tendrían', 'tenˈdɾian', 'tendrían'],
+  ['tendrá', 'tenˈdɾa', 'tendrá'],
+  ['tendrás', 'tenˈdɾas', 'tendrás'],
+  ['tendremos', 'tenˈdɾemos', 'tendremos'],
+  ['tendrán', 'tenˈdɾan', 'tendrán'],
+
+  // --- "poner" future/conditional (pondr-) ---
+  ['pondría', 'ponˈdɾia', 'pondría'],
+  ['pondrías', 'ponˈdɾias', 'pondrías'],
+  ['pondríamos', 'ponˈdɾiamos', 'pondríamos'],
+  ['pondrían', 'ponˈdɾian', 'pondrían'],
+  ['pondrá', 'ponˈdɾa', 'pondrá'],
+  ['pondrás', 'ponˈdɾas', 'pondrás'],
+  ['pondremos', 'ponˈdɾemos', 'pondremos'],
+  ['pondrán', 'ponˈdɾan', 'pondrán'],
+
+  // --- "salir" future/conditional (saldr-) ---
+  ['saldría', 'salˈdɾia', 'saldría'],
+  ['saldrías', 'salˈdɾias', 'saldrías'],
+  ['saldríamos', 'salˈdɾiamos', 'saldríamos'],
+  ['saldrían', 'salˈdɾian', 'saldrían'],
+  ['saldrá', 'salˈdɾa', 'saldrá'],
+  ['saldrás', 'salˈdɾas', 'saldrás'],
+  ['saldremos', 'salˈdɾemos', 'saldremos'],
+  ['saldrán', 'salˈdɾan', 'saldrán'],
+
+  // --- "valer" future/conditional (valdr-) ---
+  ['valdría', 'balˈdɾia', 'valdría'],
+  ['valdrías', 'balˈdɾias', 'valdrías'],
+  ['valdríamos', 'balˈdɾiamos', 'valdríamos'],
+  ['valdrían', 'balˈdɾian', 'valdrían'],
+  ['valdrá', 'balˈdɾa', 'valdrá'],
+  ['valdrás', 'balˈdɾas', 'valdrás'],
+  ['valdremos', 'balˈdɾemos', 'valdremos'],
+  ['valdrán', 'balˈdɾan', 'valdrán'],
+
+  // --- "querer" future/conditional (querr- no dr, but adding for completeness) ---
+
+  // --- "drama" family ---
+  ['drama', 'ˈdɾama', 'drama'],
+  ['dramas', 'ˈdɾamas', 'dramas'],
+  ['dramático', 'dɾaˈmatiko', 'dramático'],
+  ['dramática', 'dɾaˈmatika', 'dramática'],
+  ['dramáticos', 'dɾaˈmatikos', 'dramáticos'],
+  ['dramáticas', 'dɾaˈmatikas', 'dramáticas'],
+  ['dramatismo', 'dɾamaˈtismo', 'dramatismo'],
+  ['dramatizar', 'dɾamatiˈθaɾ', 'dramatizar'],
+
+  // --- "dragón" family ---
+  ['dragón', 'dɾaˈɣon', 'dragón'],
+  ['dragones', 'dɾaˈɣones', 'dragones'],
+  ['draga', 'ˈdɾaɣa', 'draga'],
+
+  // --- "droga" family ---
+  ['droga', 'ˈdɾoɣa', 'droga'],
+  ['drogas', 'ˈdɾoɣas', 'drogas'],
+  ['drogadicto', 'dɾoɣaˈðikto', 'drogadicto'],
+  ['drogadicta', 'dɾoɣaˈðikta', 'drogadicta'],
+
+  // --- "drástico" family ---
+  ['drástico', 'ˈdɾastiko', 'drástico'],
+  ['drástica', 'ˈdɾastika', 'drástica'],
+  ['drásticamente', 'ˈdɾastikamente', 'drásticamente'],
+
+  // --- "drenaje" / "drenar" ---
+  ['drenaje', 'dɾeˈnaxe', 'drenaje'],
+  ['drenar', 'dɾeˈnaɾ', 'drenar'],
+  ['drenó', 'dɾeˈno', 'drenó'],
+
+  // --- "hidro-" / "hidr-" prefix words ---
+  ['hidrógeno', 'iˈðɾoxeno', 'hidrógeno'],
+  ['hidratante', 'iðɾaˈtante', 'hidratante'],
+  ['hidratar', 'iðɾaˈtaɾ', 'hidratar'],
+  ['hidratación', 'iðɾataˈθjon', 'hidratación'],
+  ['hidráulico', 'iˈðɾawliko', 'hidráulico'],
+  ['hidráulica', 'iˈðɾawlika', 'hidráulica'],
+  ['hidroeléctrico', 'iðɾoelekˈtɾiko', 'hidroeléctrico'],
+  ['hidroeléctrica', 'iðɾoelekˈtɾika', 'hidroeléctrica'],
+
+  // --- "androide" / "andr-" ---
+  ['androide', 'anˈdɾoiðe', 'androide'],
+  ['androides', 'anˈdɾoiðes', 'androides'],
+
+  // --- "cilindro" family ---
+  ['cilindro', 'θiˈlindɾo', 'cilindro'],
+  ['cilindros', 'θiˈlindɾos', 'cilindros'],
+  ['cilíndrico', 'θiˈlindɾiko', 'cilíndrico'],
+
+  // --- "catedral" ---
+  ['catedral', 'kateˈðɾal', 'catedral'],
+  ['catedrales', 'kateˈðɾales', 'catedrales'],
+
+  // --- "cocodrilo" ---
+  ['cocodrilo', 'kokoˈðɾilo', 'cocodrilo'],
+  ['cocodrilos', 'kokoˈðɾilos', 'cocodrilos'],
+
+  // --- "almendra" ---
+  ['almendra', 'alˈmendɾa', 'almendra'],
+  ['almendras', 'alˈmendɾas', 'almendras'],
+  ['almendro', 'alˈmendɾo', 'almendro'],
+  ['almendros', 'alˈmendɾos', 'almendros'],
+
+  // --- "sidra" ---
+  ['sidra', 'ˈsiðɾa', 'sidra'],
+  ['sidras', 'ˈsiðɾas', 'sidras'],
+
+  // --- "cedro" ---
+  ['cedro', 'ˈseðɾo', 'cedro'],
+  ['cedros', 'ˈseðɾos', 'cedros'],
+
+  // --- "síndrome" ---
+  ['síndrome', 'ˈsindɾome', 'síndrome'],
+  ['síndromes', 'ˈsindɾomes', 'síndromes'],
+
+  // --- "culebra" / words with other clusters (br, tr, gr, etc.) ---
+  // These are less problematic but included for completeness
+
+  // --- "sangre" ---
+  ['sangre', 'ˈsangɾe', 'sangre'],
+
+  // --- Common words with "dr" not yet covered ---
+  ['ajedrez', 'axeˈðɾeθ', 'ajedrez'],
+  ['Conrado', 'konˈɾaðo', 'Conrado'],
+  ['cuaderno', 'kwaˈðeɾno', 'cuaderno'],
+  ['cuadernos', 'kwaˈðeɾnos', 'cuadernos'],
+  ['endrina', 'enˈdɾina', 'endrina'],
+  ['endrino', 'enˈdɾino', 'endrino'],
+  ['hiedra', 'ˈjeðɾa', 'hiedra'],
+  ['hiedras', 'ˈjeðɾas', 'hiedras'],
+  ['Londres', 'ˈlondɾes', 'Londres'],
+  ['madroño', 'maˈðɾoɲo', 'madroño'],
+  ['madroños', 'maˈðɾoɲos', 'madroños'],
+  ['padrenuestro', 'paðɾeˈnwestɾo', 'padrenuestro'],
+  ['enjambre', 'enˈxambɾe', 'enjambre'],
+  ['hombre', 'ˈombɾe', 'hombre'],
+  ['hombres', 'ˈombɾes', 'hombres'],
+  ['sombra', 'ˈsombɾa', 'sombra'],
+  ['sombras', 'ˈsombɾas', 'sombras'],
+  ['sombrero', 'somˈbɾeɾo', 'sombrero'],
+  ['sombreros', 'somˈbɾeɾos', 'sombreros'],
+  ['sombrío', 'somˈbɾio', 'sombrío'],
+  ['sombría', 'somˈbɾia', 'sombría'],
+  ['asombro', 'aˈsombɾo', 'asombro'],
+  ['tiniebla', 'tiˈnjeβla', 'tiniebla'],
+  ['tinieblas', 'tiˈnjeβlas', 'tinieblas'],
+  ['hambre', 'ˈambɾe', 'hambre'],
+  ['hombro', 'ˈombɾo', 'hombro'],
+  ['hombros', 'ˈombɾos', 'hombros'],
+
+  // --- Common proper names with "dr" ---
   ['Pedro', 'ˈpeðɾo', 'Pedro'],
   ['Alejandro', 'alexˈandɾo', 'Alejandro'],
   ['Alejandra', 'alexˈandɾa', 'Alejandra'],
   ['Andrea', 'anˈdɾea', 'Andrea'],
   ['Andrés', 'anˈdɾes', 'Andrés'],
   ['Sandra', 'ˈsandɾa', 'Sandra'],
-  ['vidrio', 'ˈbiðɾjo', 'vidrio'],
-  ['vidrios', 'ˈbiðɾjos', 'vidrios'],
-  ['vidriera', 'biˈðɾjeɾa', 'vidriera'],
-  ['cedro', 'ˈθeðɾo', 'cedro'],
-  ['cedros', 'ˈθeðɾos', 'cedros'],
-  ['ladra', 'ˈlaðɾa', 'ladra'],
-  ['ladrando', 'laˈðɾando', 'ladrando'],
-  ['adriático', 'aðɾiˈatiko', 'adriático'],
   ['Adrián', 'aˈðɾian', 'Adrián'],
   ['Adriana', 'aˈðɾiana', 'Adriana'],
-  ['cuadrado', 'kwaˈðɾaðo', 'cuadrado'],
-  ['cuadrados', 'kwaˈðɾaðos', 'cuadrados'],
-  ['cuadrada', 'kwaˈðɾaða', 'cuadrada'],
-  ['cuadradas', 'kwaˈðɾaðas', 'cuadradas'],
+  ['Rodrigo', 'roˈðɾiɣo', 'Rodrigo'],
+  ['Rodríguez', 'roˈðɾiɣeθ', 'Rodríguez'],
+  ['Andrómeda', 'anˈdɾomeða', 'Andrómeda'],
+  ['Dresden', 'ˈdɾesðen', 'Dresden'],
+  ['Madriz', 'maˈðɾiθ', 'Madriz'],
 ];
 
 /**
  * Apply pronunciation corrections to already-escaped text
  * Inserts phoneme SSML tags for words that need pronunciation fixes
+ * 
+ * IMPORTANT: We use a comprehensive specific word list instead of a generic
+ * "dr" cluster handler. The old generic handler wrapped only the "dr" fragment
+ * in <phoneme> tags, which fragmented words and caused Polly to spell them
+ * out letter by letter (e.g., "ma" + "dr" + "e" instead of "madre").
+ * 
+ * The specific word list wraps the ENTIRE word with its complete IPA,
+ * ensuring Polly pronounces it as a single natural unit.
  */
 function applyPronunciationCorrections(escapedText: string): string {
   let result = escapedText;
+  const SPANISH_LETTER = '[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]';
   
-  // First, apply specific word corrections from the lookup table
   for (const [word, ipa, display] of PRONUNCIATION_CORRECTIONS) {
-    // Match word boundaries - the text is already XML-escaped so no special chars
-    const regex = new RegExp(`\\b${word}\\b`, 'g');
+    const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(^|[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ])(${escapedWord})(?!${SPANISH_LETTER})`, 'g');
     const phonemeTag = `<phoneme alphabet="ipa" ph="${ipa}">${display}</phoneme>`;
-    result = result.replace(regex, phonemeTag);
+    result = result.replace(regex, (_, prefix) => `${prefix}${phonemeTag}`);
   }
-  
-  // Second, apply generic "dr" cluster fix for words NOT already corrected
-  // This catches words like "drama", "hidratante", "hidrógeno", "cuadrícula", etc.
-  // The "dr" cluster in Spanish should be pronounced as /ðɾ/ (voiced dental fricative + tap)
-  // Pattern: Match words containing "dr" that weren't already wrapped in <phoneme>
-  result = applyGenericDRClusterFix(result);
   
   return result;
-}
-
-/**
- * Apply generic fix for all words containing "dr" cluster
- * Uses a safe tokenization approach to find remaining "dr" words
- * and wrap them with IPA phoneme hints
- * 
- * This catches any word with "dr" that wasn't in the specific lookup table
- * Works with accented characters (hidrógeno, cuadrícula, etc.)
- */
-function applyGenericDRClusterFix(text: string): string {
-  // Split text into segments: phoneme tags vs regular text
-  // This avoids processing text that's already inside <phoneme> tags
-  const segments: string[] = [];
-  let lastIndex = 0;
-  
-  // Find all existing <phoneme>...</phoneme> blocks
-  const phonemePattern = /<phoneme[^>]*>.*?<\/phoneme>/g;
-  let match;
-  
-  while ((match = phonemePattern.exec(text)) !== null) {
-    // Add text before the phoneme tag
-    if (match.index > lastIndex) {
-      segments.push({ type: 'text', content: text.slice(lastIndex, match.index) } as any);
-    }
-    // Add the phoneme tag as-is
-    segments.push({ type: 'phoneme', content: match[0] } as any);
-    lastIndex = match.index + match[0].length;
-  }
-  
-  // Add remaining text after last phoneme tag
-  if (lastIndex < text.length) {
-    segments.push({ type: 'text', content: text.slice(lastIndex) } as any);
-  }
-  
-  // Process each text segment (not phoneme segments)
-  const processedSegments = segments.map((seg: any) => {
-    if (seg.type === 'phoneme') {
-      return seg.content;
-    }
-    
-    // For text segments, find and fix "dr" clusters
-    // Pattern includes accented letters: [a-záéíóúüñA-ZÁÉÍÓÚÜÑ]
-    // Match words containing 'dr' (case insensitive)
-    const wordPattern = /([a-záéíóúüñA-ZÁÉÍÓÚÜÑ]*[Dd][Rr][a-záéíóúüñA-ZÁÉÍÓÚÜÑ]*)/g;
-    
-    return seg.content.replace(wordPattern, (word: string) => {
-      // Replace each "dr" cluster with phoneme-wrapped version
-      return word.replace(/([Dd])([Rr])/g, (drMatch: string, d: string, r: string) => {
-        const isUpper = d === 'D';
-        return `<phoneme alphabet="ipa" ph="ðɾ">${isUpper ? 'D' : 'd'}${r}</phoneme>`;
-      });
-    });
-  });
-  
-  return processedSegments.join('');
 }
 
 /**
